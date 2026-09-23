@@ -78,6 +78,12 @@ public final class ItemListSetting extends Setting
 		return Collections.unmodifiableList(itemNames);
 	}
 	
+	/** Cheaper than {@link #getItemNames()} for hot paths. */
+	public boolean isEmpty()
+	{
+		return itemNames.isEmpty();
+	}
+	
 	public boolean contains(String name)
 	{
 		return name != null && Collections.binarySearch(itemNames, name) >= 0;

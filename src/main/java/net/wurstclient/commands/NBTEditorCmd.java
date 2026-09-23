@@ -17,7 +17,7 @@ public final class NBTEditorCmd extends Command
 {
 	public NBTEditorCmd()
 	{
-		super("nbteditor", "Opens the NBT item editor.", ".nbteditor");
+		super("nbteditor", "Opens the NBT editor.", ".nbteditor");
 	}
 	
 	@Override

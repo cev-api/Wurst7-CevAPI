@@ -61,17 +61,19 @@ public final class KeybindProcessor
 		String cmds = keybinds.getCommands(keyName);
 		boolean isPacketDelayKeybind =
 			cmds != null && isPacketDelayKeybind(cmds);
+		boolean isEditorKeybind = cmds != null && isEditorKeybind(cmds);
 		
 		Screen screen = WurstClient.MC.gui.screen();
 		// Allow processing when no screen is open, when the Click GUI is open,
 		// or when Waypoints or ItemHandler screens are open so their keybinds
-		// can toggle/close them with the same key.
+		// can toggle/close them with the same key. The NBT editor also has to
+		// work over a container screen, since that is where its contents are.
 		if(screen != null && !(screen instanceof ClickGuiScreen)
 			&& !(screen instanceof XpGuiScreen)
 			&& !(screen instanceof net.wurstclient.clickgui.screens.WaypointsScreen)
 			&& !(screen instanceof net.wurstclient.hacks.itemhandler.ItemHandlerScreen))
 		{
-			if(!isPacketDelayKeybind)
+			if(!isPacketDelayKeybind && !isEditorKeybind)
 				return;
 		}
 		
@@ -138,19 +140,18 @@ public final class KeybindProcessor
 		if(event.getAction() != InputConstants.PRESS)
 			return;
 		
-		if(!isKeybindProcessingAllowed())
-			return;
-		
 		String keyName = getMouseButtonName(event);
-		
 		String cmds = keybinds.getCommands(keyName);
 		if(cmds == null)
+			return;
+		
+		if(!isKeybindProcessingAllowed(cmds))
 			return;
 		
 		processCmds(cmds);
 	}
 	
-	private boolean isKeybindProcessingAllowed()
+	private boolean isKeybindProcessingAllowed(String cmds)
 	{
 		if(InputConstants.isKeyDown(InputConstants.KEY_F3))
 			return false;
@@ -158,8 +159,14 @@ public final class KeybindProcessor
 			return false;
 		
 		Screen screen = WurstClient.MC.gui.screen();
-		return screen == null || screen instanceof ClickGuiScreen
-			|| screen instanceof XpGuiScreen;
+		if(screen == null || screen instanceof ClickGuiScreen
+			|| screen instanceof XpGuiScreen)
+			return true;
+			
+		// The NBT editor is the one Wurst screen that is meant to be used
+		// while a container is open, so its keybind has to survive the
+		// container screen holding the mouse.
+		return isEditorKeybind(cmds);
 	}
 	
 	private String getKeyName(KeyPressEvent event)
@@ -222,6 +229,26 @@ public final class KeybindProcessor
 				trimmed = trimmed.substring(1).trim();
 			
 			if(trimmed.equalsIgnoreCase("packetdelay"))
+				return true;
+		}
+		
+		return false;
+	}
+	
+	/**
+	 * Whether a keybind opens the NBT editor, matched against both the
+	 * {@code .nbteditor} command and the hack's own name.
+	 */
+	private boolean isEditorKeybind(String cmds)
+	{
+		cmds = cmds.replace(";", "\u00a7").replace("\u00a7\u00a7", ";");
+		for(String cmd : cmds.split("\u00a7"))
+		{
+			String trimmed = cmd.trim();
+			if(trimmed.startsWith("."))
+				trimmed = trimmed.substring(1).trim();
+			
+			if(trimmed.equalsIgnoreCase("nbteditor"))
 				return true;
 		}
 		

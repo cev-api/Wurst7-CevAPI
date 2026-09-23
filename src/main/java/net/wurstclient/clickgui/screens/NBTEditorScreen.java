@@ -33,6 +33,7 @@ public final class NBTEditorScreen extends Screen
 	private NBTSyntaxEditor editor;
 	private EditBox presetName;
 	private Button applyButton;
+	private Button readFromButton;
 	private int validationY;
 	private String validationStatus = "Validating...";
 	private String operationStatus = "";
@@ -67,21 +68,25 @@ public final class NBTEditorScreen extends Screen
 		validationY = editorBottom + 10;
 		int buttonWidth = 118;
 		int gap = 6;
-		int total = buttonWidth * 4 + gap * 3;
+		int total = buttonWidth * 5 + gap * 4;
 		int start = (width - total) / 2;
-		addRenderableWidget(button("Read held", start, buttonY, b -> {
-			setText(hack.readHeldItem());
-			operationStatus = hack.getLastEditorMessage();
-		}));
+		readFromButton =
+			button(readFromLabel(), start, buttonY, b -> cycleReadFrom());
+		addRenderableWidget(readFromButton);
 		addRenderableWidget(
-			button("New item", start + buttonWidth + gap, buttonY, b -> {
+			button("Read target", start + (buttonWidth + gap), buttonY, b -> {
+				setText(hack.readTarget());
+				operationStatus = hack.getLastEditorMessage();
+			}));
+		addRenderableWidget(
+			button("New item", start + (buttonWidth + gap) * 2, buttonY, b -> {
 				setText(hack.newItem());
 				operationStatus = hack.getLastEditorMessage();
 			}));
-		applyButton = button("Apply / Give", start + (buttonWidth + gap) * 2,
+		applyButton = button("Apply / Give", start + (buttonWidth + gap) * 3,
 			buttonY, b -> apply());
 		addRenderableWidget(applyButton);
-		addRenderableWidget(button("Cancel", start + (buttonWidth + gap) * 3,
+		addRenderableWidget(button("Cancel", start + (buttonWidth + gap) * 4,
 			buttonY, b -> close()));
 		
 		int presetTotal = 220 + 5 + 118 + 5 + 118;
@@ -101,6 +106,22 @@ public final class NBTEditorScreen extends Screen
 	{
 		editor.setValue(text == null ? "" : text);
 		requestValidation();
+	}
+	
+	private String readFromLabel()
+	{
+		return "Target: " + hack.getReadFrom().shortLabel();
+	}
+	
+	private void cycleReadFrom()
+	{
+		hack.cycleReadFrom();
+		readFromButton.setMessage(Component.literal(readFromLabel()));
+		// The new target speaks a different SNBT dialect, so start over with
+		// whatever it can give us.
+		setText(hack.readTarget());
+		lastValidatedText = "\u0000";
+		operationStatus = hack.getLastEditorMessage();
 	}
 	
 	private void requestValidation()
@@ -210,10 +231,21 @@ public final class NBTEditorScreen extends Screen
 	
 	private void apply()
 	{
-		if(hack.apply(editor.getValue()))
-			close();
-		else
+		if(!hack.apply(editor.getValue()))
+		{
 			operationStatus = hack.getLastEditorMessage();
+			return;
+		}
+		
+		// World edits are sent as commands, so keep the editor open to show
+		// the server's feedback and allow further tweaks.
+		if(hack.isWorldTarget())
+		{
+			operationStatus = hack.getLastEditorMessage();
+			return;
+		}
+		
+		close();
 	}
 	
 	private void close()

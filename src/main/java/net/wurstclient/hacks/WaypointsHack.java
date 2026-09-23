@@ -26,11 +26,23 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.BossHealthOverlay;
 import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.IntArrayTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.NbtOps;
+import net.minecraft.nbt.NumericTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.contents.TranslatableContents;
+import net.minecraft.resources.RegistryOps;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import com.mojang.serialization.DataResult;
 import net.minecraft.world.level.block.Blocks;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
@@ -40,10 +52,12 @@ import net.wurstclient.events.GUIRenderListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.events.ChatInputListener;
 import net.wurstclient.settings.CheckboxSetting;
+import net.wurstclient.settings.ItemListSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
 import net.wurstclient.util.BlockUtils;
+import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.RenderUtils;
 import net.wurstclient.waypoints.Waypoint;
 import net.wurstclient.waypoints.WaypointDimension;
@@ -80,6 +94,9 @@ public final class WaypointsHack extends Hack
 			"fell from", "fell off", "fell out of the world", "blew up",
 			"went off with a bang", "froze to death", "withered away",
 			"discovered the floor was lava", "died"};
+	private static final Set<String> POSITION_TOKENS = Set.of("pos", "position",
+		"loc", "location", "coord", "coords", "coordinates", "target", "xyz",
+		"home", "spawn", "warp", "waypoint", "death");
 	
 	private String worldId = "default";
 	private boolean hasLoadedWorldData;
@@ -179,6 +196,32 @@ public final class WaypointsHack extends Hack
 		true);
 	private final ColorSetting portalWaypointColor =
 		new ColorSetting("Portal waypoint color", new Color(0xB780FF));
+	private final CheckboxSetting readCoordsFromItem = new CheckboxSetting(
+		"Read Coords From Item",
+		"Sends the coordinates stored in an item's NBT to chat: once when a held item enters your main hand, once per matching item inside a container you open, and once per dropped item lying nearby.",
+		true);
+	private final ItemListSetting coordsItems = new ItemListSetting(
+		"Coords items",
+		"Only these items are checked for stored coordinates. An empty list checks every item, which is much slower.",
+		"minecraft:compass", "minecraft:recovery_compass", "minecraft:beehive",
+		"minecraft:bee_nest");
+	private final SliderSetting groundItemCoordsRange = new SliderSetting(
+		"Ground item coords range", 10, 1, 64, 1, ValueDisplay.INTEGER);
+	private static final int CONTAINER_SCAN_DELAY_TICKS = 10;
+	private static final int GROUND_SCAN_INTERVAL_TICKS = 10;
+	private ItemStack lastCoordsItem = ItemStack.EMPTY;
+	private int lastContainerId = Integer.MIN_VALUE;
+	private int containerScanDelay;
+	private boolean containerScanned;
+	private int groundScanCooldown;
+	private final Set<String> reportedContainerCoords = new HashSet<>();
+	private final Set<String> reportedGroundCoords = new HashSet<>();
+	// Dropped items that have already given up their coords, so they aren't
+	// checked again. Only successes are remembered: a dropped item's NBT can
+	// still be in flight when the entity first appears, and caching that miss
+	// would hide the item's coords for as long as it lies there.
+	private final Set<UUID> reportedGroundItems = new HashSet<>();
+	private final Set<UUID> presentGroundItems = new HashSet<>();
 	
 	private final Set<java.util.UUID> tempWaypoints = new HashSet<>();
 	private BlockPos lastPortalRecordedPos;
@@ -225,6 +268,9 @@ public final class WaypointsHack extends Hack
 		addSetting(deathColor);
 		addSetting(recordPortals);
 		addSetting(portalWaypointColor);
+		addSetting(readCoordsFromItem);
+		addSetting(coordsItems);
+		addSetting(groundItemCoordsRange);
 	}
 	
 	@Override
@@ -240,6 +286,13 @@ public final class WaypointsHack extends Hack
 		otherDeathCooldown.clear();
 		knownDead.clear();
 		occlusionCache.clear();
+		lastCoordsItem = ItemStack.EMPTY;
+		reportedContainerCoords.clear();
+		reportedGroundCoords.clear();
+		reportedGroundItems.clear();
+		lastContainerId = Integer.MIN_VALUE;
+		containerScanned = false;
+		groundScanCooldown = 0;
 	}
 	
 	@Override
@@ -254,6 +307,13 @@ public final class WaypointsHack extends Hack
 		otherDeathCooldown.clear();
 		knownDead.clear();
 		occlusionCache.clear();
+		lastCoordsItem = ItemStack.EMPTY;
+		reportedContainerCoords.clear();
+		reportedGroundCoords.clear();
+		reportedGroundItems.clear();
+		lastContainerId = Integer.MIN_VALUE;
+		containerScanned = false;
+		groundScanCooldown = 0;
 	}
 	
 	// Add a temporary waypoint that should not be persisted. Returns the
@@ -462,6 +522,9 @@ public final class WaypointsHack extends Hack
 	{
 		ensureWorldData();
 		updatePortalAutoRecording();
+		updateCoordsFromItem();
+		updateContainerCoords();
+		updateGroundItemCoords();
 		// Reset the death-announced guard once the player is alive again.
 		if(deathAnnounced && MC.player != null && MC.player.getHealth() > 0)
 			deathAnnounced = false;
@@ -522,6 +585,318 @@ public final class WaypointsHack extends Hack
 			}
 			// removed: pruneTempOtherDeaths();
 		}
+	}
+	
+	/**
+	 * Reports the coordinates stored in the main hand item's NBT, once per
+	 * time that item enters the main hand.
+	 */
+	private void updateCoordsFromItem()
+	{
+		if(MC.player == null)
+			return;
+		
+		ItemStack held = MC.player.getMainHandItem();
+		if(!readCoordsFromItem.isChecked() || held.isEmpty())
+		{
+			lastCoordsItem = ItemStack.EMPTY;
+			return;
+		}
+		
+		if(ItemStack.isSameItemSameComponents(lastCoordsItem, held))
+			return;
+		lastCoordsItem = held.copy();
+		
+		BlockPos coords = findItemCoords(held);
+		if(coords != null)
+			ChatUtils.message(coordsMessage(held, coords));
+	}
+	
+	/**
+	 * Reports the coordinates stored in the items inside a container that the
+	 * player has opened, once per container and once per distinct position.
+	 */
+	private void updateContainerCoords()
+	{
+		if(MC.player == null || MC.level == null
+			|| !readCoordsFromItem.isChecked())
+			return;
+		
+		AbstractContainerMenu menu = MC.player.containerMenu;
+		if(menu == null || menu == MC.player.inventoryMenu)
+		{
+			lastContainerId = Integer.MIN_VALUE;
+			return;
+		}
+		
+		if(menu.containerId != lastContainerId)
+		{
+			lastContainerId = menu.containerId;
+			containerScanned = false;
+			containerScanDelay = CONTAINER_SCAN_DELAY_TICKS;
+			reportedContainerCoords.clear();
+			return;
+		}
+		
+		if(containerScanned)
+			return;
+		
+		if(containerScanDelay > 0)
+		{
+			containerScanDelay--;
+			// The contents arrive a tick or two after the menu opens, and an
+			// empty menu looks the same as one that hasn't loaded yet.
+			if(containerScanDelay > 0 && !hasAnyItem(menu))
+				return;
+		}
+		
+		containerScanned = true;
+		scanContainer(menu);
+	}
+	
+	private void scanContainer(AbstractContainerMenu menu)
+	{
+		for(Slot slot : menu.slots)
+		{
+			// Skip the player's own inventory rows that menus include.
+			if(slot.container == MC.player.getInventory())
+				continue;
+			
+			ItemStack stack = slot.getItem();
+			if(stack.isEmpty())
+				continue;
+			
+			BlockPos coords = findItemCoords(stack);
+			if(coords == null)
+				continue;
+			
+			if(reportedContainerCoords.add(coordsKey(coords)))
+				ChatUtils.message(coordsMessage(stack, coords));
+		}
+	}
+	
+	/**
+	 * Reports the coordinates stored in dropped items lying nearby. Distinct
+	 * positions are reported once, so a pile of identical kits only produces
+	 * one line.
+	 */
+	private void updateGroundItemCoords()
+	{
+		if(MC.player == null || MC.level == null
+			|| !readCoordsFromItem.isChecked())
+		{
+			groundScanCooldown = 0;
+			reportedGroundItems.clear();
+			reportedGroundCoords.clear();
+			return;
+		}
+		
+		// Nearby items rarely change, so there is no need to look every tick.
+		if(groundScanCooldown > 0)
+		{
+			groundScanCooldown--;
+			return;
+		}
+		groundScanCooldown = GROUND_SCAN_INTERVAL_TICKS;
+		
+		double range = groundItemCoordsRange.getValue();
+		double rangeSq = range * range;
+		presentGroundItems.clear();
+		for(ItemEntity item : MC.level.getEntitiesOfClass(ItemEntity.class,
+			MC.player.getBoundingBox().inflate(range)))
+		{
+			// The inflated box is a cube, so check the real distance.
+			if(!item.isAlive() || item.distanceToSqr(MC.player) > rangeSq)
+				continue;
+			
+			UUID id = item.getUUID();
+			presentGroundItems.add(id);
+			
+			// Items that already gave up their coords are left alone.
+			if(reportedGroundItems.contains(id))
+				continue;
+			
+			ItemStack stack = item.getItem();
+			// A dropped item's NBT arrives just after the entity itself, so an
+			// empty stack means "not ready yet", not "no coords". Nothing is
+			// remembered in that case, so the next scan picks it up.
+			if(stack.isEmpty())
+				continue;
+			
+			BlockPos coords = findItemCoords(stack);
+			if(coords == null)
+				continue;
+			
+			reportedGroundItems.add(id);
+			if(reportedGroundCoords.add(coordsKey(coords)))
+				ChatUtils.message(coordsMessage(stack, coords));
+		}
+		
+		// Forget items that are gone, so the cache can't grow forever. Coords
+		// that were already announced stay announced, so walking away and back
+		// doesn't repeat them.
+		reportedGroundItems.retainAll(presentGroundItems);
+	}
+	
+	/**
+	 * Whether the container itself holds anything yet. The player's own
+	 * inventory rows are ignored so that carrying items can't make an
+	 * unloaded container look ready.
+	 */
+	private boolean hasAnyItem(AbstractContainerMenu menu)
+	{
+		for(Slot slot : menu.slots)
+			if(slot.container != MC.player.getInventory()
+				&& !slot.getItem().isEmpty())
+				return true;
+			
+		return false;
+	}
+	
+	private static String coordsMessage(ItemStack stack, BlockPos coords)
+	{
+		return "Coords from " + stack.getHoverName().getString() + ": "
+			+ coordsKey(coords);
+	}
+	
+	private static String coordsKey(BlockPos coords)
+	{
+		return coords.getX() + " " + coords.getY() + " " + coords.getZ();
+	}
+	
+	/**
+	 * Searches an item's NBT for a stored position, or null if it has none.
+	 * Only watched items get this far, and items carrying no NBT at all are
+	 * rejected before any encoding happens.
+	 */
+	private BlockPos findItemCoords(ItemStack stack)
+	{
+		if(!isWatchedItem(stack))
+			return null;
+			
+		// Encoding a large component tree is expensive, so a plain item is
+		// never encoded just to find out it has no coordinates.
+		if(stack.getComponentsPatch().isEmpty())
+			return null;
+		
+		DataResult<Tag> encoded = ItemStack.CODEC.encodeStart(
+			RegistryOps.create(NbtOps.INSTANCE, MC.player.registryAccess()),
+			stack);
+		Tag tag = encoded.result().orElse(null);
+		if(tag == null)
+			return null;
+			
+		// Prefer a position that is stored under a position-shaped key and
+		// only settle for a bare x/y/z triple if there is nothing better.
+		BlockPos coords = findXyz("", tag, true);
+		return coords != null ? coords : findXyz("", tag, false);
+	}
+	
+	/**
+	 * Only the listed items are inspected. An empty list means every item is
+	 * inspected, which is much slower because it also has to decode items that
+	 * carry no coordinates at all.
+	 */
+	private boolean isWatchedItem(ItemStack stack)
+	{
+		return !stack.isEmpty()
+			&& (coordsItems.isEmpty() || coordsItems.contains(stack.getItem()));
+	}
+	
+	private BlockPos findXyz(String key, Tag tag, boolean positionKeysOnly)
+	{
+		if(tag instanceof CompoundTag compound)
+		{
+			BlockPos xyz = readXyz(compound);
+			if(xyz != null)
+				return xyz;
+			
+			for(String childKey : compound.keySet())
+			{
+				if(positionKeysOnly && !looksLikePosition(childKey))
+					continue;
+				
+				BlockPos found =
+					findXyz(childKey, compound.get(childKey), positionKeysOnly);
+				if(found != null)
+					return found;
+			}
+			return null;
+		}
+		
+		if(tag instanceof ListTag list)
+		{
+			for(Tag child : list)
+			{
+				BlockPos found = findXyz(key, child, positionKeysOnly);
+				if(found != null)
+					return found;
+			}
+			return null;
+		}
+		
+		// A bare triple is only trusted when its own key says position,
+		// otherwise every 3-number list would look like coordinates.
+		if(!looksLikePosition(key))
+			return null;
+		
+		int[] numbers = numbersOf(tag);
+		if(numbers == null || numbers.length != 3)
+			return null;
+		
+		return new BlockPos(numbers[0], numbers[1], numbers[2]);
+	}
+	
+	private BlockPos readXyz(CompoundTag compound)
+	{
+		Integer x = xyzValue(compound, "x", "X");
+		Integer y = xyzValue(compound, "y", "Y");
+		Integer z = xyzValue(compound, "z", "Z");
+		if(x == null || y == null || z == null)
+			return null;
+		
+		return new BlockPos(x, y, z);
+	}
+	
+	private Integer xyzValue(CompoundTag compound, String lower, String upper)
+	{
+		Tag value = compound.get(lower);
+		if(!(value instanceof NumericTag))
+			value = compound.get(upper);
+		
+		return value instanceof NumericTag numeric ? floor(numeric) : null;
+	}
+	
+	private int[] numbersOf(Tag tag)
+	{
+		if(tag instanceof IntArrayTag array)
+			return array.getAsIntArray();
+		
+		if(!(tag instanceof ListTag list))
+			return null;
+		
+		int[] numbers = new int[list.size()];
+		for(int i = 0; i < numbers.length; i++)
+		{
+			if(!(list.get(i) instanceof NumericTag numeric))
+				return null;
+			numbers[i] = floor(numeric);
+		}
+		return numbers;
+	}
+	
+	private static int floor(NumericTag tag)
+	{
+		return (int)Math.floor(tag.doubleValue());
+	}
+	
+	private static boolean looksLikePosition(String key)
+	{
+		for(String token : key.toLowerCase(Locale.ROOT).split("[^a-z0-9]+"))
+			if(POSITION_TOKENS.contains(token))
+				return true;
+			
+		return false;
 	}
 	
 	@Override
