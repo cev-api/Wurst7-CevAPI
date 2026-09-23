@@ -36,6 +36,18 @@ public final class UiUtilsSettings
 		return data;
 	}
 	
+	public static int getProbesPerSecond()
+	{
+		int value = data.scannerProbesPerSecond;
+		return Math.max(Data.MIN_PROBES_PER_SECOND,
+			Math.min(Data.MAX_PROBES_PER_SECOND, value));
+	}
+	
+	public static long getProbeIntervalNanos()
+	{
+		return 1_000_000_000L / getProbesPerSecond();
+	}
+	
 	public static void load()
 	{
 		if(!Files.exists(PATH))
@@ -71,6 +83,10 @@ public final class UiUtilsSettings
 	
 	public static final class Data
 	{
+		public static final int MIN_PROBES_PER_SECOND = 1;
+		public static final int MAX_PROBES_PER_SECOND = 30;
+		public static final int DEFAULT_PROBES_PER_SECOND = 10;
+		
 		public int uiButtonColor = 0x4A90E2;
 		public int uiButtonTextColor = 0xFFFFFF;
 		public String commandScannerMode = "PACKET_PROBING";
@@ -78,5 +94,16 @@ public final class UiUtilsSettings
 		public boolean commandScannerRunFoundCommands = false;
 		public String commandScannerDontSendFilter = "";
 		public String commandScannerPacketCommands = "";
+		public int scannerProbesPerSecond = DEFAULT_PROBES_PER_SECOND;
+		/**
+		 * Opt-in. The version oracle sends real {@code /ver <name>} chat
+		 * commands,
+		 * so it must never run as part of a normal scan unless the user asks
+		 * for
+		 * it. Renamed from commandScannerVersionOracle so the previously
+		 * defaulted
+		 * on value is discarded on load.
+		 */
+		public boolean pluginScanVersionOracle = false;
 	}
 }

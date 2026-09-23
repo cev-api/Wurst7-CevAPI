@@ -73,8 +73,10 @@ public final class UiUtilsScanHistory
 		{
 			if(row == null || row.plugin() == null || row.plugin().isBlank())
 				continue;
+			String evidence = row.confidence() + (row.evidence().isEmpty() ? ""
+				: " | " + String.join("; ", boundedValues(row.evidence(), 8)));
 			current.put(normalize(row.plugin()), new Entry(row.plugin(),
-				row.evidence(), new ArrayList<>(row.commands())));
+				compact(evidence), new ArrayList<>(row.commands())));
 		}
 		record(serverKey, scanType, current);
 	}
@@ -125,8 +127,10 @@ public final class UiUtilsScanHistory
 		{
 			if(row == null || row.plugin() == null || row.plugin().isBlank())
 				continue;
-			String evidence = compact(row.evidence()) + "; commands="
+			String evidence = compact(row.confidence()) + "; commands="
 				+ row.commandCount() + "; antiCheat=" + row.anticheatFlagged();
+			for(String detail : boundedValues(row.evidence(), 8))
+				evidence += "; " + compact(detail);
 			putVerboseEntry(current, "software:" + normalize(row.plugin()),
 				"Software " + compact(row.plugin()), evidence,
 				boundedValues(row.commands(), 32));

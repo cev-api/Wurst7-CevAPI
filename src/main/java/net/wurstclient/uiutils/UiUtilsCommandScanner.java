@@ -10,6 +10,7 @@ package net.wurstclient.uiutils;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.suggestion.Suggestion;
 import com.mojang.brigadier.suggestion.Suggestions;
+import com.mojang.brigadier.tree.CommandNode;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -27,7 +28,6 @@ import net.minecraft.network.protocol.game.ServerboundCommandSuggestionPacket;
 public final class UiUtilsCommandScanner
 {
 	private static final int RESPONSE_TIMEOUT_TICKS = 20;
-	private static final int REQUEST_COOLDOWN_TICKS = 2;
 	private static final int EXECUTE_COOLDOWN_TICKS = 40;
 	private static final int SUGGESTION_LIMIT = 1000;
 	private static final int MAX_PROBES = 128;
@@ -189,6 +189,7 @@ public final class UiUtilsCommandScanner
 	private static int awaitingRequestId;
 	private static String awaitingPrefix;
 	private static int probesSent;
+	private static long nextProbeAtNanos;
 	private static boolean active;
 	private static Phase phase = Phase.IDLE;
 	private static ScanMode activeMode = ScanMode.PACKET_PROBING;
@@ -227,12 +228,14 @@ public final class UiUtilsCommandScanner
 		awaitingRequestId = -1;
 		awaitingPrefix = null;
 		probesSent = 0;
+		nextProbeAtNanos = 0;
 		phase = Phase.SCANNING;
 		activeMode = getScanMode();
 		lastStatus = "Scanning commands (" + activeMode.name() + ")...";
 		recentEvents.clear();
 		lastFoundCommands = List.of();
 		boundServerKey = currentServerKey(mc);
+		UiUtilsSuggestionCapability.bindTo(boundServerKey);
 		if(activeMode == ScanMode.CLIENT_SIDE_ENUMERATION)
 		{
 			// The client-side enumeration fallback was removed because the
@@ -240,6 +243,12 @@ public final class UiUtilsCommandScanner
 			// dispatcher also contains commands registered by client-side mods.
 			runClientSideEnumerationScan();
 			return "[UI-Utils] Command scanner started (CLIENT_SIDE_ENUMERATION).";
+		}
+		
+		if(UiUtilsSuggestionCapability.isSuppressed())
+		{
+			abortForSuppressedSuggestions();
+			return "[UI-Utils] Suggestion responses suppressed; using the synced command tree.";
 		}
 		
 		sendNextRequest();
@@ -271,6 +280,13 @@ public final class UiUtilsCommandScanner
 		if(activeMode != ScanMode.PACKET_PROBING)
 			return;
 		
+		if(UiUtilsSuggestionCapability.isSuppressed())
+		{
+			// Another scanner already proved the server drops responses.
+			abortForSuppressedSuggestions();
+			return;
+		}
+		
 		if(awaitingResponse)
 		{
 			waitTicks++;
@@ -284,25 +300,73 @@ public final class UiUtilsCommandScanner
 					finishScan();
 					return;
 				}
-				if(UiUtilsSettings.get().commandScannerDebugProbe)
-					print("Probe timeout: /" + awaitingPrefix + " (id="
-						+ requestId + ")");
-				lastStatus =
-					"Scanning commands... timed out on /" + awaitingPrefix;
+				String timedOutPrefix = awaitingPrefix;
+				int timedOutId = awaitingRequestId;
 				awaitingResponse = false;
+				awaitingRequestId = -1;
 				awaitingPrefix = null;
-				cooldownTicks = REQUEST_COOLDOWN_TICKS;
+				if(UiUtilsSettings.get().commandScannerDebugProbe)
+					print("Probe timeout: /" + timedOutPrefix + " (id="
+						+ timedOutId + ")");
+				if(UiUtilsSuggestionCapability.recordUnansweredProbe())
+				{
+					abortForSuppressedSuggestions();
+					return;
+				}
+				lastStatus =
+					"Scanning commands... timed out on /" + timedOutPrefix;
 			}
 			return;
 		}
 		
-		if(cooldownTicks > 0)
-		{
-			cooldownTicks--;
+		if(!probePacingElapsed())
 			return;
-		}
 		
 		sendNextRequest();
+	}
+	
+	private static boolean probePacingElapsed()
+	{
+		return System.nanoTime() >= nextProbeAtNanos;
+	}
+	
+	private static void abortForSuppressedSuggestions()
+	{
+		String message =
+			"Server appears to suppress command-suggestion responses;"
+				+ " active enumeration unavailable.";
+		print(message);
+		lastStatus = message;
+		loadSyncedCommandTreeFallback();
+		finishScan();
+	}
+	
+	private static void loadSyncedCommandTreeFallback()
+	{
+		Minecraft mc = Minecraft.getInstance();
+		if(mc.player == null || mc.player.connection == null)
+			return;
+		CommandDispatcher<ClientSuggestionProvider> dispatcher =
+			mc.player.connection.getCommands();
+		if(dispatcher == null || dispatcher.getRoot() == null)
+			return;
+		
+		probeQueue.clear();
+		int added = 0;
+		for(CommandNode<ClientSuggestionProvider> node : dispatcher.getRoot()
+			.getChildren())
+		{
+			String command = extractRootCommand(node.getName());
+			if(command == null || command.equalsIgnoreCase("trigger")
+				|| isEssentialsCommand(command)
+				|| isVanillaOrDefaultCommand(command))
+				continue;
+			if(scannedCommands.add(command))
+				added++;
+			classifyDiscoveredCommand(command);
+		}
+		print("Synced command tree provided " + added
+			+ " command(s) without packet probing.");
 	}
 	
 	public static void onSuggestionsPacket(
@@ -315,6 +379,8 @@ public final class UiUtilsCommandScanner
 			return;
 		if(packet.id() != awaitingRequestId)
 			return;
+		
+		UiUtilsSuggestionCapability.recordResponse();
 		
 		if(triggerProbePending)
 		{
@@ -363,7 +429,6 @@ public final class UiUtilsCommandScanner
 		awaitingResponse = false;
 		awaitingRequestId = -1;
 		awaitingPrefix = null;
-		cooldownTicks = REQUEST_COOLDOWN_TICKS;
 	}
 	
 	public static String sendManualPacketCommands()
@@ -450,6 +515,11 @@ public final class UiUtilsCommandScanner
 		awaitingPrefix = prefix;
 		probesSent++;
 		waitTicks = 0;
+		
+		// The next probe is due one interval after this send, so the response
+		// wait and the configured delay run concurrently instead of stacking.
+		nextProbeAtNanos =
+			System.nanoTime() + UiUtilsSettings.getProbeIntervalNanos();
 	}
 	
 	private static void enqueuePrefix(String prefix, boolean prioritize)
@@ -561,11 +631,18 @@ public final class UiUtilsCommandScanner
 		List<String> results = new ArrayList<>(scannedCommands);
 		for(String value : triggerValues)
 			results.add("trigger (" + value + ")");
-		print("Command scanner found " + results.size() + " commands.");
+		print("Command scanner found " + results.size() + " commands"
+			+ (UiUtilsSuggestionCapability.isSuppressed()
+				? " (synced command tree only)." : "."));
 		lastFoundCommands = results;
-		lastStatus = "Found " + results.size() + " commands.";
+		if(UiUtilsSuggestionCapability.isSuppressed())
+			lastStatus = "Suggestion responses suppressed; found "
+				+ results.size() + " commands in the synced tree.";
+		else
+			lastStatus = "Found " + results.size() + " commands.";
 		UiUtilsScanHistory.recordCommands(boundServerKey,
-			"command_" + activeMode.name().toLowerCase(Locale.ROOT),
+			UiUtilsSuggestionCapability.isSuppressed() ? "command_synced_tree"
+				: "command_" + activeMode.name().toLowerCase(Locale.ROOT),
 			lastFoundCommands);
 		if(results.isEmpty())
 		{
@@ -737,6 +814,7 @@ public final class UiUtilsCommandScanner
 		phase = Phase.IDLE;
 		cooldownTicks = 0;
 		waitTicks = 0;
+		nextProbeAtNanos = 0;
 		probeQueue.clear();
 		scheduledPrefixes.clear();
 		probesSent = 0;
@@ -751,6 +829,7 @@ public final class UiUtilsCommandScanner
 		phase = Phase.IDLE;
 		cooldownTicks = 0;
 		waitTicks = 0;
+		nextProbeAtNanos = 0;
 		requestId = 1;
 		scannedCommands.clear();
 		hiddenCommands.clear();
@@ -764,6 +843,7 @@ public final class UiUtilsCommandScanner
 		recentEvents.clear();
 		lastStatus = "Cleared due to server change.";
 		boundServerKey = currentServerKey(Minecraft.getInstance());
+		UiUtilsSuggestionCapability.bindTo(boundServerKey);
 	}
 	
 	private static String currentServerKey(Minecraft mc)
@@ -830,7 +910,17 @@ public final class UiUtilsCommandScanner
 		return new ArrayList<>(recentEvents);
 	}
 	
+	/**
+	 * Clears the results shown in the UI, including the shared
+	 * suggestion-capability verdict so the next scan probes again.
+	 */
 	public static void clearResultsForUi()
+	{
+		clearResultsInternal();
+		UiUtilsSuggestionCapability.clear();
+	}
+	
+	private static void clearResultsInternal()
 	{
 		active = false;
 		awaitingResponse = false;
@@ -851,6 +941,7 @@ public final class UiUtilsCommandScanner
 		scheduledPrefixes.clear();
 		truncatedGroups.clear();
 		probesSent = 0;
+		nextProbeAtNanos = 0;
 	}
 	
 	public enum ScanMode

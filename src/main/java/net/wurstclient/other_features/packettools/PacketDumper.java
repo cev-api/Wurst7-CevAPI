@@ -759,8 +759,7 @@ public final class PacketDumper
 		Identifier registryName = RegistryDecoder.getRegistryNameStatic(value);
 		if(registryName != null)
 			return registryName.toString();
-			
-
+		
 		// DataValue
 		if(value instanceof SynchedEntityData.DataValue<?> dv)
 			return decodeDataValue(dv, nextDepth, visited);

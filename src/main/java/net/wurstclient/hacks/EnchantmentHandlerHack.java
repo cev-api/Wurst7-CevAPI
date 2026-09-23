@@ -7,6 +7,7 @@
  */
 package net.wurstclient.hacks;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
@@ -391,7 +392,8 @@ public final class EnchantmentHandlerHack extends Hack
 			return false;
 		
 		// Handle scroll bar click/drag
-		if(button == 0 && isInsideScrollBar(mouseX, mouseY))
+		if(button == InputConstants.MOUSE_BUTTON_LEFT
+			&& isInsideScrollBar(mouseX, mouseY))
 		{
 			scrollBarDragging = true;
 			scrollBarDragStartY = (int)mouseY;
@@ -399,7 +401,8 @@ public final class EnchantmentHandlerHack extends Hack
 			return true;
 		}
 		
-		if(button == 0 && isInsideDragBar(mouseX, mouseY))
+		if(button == InputConstants.MOUSE_BUTTON_LEFT
+			&& isInsideDragBar(mouseX, mouseY))
 		{
 			if(!usesFreePosition())
 				return true;
@@ -407,7 +410,8 @@ public final class EnchantmentHandlerHack extends Hack
 			return true;
 		}
 		
-		if(button != 0 && button != 1)
+		if(button != InputConstants.MOUSE_BUTTON_LEFT
+			&& button != InputConstants.MOUSE_BUTTON_RIGHT)
 			return isInsidePanel(mouseX, mouseY);
 		
 		AbstractContainerMenu handler =
@@ -420,7 +424,7 @@ public final class EnchantmentHandlerHack extends Hack
 			
 			if(hitbox.entry != null)
 			{
-				if(button == 0)
+				if(button == InputConstants.MOUSE_BUTTON_LEFT)
 				{
 					if(hitbox.entry.slotId < 0
 						&& hitbox.entry.getHighlightSlotId() >= 0)
@@ -439,7 +443,7 @@ public final class EnchantmentHandlerHack extends Hack
 					return true;
 				}
 				
-				if(button == 1)
+				if(button == InputConstants.MOUSE_BUTTON_RIGHT)
 				{
 					if(hitbox.entry instanceof GearEntry gear)
 						takeGearCategory(gear.category, handler, hitbox.source);
@@ -509,14 +513,14 @@ public final class EnchantmentHandlerHack extends Hack
 	public boolean handleMouseRelease(AbstractContainerScreen<?> screen,
 		double mouseX, double mouseY, int button)
 	{
-		if(panelDragging && button == 0)
+		if(panelDragging && button == InputConstants.MOUSE_BUTTON_LEFT)
 		{
 			panelDragging = false;
 			savePanelPosition();
 			return true;
 		}
 		
-		if(scrollBarDragging && button == 0)
+		if(scrollBarDragging && button == InputConstants.MOUSE_BUTTON_LEFT)
 		{
 			scrollBarDragging = false;
 			return true;

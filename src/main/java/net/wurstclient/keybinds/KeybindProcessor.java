@@ -163,7 +163,7 @@ public final class KeybindProcessor
 		if(screen == null || screen instanceof ClickGuiScreen
 			|| screen instanceof XpGuiScreen)
 			return true;
-		
+			
 		// The NBT editor is the one Wurst screen that is meant to be used
 		// while a container is open, so its keybind has to survive the
 		// container screen holding the mouse.

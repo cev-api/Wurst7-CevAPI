@@ -7,6 +7,7 @@
  */
 package net.wurstclient.clickgui.screens;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -366,7 +367,7 @@ public final class WaypointsScreen extends Screen
 		double mouseX = context.x();
 		double mouseY = context.y();
 		int button = context.button();
-		if(button == 0 && scrollMax > 0)
+		if(button == InputConstants.MOUSE_BUTTON_LEFT && scrollMax > 0)
 		{
 			if(isOverScrollbarThumb(mouseX, mouseY))
 			{
@@ -402,7 +403,8 @@ public final class WaypointsScreen extends Screen
 	{
 		double mouseY = context.y();
 		int button = context.button();
-		if(draggingScrollbar && button == 0 && scrollMax > 0)
+		if(draggingScrollbar && button == InputConstants.MOUSE_BUTTON_LEFT
+			&& scrollMax > 0)
 		{
 			int trackRange =
 				(scrollTrackBottom - scrollTrackTop) - scrollThumbHeight;
@@ -424,7 +426,8 @@ public final class WaypointsScreen extends Screen
 	public boolean mouseReleased(
 		net.minecraft.client.input.MouseButtonEvent context)
 	{
-		if(context.button() == 0 && draggingScrollbar)
+		if(context.button() == InputConstants.MOUSE_BUTTON_LEFT
+			&& draggingScrollbar)
 		{
 			draggingScrollbar = false;
 			return true;
