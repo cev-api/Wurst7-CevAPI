@@ -54,7 +54,6 @@ import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.dialog.Dialog;
-import net.minecraft.util.CompilableString;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
@@ -761,16 +760,7 @@ public final class PacketDumper
 		if(registryName != null)
 			return registryName.toString();
 			
-		// CompilableString keeps the source form a server sent, which is the
-		// part worth logging for selectors, score holders and nbt paths.
-		if(value instanceof CompilableString<?> compilable)
-		{
-			Map<String, Object> m = new LinkedHashMap<>();
-			m.put("_type", "CompilableString");
-			m.put("source", compilable.source());
-			return m;
-		}
-		
+
 		// DataValue
 		if(value instanceof SynchedEntityData.DataValue<?> dv)
 			return decodeDataValue(dv, nextDepth, visited);

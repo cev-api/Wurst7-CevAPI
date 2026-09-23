@@ -214,12 +214,11 @@ public final class ComponentSerializer
 		if(contents instanceof NbtContents nbt)
 		{
 			m.put("kind", "nbt");
-			m.put("nbtPath", decode(nbt.nbtPath(), depth, fallback));
-			m.put("interpreting", nbt.interpreting());
-			m.put("plain", nbt.plain());
-			nbt.separator()
+			m.put("nbtPath", decode(nbt.getNbtPath(), depth, fallback));
+			m.put("interpreting", nbt.isInterpreting());
+			nbt.getSeparator()
 				.ifPresent(s -> m.put("separator", decode(s, depth, fallback)));
-			m.put("dataSource", decode(nbt.dataSource(), depth, fallback));
+			m.put("dataSource", decode(nbt.getDataSource(), depth, fallback));
 			return m;
 		}
 		
@@ -228,8 +227,6 @@ public final class ComponentSerializer
 			m.put("kind", "object");
 			m.put("object",
 				serializeObjectInfo(object.contents(), depth, fallback));
-			object.fallback()
-				.ifPresent(f -> m.put("fallback", decode(f, depth, fallback)));
 			return m;
 		}
 		
@@ -283,7 +280,6 @@ public final class ComponentSerializer
 			mergeGeneric(m, info, depth, fallback);
 		}
 		
-		m.put("defaultFallback", info.defaultFallback());
 		return m;
 	}
 	
