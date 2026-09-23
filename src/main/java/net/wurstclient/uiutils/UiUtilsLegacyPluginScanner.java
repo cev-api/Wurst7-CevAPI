@@ -25,10 +25,14 @@ public final class UiUtilsLegacyPluginScanner
 	private static final Set<String> ANTICHEAT_WORDS = Set.of("nocheatplus",
 		"negativity", "vulcan", "spartan", "matrix", "grim", "themis", "kauri",
 		"godseye", "anticheat", "exploit", "illegal");
+	private static final int RESPONSE_TIMEOUT_TICKS = 20 * 3;
+	private static final String ACTIVE_PROBING_UNAVAILABLE =
+		"Active plugin probing unavailable. Using passive evidence.";
 	private static final Random RANDOM = new Random();
 	
 	private static boolean scanning;
 	private static int requestId = -1;
+	private static int ticksSinceStart;
 	private static final List<String> foundPlugins = new ArrayList<>();
 	private static final Set<String> dedupe = new HashSet<>();
 	private static String lastStatus = "Idle.";
@@ -46,7 +50,17 @@ public final class UiUtilsLegacyPluginScanner
 	
 	public static void onTick()
 	{
-		// legacy scanner is a one-shot probe; no continuous logic needed
+		if(!scanning)
+			return;
+		if(++ticksSinceStart >= RESPONSE_TIMEOUT_TICKS)
+		{
+			if(UiUtilsSuggestionCapability.recordUnansweredProbe())
+			{
+				lastStatus = ACTIVE_PROBING_UNAVAILABLE;
+				print(ACTIVE_PROBING_UNAVAILABLE);
+			}
+			finalizeUnanswered();
+		}
 	}
 	
 	public static String startScan()
@@ -57,16 +71,39 @@ public final class UiUtilsLegacyPluginScanner
 		if(scanning)
 			return "[UI-Utils] Legacy plugin scan already in progress.";
 		
-		requestId = RANDOM.nextInt(100000);
-		mc.getConnection()
-			.send(new ServerboundCommandSuggestionPacket(requestId, "ver "));
 		foundPlugins.clear();
 		dedupe.clear();
 		lastRows.clear();
+		ticksSinceStart = 0;
+		UiUtilsSuggestionCapability.bindTo(UiUtilsScanHistory.serverKey(mc));
+		
+		if(UiUtilsSuggestionCapability.isSuppressed())
+		{
+			lastStatus = ACTIVE_PROBING_UNAVAILABLE;
+			print(ACTIVE_PROBING_UNAVAILABLE);
+			return "[UI-Utils] " + ACTIVE_PROBING_UNAVAILABLE;
+		}
+		
+		requestId = RANDOM.nextInt(100000);
+		mc.getConnection()
+			.send(new ServerboundCommandSuggestionPacket(requestId, "ver "));
 		scanning = true;
 		lastStatus = "Legacy scanning plugins...";
 		print("Legacy plugin scan started.");
 		return "[UI-Utils] Legacy scanning plugins...";
+	}
+	
+	private static void finalizeUnanswered()
+	{
+		scanning = false;
+		requestId = -1;
+		lastRows.clear();
+		UiUtilsScanHistory.recordPlugins(
+			UiUtilsScanHistory.serverKey(Minecraft.getInstance()),
+			"legacy_plugin", List.of());
+		lastStatus = UiUtilsSuggestionCapability.isSuppressed()
+			? ACTIVE_PROBING_UNAVAILABLE
+			: "Legacy: No plugins found or blocked.";
 	}
 	
 	public static void onSuggestionsPacket(
@@ -76,6 +113,8 @@ public final class UiUtilsLegacyPluginScanner
 			return;
 		if(packet.id() != requestId)
 			return;
+		
+		UiUtilsSuggestionCapability.recordResponse();
 		
 		try
 		{
@@ -160,8 +199,9 @@ public final class UiUtilsLegacyPluginScanner
 			String text = (anticheat ? "!" : "") + plugin;
 			int color = vulnerable ? 0xFF6B6B : 0x93F7A4;
 			line = line.copy().append(Component.literal(text).withColor(color));
-			lastRows.add(new UiUtilsPluginScanner.PluginResultRow("LEGACY",
-				plugin, 0, anticheat, List.of()));
+			lastRows
+				.add(new UiUtilsPluginScanner.PluginResultRow("HIGH", plugin, 0,
+					anticheat, List.of(), List.of("/ver output: " + plugin)));
 		}
 		mc.player.sendSystemMessage(line);
 		UiUtilsScanHistory.recordPlugins(UiUtilsScanHistory.serverKey(mc),
@@ -209,6 +249,7 @@ public final class UiUtilsLegacyPluginScanner
 	{
 		scanning = false;
 		requestId = -1;
+		ticksSinceStart = 0;
 		foundPlugins.clear();
 		dedupe.clear();
 		lastRows.clear();

@@ -78,6 +78,7 @@ public abstract class ClientPacketListenerMixin
 		CallbackInfo ci)
 	{
 		UiUtilsCommandScanner.onSystemChat(packet.content());
+		UiUtilsPluginScanner.onSystemChat(packet.content());
 	}
 	
 	@Shadow

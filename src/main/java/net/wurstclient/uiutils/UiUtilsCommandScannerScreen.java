@@ -7,6 +7,7 @@
  */
 package net.wurstclient.uiutils;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -16,6 +17,7 @@ import java.util.Map;
 import java.util.Set;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
@@ -59,7 +61,7 @@ public final class UiUtilsCommandScannerScreen extends Screen
 		boolean stacked = panelWidth < 360;
 		int splitWidth = stacked ? panelWidth : (panelWidth - 10) / 2;
 		
-		int topRows = stacked ? 11 : 7;
+		int topRows = stacked ? 13 : 9;
 		int controlsHeight = (rowH * topRows) + (gap * (topRows - 1));
 		int footerHeight = rowH + gap;
 		int outputHeight = 56;
@@ -105,6 +107,19 @@ public final class UiUtilsCommandScannerScreen extends Screen
 		if(stacked)
 			y += rowH + gap;
 		
+		UiUtilsColoredSlider speedSlider =
+			addRenderableWidget(new UiUtilsColoredSlider(left, y, panelWidth,
+				rowH, "Scanner speed: ", " probes/s",
+				UiUtilsSettings.Data.MIN_PROBES_PER_SECOND,
+				UiUtilsSettings.Data.MAX_PROBES_PER_SECOND,
+				UiUtilsSettings.getProbesPerSecond(), value -> {
+					UiUtilsSettings.get().scannerProbesPerSecond = value;
+					UiUtilsSettings.save();
+				}));
+		speedSlider.setTooltip(Tooltip.create(Component.literal(
+			"Controls how quickly command-suggestion probes are sent. Slower speeds are less likely to be rate-limited by servers.")));
+		y += rowH + gap;
+		
 		addRenderableWidget(UiUtils.styledButton("Verbose Server Scan", b -> {
 			UiUtilsScanHistory.recordVerboseFingerprint(
 				UiUtilsScanHistory.serverKey(this.minecraft),
@@ -112,6 +127,22 @@ public final class UiUtilsCommandScannerScreen extends Screen
 			McCompat.setScreen(this.minecraft,
 				new UiUtilsVerboseServerScanScreen(this));
 		}, left, y, panelWidth, rowH));
+		y += rowH + gap;
+		
+		UiUtilsColoredButton oracleButton =
+			addRenderableWidget(UiUtils.styledButton("Version oracle: "
+				+ (UiUtilsSettings.get().pluginScanVersionOracle ? "ON"
+					: "OFF"),
+				b -> {
+					UiUtilsSettings.get().pluginScanVersionOracle =
+						!UiUtilsSettings.get().pluginScanVersionOracle;
+					UiUtilsSettings.save();
+					b.setMessage(Component.literal("Version oracle: "
+						+ (UiUtilsSettings.get().pluginScanVersionOracle ? "ON"
+							: "OFF")));
+				}, left, y, panelWidth, rowH));
+		oracleButton.setTooltip(Tooltip.create(Component.literal(
+			"OFF by default. When ON, the plugin scan sends up to 12 real /ver <plugin> chat commands and reads the replies. Use only on servers where you are allowed to run commands: every query produces visible chat output.")));
 		y += rowH + gap;
 		
 		addRenderableWidget(UiUtils.styledButton("Legacy Plugin Scan (Safer)",
@@ -254,7 +285,7 @@ public final class UiUtilsCommandScannerScreen extends Screen
 	@Override
 	public boolean mouseClicked(MouseButtonEvent context, boolean doubleClick)
 	{
-		if(context.button() == 0)
+		if(context.button() == InputConstants.MOUSE_BUTTON_LEFT)
 		{
 			double mouseX = context.x();
 			double mouseY = context.y();
@@ -324,7 +355,8 @@ public final class UiUtilsCommandScannerScreen extends Screen
 	public boolean mouseDragged(MouseButtonEvent context, double dragX,
 		double dragY)
 	{
-		if(draggingScrollbar && context.button() == 0
+		if(draggingScrollbar
+			&& context.button() == InputConstants.MOUSE_BUTTON_LEFT
 			&& lastScrollbar.hasScroll)
 		{
 			jumpScrollToMouse((int)Math.round(context.y()),
@@ -337,7 +369,8 @@ public final class UiUtilsCommandScannerScreen extends Screen
 	@Override
 	public boolean mouseReleased(MouseButtonEvent context)
 	{
-		if(context.button() == 0 && draggingScrollbar)
+		if(context.button() == InputConstants.MOUSE_BUTTON_LEFT
+			&& draggingScrollbar)
 		{
 			draggingScrollbar = false;
 			return true;
@@ -373,6 +406,11 @@ public final class UiUtilsCommandScannerScreen extends Screen
 		lines.add(new Line("Command Scanner", 0xFF8CC8FF));
 		lines.add(new Line("Status: " + UiUtilsCommandScanner.getStatusLine(),
 			0xFFEAEAEA));
+		lines.add(new Line(
+			"Suggestion probing: "
+				+ UiUtilsSuggestionCapability.getStatusLabel(),
+			UiUtilsSuggestionCapability.isSuppressed() ? 0xFFFFC857
+				: 0xFF909090));
 		lines.add(
 			new Line("Essentials commands/aliases are intentionally skipped.",
 				0xFF909090));
@@ -445,15 +483,17 @@ public final class UiUtilsCommandScannerScreen extends Screen
 			}
 		}
 		
-		String currentEvidence = "";
+		String currentConfidence = "";
 		for(UiUtilsPluginScanner.PluginResultRow row : plugins)
 		{
-			if(!row.evidence().equalsIgnoreCase(currentEvidence))
+			if(!row.confidence().equalsIgnoreCase(currentConfidence))
 			{
-				currentEvidence = row.evidence();
-				lines.add(new Line("[" + currentEvidence + "]", 0xFFF5F5F5));
+				currentConfidence = row.confidence();
+				lines.add(new Line("", 0xFFFFFFFF));
+				lines.add(new Line(confidenceHeading(row.confidenceLevel()),
+					confidenceHeadingColor(row.confidenceLevel())));
 			}
-			String pluginKey = "plugin:" + row.evidence().toLowerCase() + "|"
+			String pluginKey = "plugin:" + row.confidence().toLowerCase() + "|"
 				+ row.plugin().toLowerCase();
 			boolean expanded = expandedPlugins.contains(pluginKey);
 			String caret = expanded ? "v " : "> ";
@@ -469,19 +509,26 @@ public final class UiUtilsCommandScannerScreen extends Screen
 				pluginKey));
 			if(expanded)
 			{
+				lines.add(new Line("    evidence:", 0xFFD8D8D8));
+				for(String detail : row.evidence())
+					lines.add(new Line("      " + detail, 0xFFB8D8FF));
+				if(row.evidence().isEmpty())
+					lines.add(new Line("      (none recorded)", 0xFF909090));
+				if(row
+					.confidenceLevel() == UiUtilsPluginScanner.PluginConfidence.LOW)
+					lines.add(new Line(
+						"      ambiguous: these commands may be provided by another plugin",
+						0xFF909090));
+				
 				List<String> details = UiUtilsServerFingerprintCollector
 					.detailsForSoftware(row.plugin());
 				for(String detail : details)
-					lines.add(new Line("    " + detail, 0xFFB8D8FF));
-				if(row.commands().isEmpty())
+					lines.add(new Line("      " + detail, 0xFFB8B8B8));
+				if(!row.commands().isEmpty())
 				{
-					if(details.isEmpty())
-						lines.add(new Line(
-							"    (no commands or cached details)", 0xFF909090));
-				}else
-				{
+					lines.add(new Line("    commands:", 0xFFD8D8D8));
 					for(String cmd : row.commands())
-						addSelectableCommandLine(lines, "    ", cmd);
+						addSelectableCommandLine(lines, "      ", cmd);
 				}
 			}
 		}
@@ -544,6 +591,28 @@ public final class UiUtilsCommandScannerScreen extends Screen
 			? 0xFFAEEBFF : 0xFFFF7A7A;
 		lines
 			.add(new Line(indent + "/" + command, color, "command:" + command));
+	}
+	
+	private static String confidenceHeading(
+		UiUtilsPluginScanner.PluginConfidence confidence)
+	{
+		return switch(confidence)
+		{
+			case HIGH -> "Detected plugins (high confidence)";
+			case MEDIUM -> "Likely plugins (medium confidence)";
+			case LOW -> "Possible plugins (weak evidence)";
+		};
+	}
+	
+	private static int confidenceHeadingColor(
+		UiUtilsPluginScanner.PluginConfidence confidence)
+	{
+		return switch(confidence)
+		{
+			case HIGH -> 0xFF93F7A4;
+			case MEDIUM -> 0xFFFFD479;
+			case LOW -> 0xFFB8B8B8;
+		};
 	}
 	
 	private void renderCommandOutput(GuiGraphicsExtractor graphics)

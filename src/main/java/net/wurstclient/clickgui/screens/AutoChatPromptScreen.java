@@ -265,8 +265,8 @@ public final class AutoChatPromptScreen extends Screen
 		double mouseX = event.x();
 		double mouseY = event.y();
 		int button = event.button();
-		if(button == 0 && mouseX >= 10 && mouseX < 10 + LIST_WIDTH
-			&& mouseY >= 38)
+		if(button == InputConstants.MOUSE_BUTTON_LEFT && mouseX >= 10
+			&& mouseX < 10 + LIST_WIDTH && mouseY >= 38)
 		{
 			int maxVisible = Math.min(availablePrompts.size(),
 				(Math.max(120, height - 38 - 80)) / LIST_ITEM_HEIGHT);

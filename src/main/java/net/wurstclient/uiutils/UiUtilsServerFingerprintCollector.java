@@ -302,17 +302,43 @@ public final class UiUtilsServerFingerprintCollector
 			return;
 		Identifier id = payload.type().id();
 		String rawId = id.toString();
-		String phase;
+		String namespace = id.getNamespace();
+		String path = id.getPath();
+		String source = describeChannelSource(namespace, path);
 		synchronized(LOCK)
 		{
-			phase =
+			String phase =
 				configurationCaptured && !serverConfig.containsKey("maxPlayers")
 					? "CONFIGURATION" : "PLAY";
-			payloads.putIfAbsent(rawId, new ChannelInfo(rawId,
-				id.getNamespace(), id.getPath(), phase, "custom payload"));
+			ChannelInfo existing = payloads.get(rawId);
+			if(existing == null)
+				payloads.put(rawId,
+					new ChannelInfo(rawId, namespace, path, phase, source));
+			else if("custom payload".equals(existing.source())
+				&& !"custom payload".equals(source))
+				payloads.put(rawId, new ChannelInfo(rawId, namespace, path,
+					existing.phase(), source));
 			if(payload instanceof BrandPayload brandPayload)
 				brand = brandPayload.brand();
 		}
+	}
+	
+	/**
+	 * Distinguishes the vanilla registration handshake from real traffic, since
+	 * a registration event proves the server manages plugin channels even when
+	 * no traffic follows.
+	 */
+	private static String describeChannelSource(String namespace, String path)
+	{
+		if(!"minecraft".equals(namespace))
+			return "custom payload";
+		return switch(path)
+		{
+			case "register" -> "channel registration";
+			case "unregister" -> "channel unregistration";
+			case "brand" -> "server brand";
+			default -> "custom payload";
+		};
 	}
 	
 	private static void captureRegistry(ClientboundRegistryDataPacket packet)

@@ -736,7 +736,8 @@ public final class OppStatsScreen extends Screen
 		@Override
 		public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick)
 		{
-			if(event.button() == 0 && beginScrollbarDrag(event.x(), event.y()))
+			if(event.button() == InputConstants.MOUSE_BUTTON_LEFT
+				&& beginScrollbarDrag(event.x(), event.y()))
 				return true;
 			return super.mouseClicked(event, doubleClick);
 		}
@@ -745,7 +746,8 @@ public final class OppStatsScreen extends Screen
 		public boolean mouseDragged(MouseButtonEvent event, double dragX,
 			double dragY)
 		{
-			if(draggingScrollbar && event.button() == 0)
+			if(draggingScrollbar
+				&& event.button() == InputConstants.MOUSE_BUTTON_LEFT)
 			{
 				int viewport = getBottom() - getY();
 				int content = viewport + maxScrollAmount();
@@ -767,7 +769,8 @@ public final class OppStatsScreen extends Screen
 		@Override
 		public boolean mouseReleased(MouseButtonEvent event)
 		{
-			if(event.button() == 0 && draggingScrollbar)
+			if(event.button() == InputConstants.MOUSE_BUTTON_LEFT
+				&& draggingScrollbar)
 			{
 				draggingScrollbar = false;
 				return true;

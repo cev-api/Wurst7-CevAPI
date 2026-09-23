@@ -76,7 +76,7 @@ public final class UiUtilsColoredButton extends AbstractButton
 		defaultButtonNarrationText(narration);
 	}
 	
-	private static int getEnabledHackRgb()
+	static int getEnabledHackRgb()
 	{
 		try
 		{
@@ -90,7 +90,7 @@ public final class UiUtilsColoredButton extends AbstractButton
 		}
 	}
 	
-	private static int scaleRgb(int rgb, float factor)
+	static int scaleRgb(int rgb, float factor)
 	{
 		int r = (rgb >> 16) & 0xFF;
 		int g = (rgb >> 8) & 0xFF;

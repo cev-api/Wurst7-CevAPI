@@ -7,6 +7,7 @@
  */
 package net.wurstclient.hacks;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.vertex.PoseStack;
 import io.netty.buffer.Unpooled;
 import java.util.ArrayList;
@@ -328,7 +329,8 @@ public final class NbtSizeCounterHack extends Hack implements
 	
 	public boolean handleMouseClick(MouseButtonEvent event)
 	{
-		if(!showScreenOverlay.isChecked() || event.button() != 0)
+		if(!showScreenOverlay.isChecked()
+			|| event.button() != InputConstants.MOUSE_BUTTON_LEFT)
 			return false;
 		
 		int mouseX = (int)Math.round(event.x());

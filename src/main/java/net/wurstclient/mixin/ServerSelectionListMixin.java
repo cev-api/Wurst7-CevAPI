@@ -7,6 +7,7 @@
  */
 package net.wurstclient.mixin;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -82,7 +83,8 @@ public class ServerSelectionListMixin implements IServerSelectionListExt
 		net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick,
 		CallbackInfoReturnable<Boolean> cir)
 	{
-		if(!wurst$panelList || event.button() != 0)
+		if(!wurst$panelList
+			|| event.button() != InputConstants.MOUSE_BUTTON_LEFT)
 			return;
 		
 		ServerSelectionList list = (ServerSelectionList)(Object)this;
@@ -109,7 +111,8 @@ public class ServerSelectionListMixin implements IServerSelectionListExt
 		net.minecraft.client.input.MouseButtonEvent event, double dragX,
 		double dragY, CallbackInfoReturnable<Boolean> cir)
 	{
-		if(!wurst$panelList || !wurst$draggingScrollbar || event.button() != 0)
+		if(!wurst$panelList || !wurst$draggingScrollbar
+			|| event.button() != InputConstants.MOUSE_BUTTON_LEFT)
 			return;
 		
 		ServerSelectionList list = (ServerSelectionList)(Object)this;

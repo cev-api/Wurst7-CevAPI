@@ -7,6 +7,7 @@
  */
 package net.wurstclient.uiutils;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -106,7 +107,8 @@ public final class UiUtilsVerboseServerScanScreen extends Screen
 	@Override
 	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick)
 	{
-		if(event.button() == 0 && lastScrollbar.hasScroll
+		if(event.button() == InputConstants.MOUSE_BUTTON_LEFT
+			&& lastScrollbar.hasScroll
 			&& lastScrollbar.contains(event.x(), event.y()))
 		{
 			if(event.y() >= lastScrollbar.thumbY
@@ -126,7 +128,9 @@ public final class UiUtilsVerboseServerScanScreen extends Screen
 	public boolean mouseDragged(MouseButtonEvent event, double dragX,
 		double dragY)
 	{
-		if(draggingScrollbar && event.button() == 0 && lastScrollbar.hasScroll)
+		if(draggingScrollbar
+			&& event.button() == InputConstants.MOUSE_BUTTON_LEFT
+			&& lastScrollbar.hasScroll)
 		{
 			jumpScrollToMouse((int)Math.round(event.y()), scrollbarGrabOffset);
 			return true;
@@ -137,7 +141,8 @@ public final class UiUtilsVerboseServerScanScreen extends Screen
 	@Override
 	public boolean mouseReleased(MouseButtonEvent event)
 	{
-		if(event.button() == 0 && draggingScrollbar)
+		if(event.button() == InputConstants.MOUSE_BUTTON_LEFT
+			&& draggingScrollbar)
 		{
 			draggingScrollbar = false;
 			return true;

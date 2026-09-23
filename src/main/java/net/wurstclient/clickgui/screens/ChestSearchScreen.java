@@ -7,6 +7,7 @@
  */
 package net.wurstclient.clickgui.screens;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import java.util.ArrayList;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
@@ -1035,7 +1036,7 @@ public final class ChestSearchScreen extends Screen
 		double mouseX = context.x();
 		double mouseY = context.y();
 		int button = context.button();
-		if(button == 0)
+		if(button == InputConstants.MOUSE_BUTTON_LEFT)
 		{
 			for(ItemRowHitbox hitbox : itemRowHitboxes)
 			{
@@ -1061,7 +1062,7 @@ public final class ChestSearchScreen extends Screen
 				return true;
 			}
 		}
-		if(button == 0 && scrollMaxOffset > 0)
+		if(button == InputConstants.MOUSE_BUTTON_LEFT && scrollMaxOffset > 0)
 		{
 			if(isOverScrollbarThumb(mouseX, mouseY))
 			{
@@ -1096,7 +1097,8 @@ public final class ChestSearchScreen extends Screen
 	{
 		double mouseY = context.y();
 		int button = context.button();
-		if(draggingScrollbar && button == 0 && scrollMaxOffset > 0)
+		if(draggingScrollbar && button == InputConstants.MOUSE_BUTTON_LEFT
+			&& scrollMaxOffset > 0)
 		{
 			double trackRange =
 				(scrollTrackBottom - scrollTrackTop) - scrollThumbHeight;
@@ -1117,7 +1119,8 @@ public final class ChestSearchScreen extends Screen
 	@Override
 	public boolean mouseReleased(MouseButtonEvent context)
 	{
-		if(context.button() == 0 && draggingScrollbar)
+		if(context.button() == InputConstants.MOUSE_BUTTON_LEFT
+			&& draggingScrollbar)
 		{
 			draggingScrollbar = false;
 			return true;

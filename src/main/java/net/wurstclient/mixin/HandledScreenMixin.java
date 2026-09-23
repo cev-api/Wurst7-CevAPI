@@ -13,6 +13,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.input.MouseButtonEvent;
@@ -68,7 +69,7 @@ public abstract class HandledScreenMixin
 		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
 			return;
 		
-		if(context.button() == 2)
+		if(context.button() == InputConstants.MOUSE_BUTTON_MIDDLE)
 		{
 			QuickShulkerHack quickShulker =
 				WurstClient.INSTANCE.getHax().quickShulkerHack;
