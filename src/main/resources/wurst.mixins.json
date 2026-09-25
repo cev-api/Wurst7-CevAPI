@@ -8,6 +8,7 @@
   },
   "mixins": [],
   "client": [
+    "AbstractClientPlayerMixin",
     "AbstractBoatMixin",
     "AbstractSignEditScreenMixin",
     "AbstractHorseMixin",

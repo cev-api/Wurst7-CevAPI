@@ -38,6 +38,7 @@
   "description.wurst.hack.antispam": "Blocks chat spam by adding a counter to repeated messages.",
   "description.wurst.hack.antivoid": "Creates a client-side false floor at the configured void level and enables Flight to keep you above it.",
   "description.wurst.hack.antiwaterpush": "Prevents you from getting pushed by water.",
+  "description.wurst.hack.antifov": "Prevents potion effects from changing your field of view, so Slowness no longer zooms the camera in and Speed no longer zooms it out.",
   "description.wurst.hack.antiwobble": "Disables the wobble effect caused by nausea and portals.",
   "hack.wurst.clutchfall": "ClutchFall",
   "description.wurst.hack.clutchfall": "Automatically places a fall-clutch item from your inventory just before landing, using normal block placement.",

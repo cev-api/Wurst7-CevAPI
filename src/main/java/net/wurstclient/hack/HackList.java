@@ -79,6 +79,7 @@ public final class HackList implements UpdateListener
 	public final ClutchFallHack clutchFallHack = new ClutchFallHack();
 	public final AntiGeyserHack antiGeyserHack = new AntiGeyserHack();
 	public final AntiWaterPushHack antiWaterPushHack = new AntiWaterPushHack();
+	public final AntiFovHack antiFovHack = new AntiFovHack();
 	public final AntiWobbleHack antiWobbleHack = new AntiWobbleHack();
 	public final AntiProjectileHack antiProjectileHack =
 		new AntiProjectileHack();
