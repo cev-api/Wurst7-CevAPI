@@ -366,6 +366,8 @@ public final class HackList implements UpdateListener
 	public final VeinMinerHack veinMinerHack = new VeinMinerHack();
 	public final XRayHack xRayHack = new XRayHack();
 	public final WaypointsHack waypointsHack = new WaypointsHack();
+	public final LocatorTriangulationHack triangulatorHack =
+		new LocatorTriangulationHack();
 	public final ViewmodelHack viewmodelHack = new ViewmodelHack();
 	public final WebhookAlertHack webhookAlertHack = new WebhookAlertHack();
 	public final OppStatsHack oppStatsHack = new OppStatsHack();
