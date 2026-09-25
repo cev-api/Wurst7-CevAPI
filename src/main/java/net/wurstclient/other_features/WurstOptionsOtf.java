@@ -60,6 +60,11 @@ public final class WurstOptionsOtf extends OtherFeature
 			"Restores pre-26.3 movement packet behavior on older servers detected through ViaFabricPlus. Disable to retain 26.3 scheduling everywhere.",
 			true);
 	
+	private final CheckboxSetting ignoreRegistrySyncErrors =
+		new CheckboxSetting("Ignore registry sync errors",
+			"Lets you join servers that have modded registry entries your client doesn't have (like Xaero's Minimap mob effects), instead of being kicked by Fabric's registry sync check. Entries that can be spoofed are added locally, the rest are ignored. Only use this on servers you trust.",
+			false);
+	
 	private final CheckboxSetting titleScreenShadertoyBackground =
 		new CheckboxSetting("Shadertoy background",
 			"Render the animated Shadertoy-style background on the title screen.",
@@ -100,6 +105,7 @@ public final class WurstOptionsOtf extends OtherFeature
 		addSetting(showRandomProxyReconnect);
 		addSetting(rememberBansAndProxies);
 		addSetting(restorePacketSchedulingOnOlderServers);
+		addSetting(ignoreRegistrySyncErrors);
 		// Register tab-list settings before settings files are created.
 		addSetting(tabListPing);
 		addSetting(tabListHeads);
@@ -132,9 +138,19 @@ public final class WurstOptionsOtf extends OtherFeature
 		return restorePacketSchedulingOnOlderServers.isChecked();
 	}
 	
+	public boolean shouldIgnoreRegistrySyncErrors()
+	{
+		return ignoreRegistrySyncErrors.isChecked();
+	}
+	
 	public CheckboxSetting getRememberBansAndProxiesSetting()
 	{
 		return rememberBansAndProxies;
+	}
+	
+	public CheckboxSetting getIgnoreRegistrySyncErrorsSetting()
+	{
+		return ignoreRegistrySyncErrors;
 	}
 	
 	public boolean shouldShowTabListHeads()

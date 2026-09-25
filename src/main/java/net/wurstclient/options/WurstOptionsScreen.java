@@ -307,6 +307,9 @@ public final class WurstOptionsScreen extends Screen
 			wurst.getOtfs().noTelemetryOtf.getDisableTelemetrySetting();
 		CheckboxSetting rememberBansAndProxies =
 			wurst.getOtfs().wurstOptionsOtf.getRememberBansAndProxiesSetting();
+		CheckboxSetting ignoreRegistrySyncErrors =
+			wurst.getOtfs().wurstOptionsOtf
+				.getIgnoreRegistrySyncErrorsSetting();
 		CheckboxSetting disableSignatures =
 			wurst.getOtfs().noChatReportsOtf.getDisableSignaturesSetting();
 		CheckboxSetting unsafeChatToast =
@@ -355,6 +358,13 @@ public final class WurstOptionsScreen extends Screen
 				+ onOff(rememberBansAndProxies.isChecked()),
 			rememberBansAndProxies.getDescription(), b -> rememberBansAndProxies
 				.setChecked(!rememberBansAndProxies.isChecked()));
+		
+		addButton(column,
+			() -> "Ignore Registry Sync: "
+				+ onOff(ignoreRegistrySyncErrors.isChecked()),
+			ignoreRegistrySyncErrors.getDescription(),
+			b -> ignoreRegistrySyncErrors
+				.setChecked(!ignoreRegistrySyncErrors.isChecked()));
 		
 		addButton(column,
 			() -> "Disable Telemetry: " + onOff(disableTelemetry.isChecked()),
