@@ -16,6 +16,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.llamalad7.mixinextras.sugar.Local;
@@ -281,6 +282,17 @@ public abstract class ClientPacketListenerMixin
 		fields.put("dueRefresh", keyPair != null && keyPair.dueRefresh());
 		WurstClient.INSTANCE.getOtfs().packetToolsOtf
 			.logVerboseExternalEvent("AuthCallback", fields);
+	}
+	
+	@ModifyExpressionValue(
+		method = "handleExplosion(Lnet/minecraft/network/protocol/game/ClientboundExplodePacket;)V",
+		at = @At(value = "INVOKE",
+			target = "Lnet/minecraft/network/protocol/game/ClientboundExplodePacket;playerKnockback()Ljava/util/Optional;"))
+	private Optional<Vec3> onHandleExplosionPlayerKnockback(
+		Optional<Vec3> original)
+	{
+		return original.map(
+			WurstClient.INSTANCE.getHax().antiKnockbackHack::modifyKnockback);
 	}
 	
 	@Inject(
