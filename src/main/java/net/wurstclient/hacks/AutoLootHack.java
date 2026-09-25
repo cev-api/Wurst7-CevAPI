@@ -20,6 +20,7 @@ import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.ChestMenu;
 import net.minecraft.world.inventory.ContainerInput;
+import net.minecraft.world.inventory.PlayerEnderChestContainer;
 import net.minecraft.world.inventory.ShulkerBoxMenu;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.Item;
@@ -211,7 +212,7 @@ public final class AutoLootHack extends Hack
 		
 		if(inventoryTransfers.isChecked() && containers.isChecked()
 			&& MC.gui.screen() instanceof AbstractContainerScreen<?> screen
-			&& !(screen instanceof InventoryScreen)
+			&& !(screen instanceof InventoryScreen) && !isEnderChest(screen)
 			&& containerSlotCount(screen) > 0)
 		{
 			if(processContainer(screen))
@@ -263,22 +264,9 @@ public final class AutoLootHack extends Hack
 				return false;
 			if(isProtected(current))
 				return false;
-			ChatUtils.message("AutoLoot: found a better "
-				+ candidate.getHoverName().getString() + " (replacing "
-				+ current.getHoverName().getString() + ").");
-			throwInventorySlot(comparable);
-		}else if(MC.player.getInventory().getFreeSlot() < 0)
-		{
-			int junk = findJunkSlot();
-			if(junk < 0)
-				return false;
-			ChatUtils.message("AutoLoot: dropped "
-				+ MC.player.getInventory().getItem(junk).getHoverName()
-					.getString()
-				+ " to make room for " + candidate.getHoverName().getString()
-				+ ".");
-			throwInventorySlot(junk);
-		}
+		}else if(MC.player.getInventory().getFreeSlot() < 0
+			&& findJunkSlot() < 0)
+			return false;
 		
 		if(entity.distanceTo(MC.player) > 1.5)
 		{
@@ -288,6 +276,25 @@ public final class AutoLootHack extends Hack
 			driveToward(entity);
 			return true;
 		}
+		
+		if(comparable >= 0)
+		{
+			ItemStack current = MC.player.getInventory().getItem(comparable);
+			ChatUtils.message("AutoLoot: found a better "
+				+ candidate.getHoverName().getString() + " (replacing "
+				+ current.getHoverName().getString() + ").");
+			throwInventorySlot(comparable);
+		}else if(MC.player.getInventory().getFreeSlot() < 0)
+		{
+			int junk = findJunkSlot();
+			ChatUtils.message("AutoLoot: dropped "
+				+ MC.player.getInventory().getItem(junk).getHoverName()
+					.getString()
+				+ " to make room for " + candidate.getHoverName().getString()
+				+ ".");
+			throwInventorySlot(junk);
+		}
+		
 		if(pickupAttempted != entity)
 		{
 			pickupAttempted = entity;
@@ -412,12 +419,11 @@ public final class AutoLootHack extends Hack
 				+ ".");
 			int junkMenuSlot = inventoryMenuSlot(junk, containerSlots);
 			Slot junkSlot = screen.getMenu().slots.get(junkMenuSlot);
-			if(findEmptyContainerSlot(screen, containerSlots) >= 0)
-				screen.slotClicked(junkSlot, junkSlot.index, 0,
-					ContainerInput.QUICK_MOVE);
-			else
-				screen.slotClicked(junkSlot, junkSlot.index, 1,
-					ContainerInput.THROW);
+			// Junk is discarded, never moved into the loot container. This
+			// keeps
+			// the container untouched except for the loot AutoLoot selected.
+			screen.slotClicked(junkSlot, junkSlot.index, 1,
+				ContainerInput.THROW);
 			screen.slotClicked(slot, slot.index, 0, ContainerInput.QUICK_MOVE);
 			return true;
 		}
@@ -627,10 +633,20 @@ public final class AutoLootHack extends Hack
 	private int containerSlotCount(AbstractContainerScreen<?> screen)
 	{
 		if(screen.getMenu() instanceof ChestMenu chest)
+		{
+			if(chest.getContainer() instanceof PlayerEnderChestContainer)
+				return 0;
 			return chest.getRowCount() * 9;
+		}
 		if(screen.getMenu() instanceof ShulkerBoxMenu)
 			return 27;
 		return 0;
+	}
+	
+	private boolean isEnderChest(AbstractContainerScreen<?> screen)
+	{
+		return screen.getMenu() instanceof ChestMenu chest
+			&& chest.getContainer() instanceof PlayerEnderChestContainer;
 	}
 	
 	private int inventoryMenuSlot(int inventorySlot, int containerSlots)
@@ -639,12 +655,4 @@ public final class AutoLootHack extends Hack
 			+ (inventorySlot < 9 ? 27 + inventorySlot : inventorySlot - 9);
 	}
 	
-	private int findEmptyContainerSlot(AbstractContainerScreen<?> screen,
-		int containerSlots)
-	{
-		for(int i = 0; i < containerSlots; i++)
-			if(screen.getMenu().slots.get(i).getItem().isEmpty())
-				return i;
-		return -1;
-	}
 }

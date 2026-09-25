@@ -237,7 +237,13 @@ public final class FlightHack extends Hack implements UpdateListener,
 		player.getAbilities().flying = false;
 		
 		if(WURST.getHax().freecamHack.isMovingCamera())
+		{
+			// Freecam bypasses Flight's normal movement path, but the real
+			// player still needs Anti-Kick's periodic vertical nudge.
+			if(isAntiKickEnabled())
+				doAntiKick();
 			return;
+		}
 		
 		double vSpeed = getActualVerticalSpeed();
 		

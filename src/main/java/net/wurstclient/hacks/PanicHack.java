@@ -44,7 +44,7 @@ public final class PanicHack extends Hack
 	private final ButtonSetting restoreButton = new ButtonSetting(
 		"Restore saved hacks",
 		WText.literal(
-			"Re-enables the hacks that were active when Panic was triggered."),
+			"Turns Panic off and restores the hacks that were active when it was enabled."),
 		this::restoreSavedHacks);
 	
 	public PanicHack()
@@ -59,9 +59,12 @@ public final class PanicHack extends Hack
 	@Override
 	protected void onEnable()
 	{
-		int saved = snapshotHackStates();
+		// Hack#setEnabled already makes repeated enables a no-op. Keep the
+		// snapshot alive for the entire Panic-on period so it cannot be
+		// overwritten by another enable action.
+		int saved = savedHackStates.isEmpty() ? snapshotHackStates()
+			: countSavedEnabledHacks();
 		disableOtherHacks();
-		setEnabled(false);
 		
 		if(saved > 0)
 			ChatUtils
@@ -69,6 +72,12 @@ public final class PanicHack extends Hack
 					+ ". Use \"Restore saved hacks\" to re-enable them.");
 		else
 			ChatUtils.message("No other hacks were enabled.");
+	}
+	
+	private int countSavedEnabledHacks()
+	{
+		return (int)savedHackStates.values().stream()
+			.filter(Boolean::booleanValue).count();
 	}
 	
 	private int snapshotHackStates()
@@ -102,9 +111,28 @@ public final class PanicHack extends Hack
 	
 	public void restoreSavedHacks()
 	{
+		// The toggle is the authoritative restore action. This also makes the
+		// settings button and `.panic restore` behave exactly like switching
+		// Panic off.
+		if(isEnabled())
+		{
+			setEnabled(false);
+			return;
+		}
+		
+		restoreSnapshot();
+	}
+	
+	@Override
+	protected void onDisable()
+	{
+		restoreSnapshot();
+	}
+	
+	private void restoreSnapshot()
+	{
 		if(savedHackStates.isEmpty())
 		{
-			ChatUtils.error("There is no saved Panic state to restore.");
 			return;
 		}
 		
@@ -113,10 +141,19 @@ public final class PanicHack extends Hack
 		Set<String> blocked = new LinkedHashSet<>();
 		int enabledRestored = 0;
 		int disabledRestored = 0;
-		Map<String, Boolean> remainingStates = new LinkedHashMap<>();
+		int disabledDuringPanic = 0;
 		
-		for(Map.Entry<String, Boolean> entry : new LinkedHashMap<>(
-			savedHackStates).entrySet())
+		// Anything enabled while Panic was active is not part of the original
+		// snapshot and must disappear before the saved state is reapplied.
+		for(Hack hack : hax.getAllHax())
+			if(hack != this && hack.isEnabled())
+			{
+				hack.setEnabled(false);
+				if(!hack.isEnabled())
+					disabledDuringPanic++;
+			}
+		
+		for(Map.Entry<String, Boolean> entry : savedHackStates.entrySet())
 		{
 			String name = entry.getKey();
 			boolean targetEnabled = entry.getValue();
@@ -137,7 +174,6 @@ public final class PanicHack extends Hack
 				if(!hack.isEnabled())
 				{
 					blocked.add(name);
-					remainingStates.put(name, targetEnabled);
 					continue;
 				}
 				
@@ -152,7 +188,6 @@ public final class PanicHack extends Hack
 			if(hack.isEnabled())
 			{
 				blocked.add(name);
-				remainingStates.put(name, targetEnabled);
 				continue;
 			}
 			
@@ -160,16 +195,13 @@ public final class PanicHack extends Hack
 				disabledRestored++;
 		}
 		
-		savedHackStates.clear();
-		savedHackStates.putAll(remainingStates);
-		
-		if(enabledRestored > 0 || disabledRestored > 0)
+		if(enabledRestored > 0 || disabledRestored > 0
+			|| disabledDuringPanic > 0)
 		{
-			String message =
-				buildRestoreMessage(enabledRestored, disabledRestored);
+			String message = buildRestoreMessage(enabledRestored,
+				disabledRestored, disabledDuringPanic);
 			ChatUtils.message(message);
-			
-		}else if(savedHackStates.isEmpty())
+		}else
 			ChatUtils
 				.message("All hacks already matched the saved Panic state.");
 		
@@ -180,11 +212,13 @@ public final class PanicHack extends Hack
 		if(!blocked.isEmpty())
 			ChatUtils.warning("Still blocked: " + String.join(", ", blocked));
 		
+		savedHackStates.clear();
+		startupRestorePending = false;
 		persistSavedHacks();
 	}
 	
 	private String buildRestoreMessage(int enabledRestored,
-		int disabledRestored)
+		int disabledRestored, int disabledDuringPanic)
 	{
 		StringBuilder sb = new StringBuilder("Restored Panic state");
 		
@@ -201,6 +235,12 @@ public final class PanicHack extends Hack
 			sb.append(enabledRestored > 0 ? "" : ": ").append("disabled ")
 				.append(disabledRestored).append(" hack")
 				.append(disabledRestored == 1 ? "" : "s");
+		
+		if(disabledDuringPanic > 0)
+			sb.append(enabledRestored > 0 || disabledRestored > 0 ? ", " : ": ")
+				.append("removed ").append(disabledDuringPanic).append(" hack")
+				.append(disabledDuringPanic == 1 ? "" : "s")
+				.append(" enabled during Panic");
 		
 		return sb.append('.').toString();
 	}
