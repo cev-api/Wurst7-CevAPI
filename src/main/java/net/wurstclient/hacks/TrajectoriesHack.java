@@ -33,6 +33,7 @@ import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
+import net.wurstclient.WurstClient;
 import net.wurstclient.events.RenderListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.ColorSetting;
@@ -106,13 +107,13 @@ public final class TrajectoriesHack extends Hack implements RenderListener
 		// Find the hand with a throwable item
 		InteractionHand hand = InteractionHand.MAIN_HAND;
 		ItemStack stack = player.getMainHandItem();
-		if(!isThrowable(stack))
+		if(!isUsableThrowable(player, stack))
 		{
 			hand = InteractionHand.OFF_HAND;
 			stack = player.getOffhandItem();
 			
 			// If neither hand has a throwable item, return empty path
-			if(!isThrowable(stack))
+			if(!isUsableThrowable(player, stack))
 				return new Trajectory(path, type);
 		}
 		
@@ -132,6 +133,14 @@ public final class TrajectoriesHack extends Hack implements RenderListener
 		
 		// Calculate starting motion
 		Vec3 arrowMotion = getStartingMotion(yaw, pitch, throwPower);
+		if(item instanceof EnderpearlItem)
+		{
+			PearlLauncherHack pearlLauncher =
+				WurstClient.INSTANCE.getHax().pearlLauncherHack;
+			if(pearlLauncher != null && pearlLauncher.isEnabled())
+				arrowMotion = arrowMotion.add(
+					pearlLauncher.getEstimatedInheritedVelocity(player, hand));
+		}
 		
 		// Build the path
 		for(int i = 0; i < 1000; i++)
@@ -192,6 +201,15 @@ public final class TrajectoriesHack extends Hack implements RenderListener
 			|| item instanceof EnderpearlItem
 			|| item instanceof ThrowablePotionItem
 			|| item instanceof FishingRodItem || item instanceof TridentItem;
+	}
+	
+	private boolean isUsableThrowable(LocalPlayer player, ItemStack stack)
+	{
+		if(!isThrowable(stack))
+			return false;
+		
+		return !(stack.getItem() instanceof EnderpearlItem)
+			|| !player.getCooldowns().isOnCooldown(stack);
 	}
 	
 	private double getThrowPower(Item item)

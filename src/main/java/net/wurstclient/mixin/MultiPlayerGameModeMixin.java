@@ -43,6 +43,7 @@ import net.wurstclient.events.StopUsingItemListener.StopUsingItemEvent;
 import net.wurstclient.hacks.AntiDropHack;
 import net.wurstclient.hacks.DuraSwapHack;
 import net.wurstclient.hacks.MaceDmgHack;
+import net.wurstclient.hacks.PearlLauncherHack;
 import net.wurstclient.hacks.SilkOnlyHack;
 import net.wurstclient.mixinterface.IMultiPlayerGameMode;
 
@@ -309,8 +310,28 @@ public abstract class MultiPlayerGameModeMixin implements IMultiPlayerGameMode
 	{
 		BlockHitResult hitResult = new BlockHitResult(hitVec, side, pos, false);
 		InteractionHand hand = InteractionHand.MAIN_HAND;
-		useItemOn(minecraft.player, hand, hitResult);
+		InteractionResult result = useItemOn(minecraft.player, hand, hitResult);
+		if(result instanceof InteractionResult.Success
+			|| result instanceof InteractionResult.Fail)
+			return;
+		
 		useItem(minecraft.player, hand);
+	}
+	
+	@Inject(
+		method = "useItem(Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/InteractionHand;)Lnet/minecraft/world/InteractionResult;",
+		at = @At("HEAD"))
+	private void wurst$pearlLauncher_useItem(Player player,
+		InteractionHand hand, CallbackInfoReturnable<InteractionResult> cir)
+	{
+		if(!(player instanceof LocalPlayer localPlayer)
+			|| !WurstClient.INSTANCE.isEnabled())
+			return;
+		
+		PearlLauncherHack pearlLauncher =
+			WurstClient.INSTANCE.getHax().pearlLauncherHack;
+		if(pearlLauncher != null && pearlLauncher.isEnabled())
+			pearlLauncher.preparePearlUse(localPlayer, hand);
 	}
 	
 	@Override
