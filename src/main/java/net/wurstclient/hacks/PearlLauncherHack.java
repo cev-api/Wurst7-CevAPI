@@ -137,8 +137,8 @@ public final class PearlLauncherHack extends Hack implements GUIRenderListener
 		drawHudLine(context, font, rangeHudText, centerX, y, 0xFFFFFFFF);
 	}
 	
-	private void drawHudLine(GuiGraphics context, Font font,
-		String text, int centerX, int y, int color)
+	private void drawHudLine(GuiGraphics context, Font font, String text,
+		int centerX, int y, int color)
 	{
 		int width = font.width(text);
 		context.fill(centerX - width / 2 - 3, y - 2, centerX + width / 2 + 3,
