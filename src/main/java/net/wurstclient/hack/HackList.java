@@ -247,6 +247,7 @@ public final class HackList implements UpdateListener
 	public final BedrockStashHack bedrockStashHack = new BedrockStashHack();
 	public final StasisDetectorHack stasisDetectorHack =
 		new StasisDetectorHack();
+	public final TelemetricsHack telemetricsHack = new TelemetricsHack();
 	public final TeleportHack teleportHack = new TeleportHack();
 	public final MileyCyrusHack mileyCyrusHack = new MileyCyrusHack();
 	public final MeasurementEspHack measurementEspHack =
