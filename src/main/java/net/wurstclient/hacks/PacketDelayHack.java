@@ -89,6 +89,17 @@ public final class PacketDelayHack extends Hack implements UpdateListener,
 		flushQueues(true);
 	}
 	
+	/**
+	 * Disables packet delay when the server connection is gone. Queued packets
+	 * must be discarded here instead of flushed into a closed connection.
+	 */
+	public void onDisconnected()
+	{
+		s2cQueue.clear();
+		c2sQueue.clear();
+		setEnabled(false);
+	}
+	
 	@Override
 	public void onUpdate()
 	{

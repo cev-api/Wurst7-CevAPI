@@ -579,6 +579,19 @@ public final class PacketToolsOtf extends OtherFeature
 		return delayEnabled;
 	}
 	
+	/**
+	 * Turns off packet delay and drops packets that were waiting for release
+	 * when the server connection ends.
+	 */
+	public void onDisconnected()
+	{
+		delayEnabled.setChecked(false);
+		lastDelayEnabledState = false;
+		delayedIncoming.clear();
+		delayedOutgoing.clear();
+		bypassOutput.clear();
+	}
+	
 	public CheckboxSetting getFileOutputSetting()
 	{
 		return fileOutput;

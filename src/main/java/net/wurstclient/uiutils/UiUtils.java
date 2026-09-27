@@ -209,6 +209,15 @@ public final class UiUtils
 		return count;
 	}
 	
+	/**
+	 * Disables UI packet delay and drops packets queued for the old server.
+	 */
+	public static void onDisconnected()
+	{
+		UiUtilsState.delayUiPackets = false;
+		UiUtilsState.delayedUiPackets.clear();
+	}
+	
 	private static void refreshQueueCounterButtons()
 	{
 		String text = "Queue: " + UiUtilsState.delayedUiPackets.size();

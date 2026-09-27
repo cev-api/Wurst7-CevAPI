@@ -314,6 +314,8 @@ public class DisconnectedScreenMixin extends Screen
 				
 				System.out.println(
 					"Reconnect Random Alt Selected: " + alt.getDisplayName());
+				if(parent instanceof net.wurstclient.mixinterface.IMultiplayerTitleRefresher refresher)
+					refresher.wurst$refreshAccountTitle();
 				LastServerRememberer.reconnect(parent);
 			});
 		}, "Wurst Random Alt Reconnect");

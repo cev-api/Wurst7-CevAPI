@@ -15,6 +15,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import net.minecraft.client.multiplayer.ClientCommonPacketListenerImpl;
 import net.wurstclient.WurstClient;
 import net.wurstclient.hacks.OfflineSettingsHack;
+import net.wurstclient.uiutils.UiUtils;
 import net.minecraft.network.DisconnectionDetails;
 
 @Mixin(value = ClientCommonPacketListenerImpl.class, remap = false)
@@ -26,6 +27,10 @@ public abstract class OfflineSettingsNetworkMixin
 	private void wurst$handleDisconnect(DisconnectionDetails details,
 		CallbackInfo ci)
 	{
+		WurstClient.INSTANCE.getHax().packetDelayHack.onDisconnected();
+		WurstClient.INSTANCE.getOtfs().packetToolsOtf.onDisconnected();
+		UiUtils.onDisconnected();
+		
 		WurstClient.INSTANCE.getHax().kickForensicsHack
 			.onDisconnected(details.reason());
 		WurstClient.INSTANCE.getHax().webhookAlertHack
