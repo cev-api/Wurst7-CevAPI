@@ -12,8 +12,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundTrackedWaypointPacket;
@@ -59,7 +61,9 @@ public final class LocatorTriangulationHack extends Hack
 	{}
 	
 	private final Map<UUID, Waypoint> waypoints = new HashMap<>();
-	private final Map<UUID, List<LocatorObservation>> history = new HashMap<>();
+	private final List<LocatorObservation> samples = new ArrayList<>();
+	private final ConcurrentLinkedQueue<UUID> lostWaypoints =
+		new ConcurrentLinkedQueue<>();
 	private final SliderSetting acquisitionAngle = new SliderSetting(
 		"Acquisition angle", 7, 1, 30, 1, ValueDisplay.INTEGER.withSuffix("°"));
 	private final SliderSetting holdTime = new SliderSetting("Look hold time",
@@ -85,6 +89,7 @@ public final class LocatorTriangulationHack extends Hack
 	private UUID hovered;
 	private int hoveredColor = 0xFFFFFFFF;
 	private String dimension;
+	private ClientLevel level;
 	private State state = State.SEARCHING;
 	private UUID candidate;
 	private long candidateSince;
@@ -123,6 +128,8 @@ public final class LocatorTriangulationHack extends Hack
 	protected void onEnable()
 	{
 		waypoints.clear();
+		lostWaypoints.clear();
+		resetSession();
 		EVENTS.add(PacketInputListener.class, this);
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(GUIRenderListener.class, this);
@@ -135,10 +142,21 @@ public final class LocatorTriangulationHack extends Hack
 		EVENTS.remove(UpdateListener.class, this);
 		EVENTS.remove(GUIRenderListener.class, this);
 		waypoints.clear();
+		lostWaypoints.clear();
+		level = null;
+		resetSession();
+	}
+	
+	private void resetSession()
+	{
 		target = candidate = null;
+		hovered = null;
+		samples.clear();
+		result = null;
 		lostSince = 0;
 		resultSince = 0;
 		state = State.SEARCHING;
+		message = "LOCATOR | POINT AT THE LOCATOR DOT";
 	}
 	
 	@Override
@@ -151,50 +169,43 @@ public final class LocatorTriangulationHack extends Hack
 		UUID id = w.id().left().orElse(null);
 		if(id == null)
 			return;
-		if(!(w instanceof TrackedWaypointAzimuthAccessor azimuth))
-		{
-			waypoints.remove(id);
-			if(id.equals(target))
-			{
-				markTargetLost();
-			}
-			return;
-		}
-		waypoints.put(id, new Waypoint(id, azimuth.wurst$getAngle(),
-			waypointColor(w, id), System.currentTimeMillis()));
+		// Packet events run on the network thread; invalidate on the next tick.
+		if(!(w instanceof TrackedWaypointAzimuthAccessor))
+			lostWaypoints.add(id);
 	}
 	
 	@Override
 	public void onUpdate()
 	{
 		if(MC.player == null || MC.level == null || MC.getConnection() == null)
-			return;
-		refreshVanillaWaypoints();
-		String currentDimension = MC.level.dimension().identifier().toString();
-		if(dimension != null && !dimension.equals(currentDimension)
-			&& target != null)
 		{
-			state = State.SEARCHING;
-			target = null;
-			result = null;
-			ChatUtils
-				.message("[Locator] TARGET SESSION RESET - DIMENSION CHANGED");
+			waypoints.clear();
+			lostWaypoints.clear();
+			level = null;
+			resetSession();
+			return;
+		}
+		String currentDimension = MC.level.dimension().identifier().toString();
+		if(level != MC.level)
+		{
+			if(target != null)
+				ChatUtils
+					.message("[Locator] TARGET SESSION RESET - WORLD CHANGED");
+			resetSession();
+			level = MC.level;
 		}
 		dimension = currentDimension;
-		if(state == State.RESULT && result != null
+		refreshVanillaWaypoints();
+		UUID lost;
+		while((lost = lostWaypoints.poll()) != null)
+			if(lost.equals(target))
+				markTargetLost();
+		if(state == State.RESULT
 			&& System.currentTimeMillis() - resultSince >= 5000)
-		{
-			target = candidate = null;
-			result = null;
-			resultSince = 0;
-			state = State.SEARCHING;
-			message = "LOCATOR | POINT AT THE LOCATOR DOT";
-		}
+			resetSession();
 		if(namesOnly.isChecked())
 		{
-			target = candidate = null;
-			result = null;
-			state = State.SEARCHING;
+			resetSession();
 			hovered = findBestWaypoint();
 			message = null;
 			return;
@@ -206,19 +217,15 @@ public final class LocatorTriangulationHack extends Hack
 		if(wp == null || System.currentTimeMillis() - wp.updatedAt() > 10000)
 		{
 			if(state != State.LOST)
-			{
-				lostSince = System.currentTimeMillis();
-				state = State.LOST;
-				message = name(target) + " | TARGET LOST";
-			}else if(System.currentTimeMillis() - lostSince >= 3000)
-			{
-				target = candidate = null;
-				result = null;
-				lostSince = 0;
-				state = State.SEARCHING;
-				message = "LOCATOR | POINT AT THE LOCATOR DOT";
-			}
+				markTargetLost();
+			else if(System.currentTimeMillis() - lostSince >= 3000)
+				resetSession();
 			return;
+		}
+		if(state == State.LOST)
+		{
+			requestedBaseline = initialBaseline.getValue();
+			state = State.LOCKED;
 		}
 		lostSince = 0;
 		targetYaw = wp.yawRadians();
@@ -252,6 +259,9 @@ public final class LocatorTriangulationHack extends Hack
 	
 	private void markTargetLost()
 	{
+		samples.clear();
+		result = null;
+		resultSince = 0;
 		if(state != State.LOST)
 			lostSince = System.currentTimeMillis();
 		state = State.LOST;
@@ -311,8 +321,12 @@ public final class LocatorTriangulationHack extends Hack
 		{
 			target = best;
 			candidate = null;
+			// A new pass must never reuse bearings from before a move or
+			// respawn.
+			samples.clear();
 			result = null;
 			resultSince = 0;
+			lostSince = 0;
 			requestedBaseline = initialBaseline.getValue();
 			state = State.LOCKED;
 			message = name(target) + " | ACQUIRED";
@@ -356,16 +370,20 @@ public final class LocatorTriangulationHack extends Hack
 	
 	private void beginBaseline()
 	{
+		samples.clear();
+		result = null;
 		startX = MC.player.getX();
 		startZ = MC.player.getZ();
 		lastSampleX = startX;
 		lastSampleZ = startZ;
-		lastSampleAt = 0;
+		lastSampleAt = System.currentTimeMillis();
 		Waypoint wp = waypoints.get(target);
 		if(wp != null)
-			history.computeIfAbsent(target, k -> new ArrayList<>())
-				.add(new LocatorObservation(target, startX, startZ,
-					System.currentTimeMillis(), wp.yawRadians(), dimension));
+		{
+			lastSampleYaw = wp.yawRadians();
+			samples.add(new LocatorObservation(target, startX, startZ,
+				lastSampleAt, lastSampleYaw, dimension));
+		}
 		state = State.MOVING;
 		message = name(target) + " | MOVE FORWARD | " + (int)requestedBaseline
 			+ " BLOCKS";
@@ -388,16 +406,14 @@ public final class LocatorTriangulationHack extends Hack
 			|| angleDegrees(lastSampleYaw, wp.yawRadians()) >= 0.15)
 			&& System.currentTimeMillis() - lastSampleAt >= 250)
 		{
-			history.computeIfAbsent(target, k -> new ArrayList<>())
-				.add(new LocatorObservation(target, x, z,
-					System.currentTimeMillis(), wp.yawRadians(), dimension));
+			samples.add(new LocatorObservation(target, x, z,
+				System.currentTimeMillis(), wp.yawRadians(), dimension));
 			lastSampleX = x;
 			lastSampleZ = z;
 			lastSampleYaw = wp.yawRadians();
 			lastSampleAt = System.currentTimeMillis();
 		}
-		result =
-			LocatorTriangulator.fit(history.getOrDefault(target, List.of()));
+		result = LocatorTriangulator.fit(samples);
 		double directionX = -Math.sin(baselineYaw);
 		double directionZ = Math.cos(baselineYaw);
 		double deltaX = x - startX;
@@ -436,6 +452,7 @@ public final class LocatorTriangulationHack extends Hack
 	private void finish()
 	{
 		state = State.CALCULATING;
+		resultSince = System.currentTimeMillis();
 		if(result == null)
 		{
 			message = name(target) + " | NOT ENOUGH PARALLAX";
@@ -450,21 +467,17 @@ public final class LocatorTriangulationHack extends Hack
 						+ " blocks of baseline movement."));
 				ChatUtils
 					.component(Component.literal("[Locator] Keep the target "
-						+ "moving or run another refinement pass."));
+						+ "stationary and try another pass."));
 			}
 			state = State.RESULT;
 			return;
 		}
 		state = State.RESULT;
-		resultSince = System.currentTimeMillis();
 		message = name(target) + " | ~X " + compact(result.x()) + " Z "
 			+ compact(result.z()) + " | ±" + compact(result.uncertainty());
 		if(chatResults.isChecked())
 		{
-			String refined = history.getOrDefault(target, List.of())
-				.size() > result.sampleCount() ? "Refined " : "";
-			ChatUtils
-				.message(refined + name(target) + " approximate position:");
+			ChatUtils.message(name(target) + " approximate position:");
 			ChatUtils.message(
 				"X " + compact(result.x()) + "  Z " + compact(result.z()));
 			ChatUtils.message(
@@ -510,8 +523,6 @@ public final class LocatorTriangulationHack extends Hack
 		}
 		if(debug.isChecked())
 		{
-			List<LocatorObservation> samples = target == null ? List.of()
-				: history.getOrDefault(target, List.of());
 			String fit = result == null ? "none" : "±"
 				+ compact(result.uncertainty()) + " " + result.confidence();
 			String debugText =
