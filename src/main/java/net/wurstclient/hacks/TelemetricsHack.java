@@ -7,17 +7,22 @@
  */
 package net.wurstclient.hacks;
 
+import java.util.ArrayDeque;
 import java.util.Locale;
 
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.network.protocol.game.ClientboundLoginPacket;
 import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
 import net.minecraft.network.protocol.game.ClientboundRespawnPacket;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.world.entity.Relative;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.PacketInputListener;
 import net.wurstclient.events.PacketInputListener.PacketInputEvent;
+import net.wurstclient.events.PacketOutputListener;
+import net.wurstclient.events.PacketOutputListener.PacketOutputEvent;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.util.ChatUtils;
@@ -27,9 +32,12 @@ import net.wurstclient.util.ChatUtils;
  */
 @SearchTags({"telemetrics", "teleport metrics", "teleport logger"})
 public final class TelemetricsHack extends Hack
-	implements PacketInputListener, UpdateListener
+	implements PacketInputListener, PacketOutputListener, UpdateListener
 {
 	private static final int RESPAWN_WAIT_TICKS = 5;
+	private static final long JOIN_POSITION_GRACE_MS = 3000L;
+	private static final long OUTGOING_POSITION_HISTORY_MS = 3000L;
+	private static final double OUTGOING_POSITION_MATCH_EPSILON = 1.0E-4;
 	
 	private Vec3 pendingRespawnStart;
 	private String pendingRespawnOriginDimension;
@@ -38,6 +46,9 @@ public final class TelemetricsHack extends Hack
 	private ClientboundPlayerPositionPacket pendingRespawnPosition;
 	private Vec3 pendingRespawnPositionBase;
 	private int pendingRespawnTicks;
+	private long ignorePositionPacketsUntilMs;
+	private final ArrayDeque<OutgoingPosition> outgoingPositions =
+		new ArrayDeque<>();
 	
 	public TelemetricsHack()
 	{
@@ -49,7 +60,10 @@ public final class TelemetricsHack extends Hack
 	protected synchronized void onEnable()
 	{
 		clearPendingRespawn();
+		ignorePositionPacketsUntilMs = 0;
+		outgoingPositions.clear();
 		EVENTS.add(PacketInputListener.class, this);
+		EVENTS.add(PacketOutputListener.class, this);
 		EVENTS.add(UpdateListener.class, this);
 	}
 	
@@ -57,13 +71,27 @@ public final class TelemetricsHack extends Hack
 	protected synchronized void onDisable()
 	{
 		EVENTS.remove(PacketInputListener.class, this);
+		EVENTS.remove(PacketOutputListener.class, this);
 		EVENTS.remove(UpdateListener.class, this);
 		clearPendingRespawn();
+		ignorePositionPacketsUntilMs = 0;
+		outgoingPositions.clear();
 	}
 	
 	@Override
 	public synchronized void onReceivedPacket(PacketInputEvent event)
 	{
+		if(event.getPacket() instanceof ClientboundLoginPacket)
+		{
+			// The first position packet after login initializes the local
+			// player;
+			// it is not a teleport performed after joining the server.
+			ignorePositionPacketsUntilMs =
+				System.currentTimeMillis() + JOIN_POSITION_GRACE_MS;
+			outgoingPositions.clear();
+			return;
+		}
+		
 		if(event.getPacket() instanceof ClientboundRespawnPacket packet)
 		{
 			rememberRespawn(packet);
@@ -78,6 +106,9 @@ public final class TelemetricsHack extends Hack
 		if(player == null || MC.level == null)
 			return;
 		
+		if(System.currentTimeMillis() < ignorePositionPacketsUntilMs)
+			return;
+		
 		if(pendingRespawnStart != null)
 		{
 			pendingRespawnPosition = packet;
@@ -86,10 +117,33 @@ public final class TelemetricsHack extends Hack
 			return;
 		}
 		
+		// A server correction reuses a position that the client already sent.
+		// It is movement reconciliation, not a teleport to a new destination.
+		if(isServerMovementCorrection(packet, player))
+			return;
+		
 		Vec3 start = player.position();
 		Vec3 destination = resolveDestination(packet, start);
 		announce(start, destination, dimensionKey(MC.level),
 			dimensionKey(MC.level));
+	}
+	
+	@Override
+	public synchronized void onSentPacket(PacketOutputEvent event)
+	{
+		if(!(event.getPacket() instanceof ServerboundMovePlayerPacket packet)
+			|| !packet.hasPosition())
+			return;
+		
+		double x = packet.getX(Double.NaN);
+		double y = packet.getY(Double.NaN);
+		double z = packet.getZ(Double.NaN);
+		if(Double.isNaN(x) || Double.isNaN(y) || Double.isNaN(z))
+			return;
+		
+		long now = System.currentTimeMillis();
+		purgeOutgoingPositions(now);
+		outgoingPositions.addLast(new OutgoingPosition(new Vec3(x, y, z), now));
 	}
 	
 	@Override
@@ -186,4 +240,29 @@ public final class TelemetricsHack extends Hack
 		pendingRespawnPositionBase = null;
 		pendingRespawnTicks = 0;
 	}
+	
+	private boolean isServerMovementCorrection(
+		ClientboundPlayerPositionPacket packet, LocalPlayer player)
+	{
+		long now = System.currentTimeMillis();
+		purgeOutgoingPositions(now);
+		
+		Vec3 destination = resolveDestination(packet, player.position());
+		double epsilonSquared =
+			OUTGOING_POSITION_MATCH_EPSILON * OUTGOING_POSITION_MATCH_EPSILON;
+		for(OutgoingPosition outgoing : outgoingPositions)
+			if(outgoing.position().distanceToSqr(destination) <= epsilonSquared)
+				return true;
+		return false;
+	}
+	
+	private void purgeOutgoingPositions(long now)
+	{
+		while(!outgoingPositions.isEmpty() && now - outgoingPositions
+			.peekFirst().timestamp() > OUTGOING_POSITION_HISTORY_MS)
+			outgoingPositions.removeFirst();
+	}
+	
+	private record OutgoingPosition(Vec3 position, long timestamp)
+	{}
 }
