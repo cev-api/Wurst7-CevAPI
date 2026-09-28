@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.stream.IntStream;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import net.minecraft.core.BlockPos;
@@ -165,16 +166,22 @@ public final class SpeedNukerHack extends Hack implements UpdateListener
 		int blockRange = range.getValueCeil();
 		
 		Stream<BlockPos> stream;
-		if(commonSettings.isTunnelMode())
+		boolean directional = commonSettings.isDirectionalMode();
+		float pitch = MC.player.getXRot();
+		if(commonSettings.isTunnelMode() || directional && Math.abs(pitch) < 15)
 		{
 			Direction direction = MC.player.getDirection();
 			BlockPos start =
 				BlockPos.containing(MC.player.position()).relative(direction);
 			BlockPos end = start.relative(direction, blockRange - 1).above();
 			stream = BlockUtils.getAllInBoxStream(start, end);
-		}else if(commonSettings.isHoleMode())
+		}else if(commonSettings.isHoleMode()
+			|| directional && Math.abs(pitch) > 75)
 		{
 			stream = getHoleStream(blockRange);
+		}else if(directional)
+		{
+			stream = getViewRayStream(eyesVec, range.getValue());
 		}else
 		{
 			stream = BlockUtils.getAllInBoxStream(eyesBlock, blockRange);
@@ -240,6 +247,16 @@ public final class SpeedNukerHack extends Hack implements UpdateListener
 		}
 		
 		return Stream.empty();
+	}
+	
+	private Stream<BlockPos> getViewRayStream(Vec3 eyesVec, double distance)
+	{
+		Vec3 direction = MC.player.getViewVector(1.0F);
+		int steps = (int)Math.ceil(distance * 5);
+		return IntStream.rangeClosed(1, steps)
+			.mapToObj(i -> BlockPos.containing(
+				eyesVec.add(direction.scale(Math.min(distance, i * 0.2)))))
+			.distinct();
 	}
 	
 	private boolean preparePreservedTool(ArrayList<BlockPos> blocks)

@@ -10,8 +10,10 @@ package net.wurstclient.hacks;
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.BiPredicate;
 import java.util.stream.Stream;
@@ -37,6 +39,7 @@ import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.settings.EspStyleSetting;
 import net.wurstclient.settings.EnumSetting;
 import net.wurstclient.settings.SliderSetting;
+import net.wurstclient.util.BlockUtils;
 import net.wurstclient.util.EspLimitUtils;
 import net.wurstclient.util.RenderUtils;
 import net.wurstclient.util.RotationUtils;
@@ -52,6 +55,10 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 		new CheckboxSetting("Sticky area",
 			"Off: Re-centers every chunk to match ESP drop-off.\n"
 				+ "On: Keeps results anchored so you can path back to them.",
+			false);
+	private final CheckboxSetting ignoreAncientCitiesAndJungleTemples =
+		new CheckboxSetting("Ignore ancient cities and jungle temples",
+			"Detects ancient cities by reinforced deepslate or lots of sculk, and jungle temples by lots of mossy cobblestone.",
 			false);
 	private final ChunkAreaSetting area = new ChunkAreaSetting("Area",
 		"The area around the player to search in.\n"
@@ -235,6 +242,9 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 			"Only draw the closest RedstoneESP tracer.", false);
 	private ActiveMode lastActiveMode;
 	private final Set<Long> activeRenderPositions = new HashSet<>();
+	private final Map<Long, Boolean> ancientCityCellCache = new HashMap<>();
+	private String ancientCityCacheDimension;
+	private boolean lastIgnoreAncientCities;
 	
 	public RedstoneEspHack()
 	{
@@ -251,6 +261,7 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 		addSetting(nearestTracerOnly);
 		addSetting(area);
 		addSetting(stickyArea);
+		addSetting(ignoreAncientCitiesAndJungleTemples);
 		renderGroups.stream().flatMap(RenderGroup::getSettings)
 			.forEach(this::addSetting);
 		
@@ -278,6 +289,11 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 		lastMatchesVersion = coordinator.getMatchesVersion();
 		lastActiveMode = activeMode.getSelected();
 		activeRenderPositions.clear();
+		ancientCityCellCache.clear();
+		ancientCityCacheDimension =
+			MC.level.dimension().identifier().toString();
+		lastIgnoreAncientCities =
+			ignoreAncientCitiesAndJungleTemples.isChecked();
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(CameraTransformViewBobbingListener.class, this);
 		EVENTS.add(RenderListener.class, this);
@@ -297,12 +313,31 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 		lastMatchesVersion = coordinator.getMatchesVersion();
 		renderGroups.forEach(RenderGroup::clear);
 		activeRenderPositions.clear();
+		ancientCityCellCache.clear();
 		foundCount = 0;
 	}
 	
 	@Override
 	public void onUpdate()
 	{
+		if(ignoreAncientCitiesAndJungleTemples
+			.isChecked() != lastIgnoreAncientCities)
+		{
+			lastIgnoreAncientCities =
+				ignoreAncientCitiesAndJungleTemples.isChecked();
+			groupsUpToDate = false;
+		}
+		String dimension = MC.level.dimension().identifier().toString();
+		if(!dimension.equals(ancientCityCacheDimension))
+		{
+			ancientCityCacheDimension = dimension;
+			ancientCityCellCache.clear();
+		}
+		if(!ignoreAncientCitiesAndJungleTemples.isChecked())
+			ancientCityCellCache.clear();
+		else if(ancientCityCellCache.size() > 4096)
+			ancientCityCellCache.clear();
+		
 		ChunkAreaSetting.ChunkArea currentArea = area.getSelected();
 		if(currentArea != lastAreaSelection)
 		{
@@ -523,6 +558,9 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 		
 		if(onlyAboveGround.isChecked() && pos.getY() < aboveGroundY.getValue())
 			return false;
+		if(ignoreAncientCitiesAndJungleTemples.isChecked()
+			&& isNearAncientCity(pos))
+			return false;
 		
 		boolean active = isActiveState(pos, state);
 		if(activeMode.getSelected() == ActiveMode.ONLY_ACTIVE && !active)
@@ -554,6 +592,9 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 			return;
 		if(onlyAboveGround.isChecked() && pos.getY() < aboveGroundY.getValue())
 			return;
+		if(ignoreAncientCitiesAndJungleTemples.isChecked()
+			&& isNearAncientCity(pos))
+			return;
 		boolean active = isActiveState(pos, state);
 		if(activeMode.getSelected() == ActiveMode.ONLY_ACTIVE && !active)
 			return;
@@ -571,6 +612,43 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 				group.add(pos);
 				break;
 			}
+	}
+	
+	private boolean isNearAncientCity(BlockPos pos)
+	{
+		int cellX = Math.floorDiv(pos.getX(), 4);
+		int cellY = Math.floorDiv(pos.getY(), 4);
+		int cellZ = Math.floorDiv(pos.getZ(), 4);
+		long key = BlockPos.asLong(cellX, cellY, cellZ);
+		Boolean cached = ancientCityCellCache.get(key);
+		if(cached != null)
+			return cached;
+		
+		BlockPos center =
+			new BlockPos(cellX * 4 + 2, cellY * 4 + 2, cellZ * 4 + 2);
+		Vec3 centerVec = Vec3.atCenterOf(center);
+		int[] structureBlocks = new int[2];
+		boolean found = BlockUtils
+			.getAllInBoxStream(center, 24).filter(candidate -> Vec3
+				.atCenterOf(candidate).distanceToSqr(centerVec) <= 576)
+			.anyMatch(candidate -> {
+				if(!MC.level.hasChunkAt(candidate))
+					return false;
+				Block block = MC.level.getBlockState(candidate).getBlock();
+				if(block == Blocks.REINFORCED_DEEPSLATE)
+					return true;
+				if(block == Blocks.SCULK || block == Blocks.SCULK_VEIN
+					|| block == Blocks.SCULK_SENSOR
+					|| block == Blocks.CALIBRATED_SCULK_SENSOR
+					|| block == Blocks.SCULK_SHRIEKER
+					|| block == Blocks.SCULK_CATALYST)
+					return ++structureBlocks[0] >= 24;
+				if(block == Blocks.MOSSY_COBBLESTONE)
+					return ++structureBlocks[1] >= 24;
+				return false;
+			});
+		ancientCityCellCache.put(key, found);
+		return found;
 	}
 	
 	private boolean isActiveState(BlockPos pos, BlockState state)

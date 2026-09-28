@@ -10,12 +10,19 @@ package net.wurstclient.hacks;
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.BiPredicate;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.animal.golem.IronGolem;
+import net.minecraft.world.entity.npc.villager.Villager;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.DoorBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -48,6 +55,10 @@ public final class WorkstationEspHack extends Hack implements UpdateListener,
 			"Off: Re-centers every chunk to match ESP drop-off.\n"
 				+ "On: Keeps results anchored so you can path back to them.",
 			false);
+	private final CheckboxSetting ignoreVillages = new CheckboxSetting(
+		"Ignore villages",
+		"Hides workstations that appear to belong to villages, using nearby doors, hay bales, glass panes, villagers, and iron golems.",
+		false);
 	private final ChunkAreaSetting area = new ChunkAreaSetting("Area",
 		"The area around the player to search in.\n"
 			+ "Higher values require a faster computer.");
@@ -186,6 +197,13 @@ public final class WorkstationEspHack extends Hack implements UpdateListener,
 	private ChunkPos lastPlayerChunk;
 	private int foundCount;
 	private int lastMatchesVersion;
+	private List<Vec3> cachedVillagerPositions = List.of();
+	private List<Vec3> cachedGolemPositions = List.of();
+	private final Map<Long, Boolean> villageFilterCache = new HashMap<>();
+	private long lastVillageCacheRefreshMs;
+	private BlockPos lastVillageCacheAnchor;
+	private String lastVillageCacheDimension;
+	private boolean lastVillageFilterEnabled;
 	private final CheckboxSetting showCountInHackList = new CheckboxSetting(
 		"HackList count",
 		"Appends the number of found workstation blocks to this hack's entry in the HackList.",
@@ -218,6 +236,7 @@ public final class WorkstationEspHack extends Hack implements UpdateListener,
 		addSetting(fixedColor);
 		addSetting(area);
 		addSetting(stickyArea);
+		addSetting(ignoreVillages);
 		addSetting(tracerFlash);
 		addSetting(nearestTracerOnly);
 		groups.stream().flatMap(PortalEspBlockGroup::getSettings)
@@ -262,12 +281,21 @@ public final class WorkstationEspHack extends Hack implements UpdateListener,
 		coordinator.reset();
 		lastMatchesVersion = coordinator.getMatchesVersion();
 		groups.forEach(PortalEspBlockGroup::clear);
+		villageFilterCache.clear();
+		cachedVillagerPositions = List.of();
+		cachedGolemPositions = List.of();
+		lastVillageFilterEnabled = false;
+		lastVillageCacheAnchor = null;
+		lastVillageCacheDimension = null;
 		foundCount = 0;
 	}
 	
 	@Override
 	public void onUpdate()
 	{
+		if(ignoreVillages.isChecked() != lastVillageFilterEnabled)
+			groupsUpToDate = false;
+		refreshVillageCache();
 		ChunkAreaSetting.ChunkArea currentArea = area.getSelected();
 		if(currentArea != lastAreaSelection)
 		{
@@ -385,6 +413,9 @@ public final class WorkstationEspHack extends Hack implements UpdateListener,
 		if(onlyAboveGround.isChecked()
 			&& result.pos().getY() < aboveGroundY.getValue())
 			return false;
+		if(ignoreVillages.isChecked()
+			&& isLikelyVillageWorkstation(result.pos()))
+			return false;
 		
 		Block block = result.state().getBlock();
 		for(PortalEspBlockGroup group : groups)
@@ -411,6 +442,9 @@ public final class WorkstationEspHack extends Hack implements UpdateListener,
 		if(onlyAboveGround.isChecked()
 			&& result.pos().getY() < aboveGroundY.getValue())
 			return;
+		if(ignoreVillages.isChecked()
+			&& isLikelyVillageWorkstation(result.pos()))
+			return;
 		for(PortalEspBlockGroup group : groups)
 			if(result.state().getBlock() == group.getBlock())
 			{
@@ -419,6 +453,96 @@ public final class WorkstationEspHack extends Hack implements UpdateListener,
 				group.add(result.pos());
 				break;
 			}
+	}
+	
+	private void refreshVillageCache()
+	{
+		if(!ignoreVillages.isChecked())
+		{
+			if(lastVillageFilterEnabled)
+				villageFilterCache.clear();
+			lastVillageFilterEnabled = false;
+			cachedVillagerPositions = List.of();
+			cachedGolemPositions = List.of();
+			return;
+		}
+		
+		BlockPos anchor = MC.player.blockPosition();
+		String dimension = MC.level.dimension().identifier().toString();
+		long now = System.currentTimeMillis();
+		boolean refresh = !lastVillageFilterEnabled
+			|| !dimension.equals(lastVillageCacheDimension)
+			|| lastVillageCacheAnchor == null
+			|| lastVillageCacheAnchor.distSqr(anchor) >= 4
+			|| now - lastVillageCacheRefreshMs >= 1000;
+		if(!refresh)
+			return;
+		
+		lastVillageFilterEnabled = true;
+		lastVillageCacheDimension = dimension;
+		lastVillageCacheAnchor = anchor.immutable();
+		lastVillageCacheRefreshMs = now;
+		cachedVillagerPositions = collectEntityPositions(Villager.class);
+		cachedGolemPositions = collectEntityPositions(IronGolem.class);
+		villageFilterCache.clear();
+		groupsUpToDate = false;
+	}
+	
+	private <T extends Entity> List<Vec3> collectEntityPositions(Class<T> type)
+	{
+		java.util.ArrayList<Vec3> positions = new java.util.ArrayList<>();
+		for(Entity entity : MC.level.entitiesForRendering())
+			if(!entity.isRemoved() && type.isInstance(entity))
+				positions.add(Vec3.atCenterOf(entity.blockPosition()));
+		return positions;
+	}
+	
+	private boolean isLikelyVillageWorkstation(BlockPos pos)
+	{
+		long key = pos.asLong();
+		Boolean cached = villageFilterCache.get(key);
+		if(cached != null)
+			return cached;
+		
+		boolean likely = false;
+		if(hasDoorNearby(pos, 4))
+			likely = hasHayBaleCluster(pos, 6) || hasGlassPaneCluster(pos, 4, 1)
+				|| isEntityWithinRange(cachedVillagerPositions, pos, 24)
+				|| isEntityWithinRange(cachedGolemPositions, pos, 24);
+		villageFilterCache.put(key, likely);
+		return likely;
+	}
+	
+	private boolean hasDoorNearby(BlockPos center, int range)
+	{
+		return BlockUtils.getAllInBoxStream(center, range)
+			.anyMatch(pos -> BlockUtils.getBlock(pos) instanceof DoorBlock);
+	}
+	
+	private boolean hasHayBaleCluster(BlockPos center, int range)
+	{
+		return BlockUtils.getAllInBoxStream(center, range)
+			.filter(pos -> BlockUtils.getBlock(pos) == Blocks.HAY_BLOCK)
+			.limit(4).count() >= 4;
+	}
+	
+	private boolean hasGlassPaneCluster(BlockPos center, int range,
+		int requiredCount)
+	{
+		return BlockUtils.getAllInBoxStream(center, range)
+			.filter(
+				pos -> BuiltInRegistries.BLOCK.getKey(BlockUtils.getBlock(pos))
+					.getPath().contains("glass_pane"))
+			.limit(requiredCount).count() >= requiredCount;
+	}
+	
+	private boolean isEntityWithinRange(List<Vec3> positions, BlockPos center,
+		double range)
+	{
+		double rangeSq = range * range;
+		Vec3 centerVec = Vec3.atCenterOf(center);
+		return positions.stream()
+			.anyMatch(pos -> pos.distanceToSqr(centerVec) <= rangeSq);
 	}
 	
 	@Override
