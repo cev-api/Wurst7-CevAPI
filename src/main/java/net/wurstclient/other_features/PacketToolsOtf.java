@@ -263,8 +263,10 @@ public final class PacketToolsOtf extends OtherFeature
 		recordUnknown(packet.getClass().getSimpleName(), PacketDirection.S2C);
 		
 		if(shouldVerboseOutsideGame())
+		{
 			logVerbose(packet, "OUTSIDE-S2C");
-		else if(loggingEnabled.isChecked() && logS2C.contains(name))
+			flushVerboseBuffers();
+		}else if(loggingEnabled.isChecked() && logS2C.contains(name))
 			logPacket(name, "S2C", packet);
 		
 		if(denyEnabled.isChecked() && denyS2C.contains(name))
@@ -301,8 +303,10 @@ public final class PacketToolsOtf extends OtherFeature
 		}
 		
 		if(shouldVerboseOutsideGame())
+		{
 			logVerbose(packet, "OUTSIDE-C2S", event.getDebugTrace());
-		else if(loggingEnabled.isChecked() && logC2S.contains(name))
+			flushVerboseBuffers();
+		}else if(loggingEnabled.isChecked() && logC2S.contains(name))
 			logPacket(name, "C2S", packet);
 		
 		if(denyEnabled.isChecked() && denyC2S.contains(name))
@@ -332,6 +336,8 @@ public final class PacketToolsOtf extends OtherFeature
 		discoveredC2S.add(name);
 		recordUnknown(packet.getClass().getSimpleName(), PacketDirection.C2S);
 		logVerbose(packet, "OUTSIDE-C2S", event.getDebugTrace());
+		if(isOutsideGame())
+			flushVerboseBuffers();
 	}
 	
 	@Override
