@@ -29,9 +29,7 @@ public abstract class LocalPlayerMixin
 	private boolean wrapAiStepItemUse(LocalPlayer instance,
 		Operation<Boolean> original)
 	{
-		if(WurstClient.INSTANCE.getHax().noSlowdownHack.isEnabled()
-			|| WurstClient.INSTANCE.getHax().speedHackHack
-				.shouldIgnoreSlowdownsForPotionMode())
+		if(WurstClient.INSTANCE.getHax().noSlowdownHack.isEnabled())
 			return false;
 		
 		return original.call(instance);

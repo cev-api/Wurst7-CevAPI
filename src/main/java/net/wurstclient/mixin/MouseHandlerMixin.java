@@ -15,12 +15,9 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import com.llamalad7.mixinextras.injector.v2.WrapWithCondition;
-import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
-import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 
 import net.minecraft.client.MouseHandler;
 import net.minecraft.client.input.MouseButtonInfo;
-import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.entity.player.Inventory;
@@ -30,7 +27,6 @@ import net.wurstclient.events.MouseButtonPressListener.MouseButtonPressEvent;
 import net.wurstclient.events.MouseScrollListener.MouseScrollEvent;
 import net.wurstclient.events.MouseUpdateListener.MouseUpdateEvent;
 import net.wurstclient.hud.ClientMessageOverlay;
-import net.wurstclient.hacks.FreecamHack;
 import net.wurstclient.hacks.QuickShulkerHack;
 
 @Mixin(value = MouseHandler.class, priority = 3000)
@@ -115,22 +111,6 @@ public abstract class MouseHandlerMixin
 		// ClickGuiScreen forwards its scaled mouseMoved event directly. This
 		// path is only needed for pinned Modern windows over other screens.
 		WurstClient.INSTANCE.getGui().handleMouseMove(mouseX, mouseY);
-	}
-	
-	@WrapOperation(method = "turnPlayer(D)V",
-		at = @At(value = "INVOKE",
-			target = "Lnet/minecraft/client/player/LocalPlayer;turn(DD)V"))
-	private void wrapTurn(LocalPlayer player, double deltaYaw,
-		double deltaPitch, Operation<Void> original)
-	{
-		FreecamHack freecam = WurstClient.INSTANCE.getHax().freecamHack;
-		if(freecam.isMovingCamera())
-		{
-			freecam.turn(deltaYaw, deltaPitch);
-			return;
-		}
-		
-		original.call(player, deltaYaw, deltaPitch);
 	}
 	
 	@Inject(method = "handleAccumulatedMovement()V", at = @At("HEAD"))
