@@ -109,6 +109,11 @@ public final class CommonNukerSettings implements LeftClickListener
 		return mode.getSelected() == NukerMode.HOLE;
 	}
 	
+	public boolean isDirectionalMode()
+	{
+		return mode.getSelected() == NukerMode.DIRECTIONAL;
+	}
+	
 	public boolean shouldBreakBlock(BlockPos pos)
 	{
 		if(flat.isChecked() && pos.getY() < MC.player.getY())

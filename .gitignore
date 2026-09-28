@@ -38,5 +38,6 @@ Thumbs.db
 desktop.ini
 *.rar
 *.log
+*.txt
 *.jsonl
 !scripts/custom_build_gui.py

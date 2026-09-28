@@ -34,7 +34,7 @@ public final class NukerModeSetting
 	{
 		return new NukerMode[]{NukerMode.NORMAL, NukerMode.ID,
 			NukerMode.MULTI_ID, NukerMode.SMASH, NukerMode.TUNNEL,
-			NukerMode.HOLE};
+			NukerMode.HOLE, NukerMode.DIRECTIONAL};
 	}
 	
 	private static String getDescription(boolean includeTunnelMode)
@@ -54,7 +54,9 @@ public final class NukerModeSetting
 					+ " 2-block-high tunnel in front of you.\n\n"
 					+ "\u00a7lHole\u00a7r mode breaks a 1-block-wide vertical"
 					+ " hole above or below you, depending on whether you look"
-					+ " up or down.";
+					+ " up or down.\n\n\u00a7lDirectional\u00a7r mode uses Tunnel"
+					+ " when looking horizontally, Hole when looking nearly straight"
+					+ " up or down, and follows your view ray when looking diagonally.";
 		
 		return description;
 	}
@@ -66,7 +68,8 @@ public final class NukerModeSetting
 		MULTI_ID("MultiID"),
 		SMASH("Smash"),
 		TUNNEL("Tunnel"),
-		HOLE("Hole");
+		HOLE("Hole"),
+		DIRECTIONAL("Directional");
 		
 		private final String name;
 		

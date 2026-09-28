@@ -8,6 +8,7 @@
 package net.wurstclient.altmanager;
 
 import java.nio.file.Path;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -24,6 +25,7 @@ public final class AltManager
 {
 	private final AltsFile altsFile;
 	private final ArrayList<Alt> alts = new ArrayList<>();
+	private final ArrayDeque<Alt> randomLoginQueue = new ArrayDeque<>();
 	private int numPremium;
 	private int numCracked;
 	private boolean disconnectRandomAltReconnectEnabled = true;
@@ -196,16 +198,28 @@ public final class AltManager
 		}
 	}
 	
-	public Alt loginRandomUntilSuccess() throws LoginException
+	public synchronized Alt loginRandomUntilSuccess() throws LoginException
 	{
-		ArrayList<Alt> shuffled = new ArrayList<>(alts);
-		if(shuffled.isEmpty())
+		if(alts.isEmpty())
 			throw new LoginException("No accounts available.");
+			
+		// Keep a shuffled deck across reconnect attempts. This avoids selecting
+		// the same account repeatedly just because each click starts a new
+		// shuffle.
+		if(randomLoginQueue.isEmpty())
+		{
+			ArrayList<Alt> shuffled = new ArrayList<>(alts);
+			Collections.shuffle(shuffled);
+			randomLoginQueue.addAll(shuffled);
+		}
 		
-		Collections.shuffle(shuffled);
 		LoginException lastException = null;
-		
-		for(Alt alt : shuffled)
+		while(!randomLoginQueue.isEmpty())
+		{
+			Alt alt = randomLoginQueue.removeFirst();
+			if(!alts.contains(alt))
+				continue;
+			
 			try
 			{
 				login(alt);
@@ -215,6 +229,7 @@ public final class AltManager
 			{
 				lastException = e;
 			}
+		}
 		
 		if(lastException != null)
 			throw new LoginException("Random login failed for all accounts.",
