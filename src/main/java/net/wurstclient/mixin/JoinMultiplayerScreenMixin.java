@@ -48,6 +48,7 @@ import net.cevapi.config.AntiFingerprintConfig;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.Checkbox;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
@@ -127,9 +128,11 @@ public class JoinMultiplayerScreenMixin extends Screen
 	@Unique
 	private Button cornerAltManagerButton;
 	@Unique
-	private Button bypassResourcePackButton;
+	private Checkbox bypassResourcePackButton;
 	@Unique
-	private Button forceDenyResourcePackButton;
+	private Checkbox forceDenyResourcePackButton;
+	@Unique
+	private Checkbox ignoreRegistrySyncButton;
 	@Unique
 	private final EditBox[] wurst$panelTitleBoxes = new EditBox[PANEL_COUNT];
 	@Unique
@@ -219,6 +222,7 @@ public class JoinMultiplayerScreenMixin extends Screen
 		cornerAltManagerButton = null;
 		bypassResourcePackButton = null;
 		forceDenyResourcePackButton = null;
+		ignoreRegistrySyncButton = null;
 		wurst$exportButton = null;
 		wurst$importButton = null;
 		for(int i = 0; i < wurst$panelTitleBoxes.length; i++)
@@ -376,43 +380,58 @@ public class JoinMultiplayerScreenMixin extends Screen
 		{
 			if(bypassResourcePackButton == null)
 			{
-				bypassResourcePackButton =
-					Button.builder(getBypassResourcePackLabel(), b -> {
-						config.getBypassResourcePackSetting()
-							.setChecked(!config.shouldBypassResourcePack());
-						b.setMessage(getBypassResourcePackLabel());
-					}).bounds(0, 0, 200, 20).build();
+				bypassResourcePackButton = Checkbox
+					.builder(Component.literal("Bypass resource pack"), font)
+					.pos(6, height - 74)
+					.selected(config.shouldBypassResourcePack())
+					.onValueChange((box, checked) -> config
+						.getBypassResourcePackSetting().setChecked(checked))
+					.maxWidth(220).build();
 				addRenderableWidget(bypassResourcePackButton);
 			}
 			if(forceDenyResourcePackButton == null)
 			{
-				forceDenyResourcePackButton =
-					Button.builder(getForceDenyResourcePackLabel(), b -> {
-						config.getResourcePackForceDenySetting()
-							.setChecked(!config.shouldForceDenyResourcePack());
-						b.setMessage(getForceDenyResourcePackLabel());
-					}).bounds(0, 0, 200, 20).build();
+				forceDenyResourcePackButton = Checkbox
+					.builder(Component.literal("Force deny resource pack"),
+						font)
+					.pos(6, height - 52)
+					.selected(config.shouldForceDenyResourcePack())
+					.onValueChange((box, checked) -> config
+						.getResourcePackForceDenySetting().setChecked(checked))
+					.maxWidth(220).build();
 				addRenderableWidget(forceDenyResourcePackButton);
+			}
+			if(ignoreRegistrySyncButton == null)
+			{
+				var setting = WurstClient.INSTANCE.getOtfs().wurstOptionsOtf
+					.getIgnoreRegistrySyncErrorsSetting();
+				ignoreRegistrySyncButton = Checkbox
+					.builder(Component.literal("Ignore registry sync"), font)
+					.pos(6, height - 30).selected(setting.isChecked())
+					.onValueChange(
+						(box, checked) -> setting.setChecked(checked))
+					.maxWidth(220).build();
+				addRenderableWidget(ignoreRegistrySyncButton);
 			}
 			
 			bypassResourcePackButton.setX(6);
-			bypassResourcePackButton.setY(height - 54);
-			bypassResourcePackButton.setWidth(200);
+			bypassResourcePackButton.setY(height - 74);
 			bypassResourcePackButton.visible = true;
-			bypassResourcePackButton.setMessage(getBypassResourcePackLabel());
 			
 			forceDenyResourcePackButton.setX(6);
-			forceDenyResourcePackButton.setY(height - 30);
-			forceDenyResourcePackButton.setWidth(200);
+			forceDenyResourcePackButton.setY(height - 52);
 			forceDenyResourcePackButton.visible = true;
-			forceDenyResourcePackButton
-				.setMessage(getForceDenyResourcePackLabel());
+			ignoreRegistrySyncButton.setX(6);
+			ignoreRegistrySyncButton.setY(height - 30);
+			ignoreRegistrySyncButton.visible = true;
 		}else
 		{
 			if(bypassResourcePackButton != null)
 				bypassResourcePackButton.visible = false;
 			if(forceDenyResourcePackButton != null)
 				forceDenyResourcePackButton.visible = false;
+			if(ignoreRegistrySyncButton != null)
+				ignoreRegistrySyncButton.visible = false;
 		}
 		
 		AbstractWidget addServerButton =
@@ -461,20 +480,6 @@ public class JoinMultiplayerScreenMixin extends Screen
 			cornerCleanUpButton.visible = false;
 		}
 		
-		if(showResourcePackButtons)
-		{
-			int resourcePackButtonWidth =
-				Math.max(font.width(getBypassResourcePackLabel().getString()),
-					font.width(getForceDenyResourcePackLabel().getString()))
-					+ 20;
-			
-			bypassResourcePackButton.setWidth(resourcePackButtonWidth);
-			forceDenyResourcePackButton.setWidth(resourcePackButtonWidth);
-			bypassResourcePackButton.setMessage(getBypassResourcePackLabel());
-			forceDenyResourcePackButton
-				.setMessage(getForceDenyResourcePackLabel());
-		}
-		
 		wurst$layoutBottomButtons();
 	}
 	
@@ -495,6 +500,8 @@ public class JoinMultiplayerScreenMixin extends Screen
 			bypassResourcePackButton.visible = visible;
 		if(forceDenyResourcePackButton != null)
 			forceDenyResourcePackButton.visible = visible;
+		if(ignoreRegistrySyncButton != null)
+			ignoreRegistrySyncButton.visible = visible;
 		if(wurst$restorePanelButton != null)
 			wurst$restorePanelButton.visible = visible;
 		if(wurst$exportButton != null)
@@ -1187,7 +1194,19 @@ public class JoinMultiplayerScreenMixin extends Screen
 		{
 			backButton.setX(6);
 			backButton.setY(height - 30);
+			backButton.visible = !wurst$hasResourcePackToggles();
 		}
+	}
+	
+	@Unique
+	private boolean wurst$hasResourcePackToggles()
+	{
+		return bypassResourcePackButton != null
+			&& bypassResourcePackButton.visible
+			|| forceDenyResourcePackButton != null
+				&& forceDenyResourcePackButton.visible
+			|| ignoreRegistrySyncButton != null
+				&& ignoreRegistrySyncButton.visible;
 	}
 	
 	@Unique
@@ -1785,22 +1804,6 @@ public class JoinMultiplayerScreenMixin extends Screen
 		lastServerButton.setY(6);
 		lastServerButton.visible = WurstClient.INSTANCE.isEnabled()
 			&& !WurstClient.INSTANCE.shouldHideWurstUiMixins();
-	}
-	
-	@Unique
-	private Component getBypassResourcePackLabel()
-	{
-		return Component.literal("Bypass Resource Pack: "
-			+ (ResourcePackProtector.getConfig().shouldBypassResourcePack()
-				? "ON" : "OFF"));
-	}
-	
-	@Unique
-	private Component getForceDenyResourcePackLabel()
-	{
-		return Component.literal("Force Deny: "
-			+ (ResourcePackProtector.getConfig().shouldForceDenyResourcePack()
-				? "ON" : "OFF"));
 	}
 	
 	@Unique

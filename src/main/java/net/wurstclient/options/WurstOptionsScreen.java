@@ -395,7 +395,7 @@ public final class WurstOptionsScreen extends Screen
 		addButton(column,
 			() -> "Resource Pack Buttons: " + onOff(
 				antiFingerprintConfig.shouldShowResourcePackBypassButtons()),
-			"Show Bypass Resource Pack and Force Deny on the Multiplayer screen.",
+			"Show resource-pack and registry-sync toggles on the Multiplayer screen.",
 			b -> antiFingerprintConfig.getShowResourcePackBypassButtonsSetting()
 				.setChecked(!antiFingerprintConfig
 					.shouldShowResourcePackBypassButtons()));
