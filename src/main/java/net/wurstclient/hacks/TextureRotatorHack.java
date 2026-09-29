@@ -13,11 +13,14 @@ import java.security.SecureRandom;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.Mth;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
+import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.EnumSetting;
 import net.wurstclient.settings.TextFieldSetting;
 
@@ -80,6 +83,10 @@ public final class TextureRotatorHack extends Hack implements UpdateListener
 				return false;
 			}
 		});
+	private final CheckboxSetting ignoreDripstoneAndBamboo =
+		new CheckboxSetting("Don't rotate dripstone and bamboo",
+			"Leaves dripstone and bamboo textures and offsets unchanged.",
+			false);
 	
 	private final SecureRandom secureRandom = new SecureRandom();
 	
@@ -93,6 +100,7 @@ public final class TextureRotatorHack extends Hack implements UpdateListener
 	/** Mode/seed values at the time {@link #seed} was last generated. */
 	private Mode lastMode;
 	private String lastSeedText;
+	private boolean lastIgnoreDripstoneAndBamboo;
 	
 	public TextureRotatorHack()
 	{
@@ -100,6 +108,7 @@ public final class TextureRotatorHack extends Hack implements UpdateListener
 		setCategory(Category.INTEL);
 		addSetting(mode);
 		addSetting(customSeed);
+		addSetting(ignoreDripstoneAndBamboo);
 	}
 	
 	@Override
@@ -127,12 +136,17 @@ public final class TextureRotatorHack extends Hack implements UpdateListener
 	@Override
 	public void onUpdate()
 	{
-		// Apply mode and custom seed changes immediately.
-		if(mode.getSelected() == lastMode
-			&& customSeed.getValue().equals(lastSeedText))
+		boolean seedChanged = mode.getSelected() != lastMode
+			|| !customSeed.getValue().equals(lastSeedText);
+		boolean exclusionsChanged = ignoreDripstoneAndBamboo
+			.isChecked() != lastIgnoreDripstoneAndBamboo;
+		if(!seedChanged && !exclusionsChanged)
 			return;
 		
-		generateSeed();
+		if(seedChanged)
+			generateSeed();
+		else
+			lastIgnoreDripstoneAndBamboo = ignoreDripstoneAndBamboo.isChecked();
 		
 		if(MC.levelExtractor != null)
 			MC.levelExtractor.allChanged();
@@ -155,6 +169,7 @@ public final class TextureRotatorHack extends Hack implements UpdateListener
 		
 		lastMode = mode.getSelected();
 		lastSeedText = customSeed.getValue();
+		lastIgnoreDripstoneAndBamboo = ignoreDripstoneAndBamboo.isChecked();
 		
 		// Derive position offsets from the seed so that flower-style offsets
 		// get randomized too, in a way that is stable and seed-dependent.
@@ -190,6 +205,16 @@ public final class TextureRotatorHack extends Hack implements UpdateListener
 	public BlockPos getRandomizedOffsetPos(BlockPos pos)
 	{
 		return pos.offset(offsetX, 0, offsetZ);
+	}
+	
+	public boolean shouldIgnoreDripstoneAndBamboo(BlockState state)
+	{
+		return ignoreDripstoneAndBamboo.isChecked()
+			&& (state.is(Blocks.POINTED_DRIPSTONE)
+				|| state.is(Blocks.DRIPSTONE_BLOCK) || state.is(Blocks.BAMBOO)
+				|| state.is(Blocks.BAMBOO_SAPLING)
+				|| state.is(Blocks.BAMBOO_BLOCK)
+				|| state.is(Blocks.STRIPPED_BAMBOO_BLOCK));
 	}
 	
 	private static long parseSeed(String s)

@@ -284,6 +284,13 @@ public final class BedBreakAuraHack extends Hack
 			20);
 	}
 	
+	@Override
+	public boolean shouldAddToDebugTrace(
+		net.minecraft.network.protocol.Packet<?> packet)
+	{
+		return false;
+	}
+	
 	private void confirmPlacedBeds()
 	{
 		if(!protectRespawnBed.isChecked() || MC.level == null)

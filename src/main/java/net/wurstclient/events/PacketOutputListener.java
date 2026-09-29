@@ -18,6 +18,14 @@ public interface PacketOutputListener extends Listener
 {
 	public void onSentPacket(PacketOutputEvent event);
 	
+	/**
+	 * Whether this listener should be included in packet debug traces.
+	 */
+	public default boolean shouldAddToDebugTrace(Packet<?> packet)
+	{
+		return true;
+	}
+	
 	public static class PacketOutputEvent
 		extends CancellableEvent<PacketOutputListener>
 	{
@@ -56,7 +64,8 @@ public interface PacketOutputListener extends Listener
 			for(PacketOutputListener listener : listeners)
 			{
 				HackActivityTracker.markActive(listener);
-				if(listener instanceof net.wurstclient.hack.Hack hack)
+				if(listener instanceof net.wurstclient.hack.Hack hack
+					&& listener.shouldAddToDebugTrace(packet))
 					debugTrace.add(hack.getName());
 				listener.onSentPacket(this);
 				

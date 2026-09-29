@@ -50,6 +50,8 @@ public abstract class BlockBehaviourMixin
 			return;
 		if(state.is(Blocks.POTENT_SULFUR))
 			return;
+		if(textureRotator.shouldIgnoreDripstoneAndBamboo(state))
+			return;
 		
 		if(textureRotator.isNoRotationMode())
 			cir.setReturnValue(textureRotator.getNoRotationSeed());
