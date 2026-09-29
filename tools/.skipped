@@ -1,3 +1,4 @@
 9d79832ba|26.3|skipped: full 26.3 API migration (GLFW->InputConstants, GuiGraphicsExtractor, contextual input events). Not applicable to 1.21.11.
 b2ca3f582|Fix outdated mixin names|skipped: purely cosmetic renames of mixin callback method names to match 26.x target names; no functional change and would churn our 1.21.11 mixins.
 054330382|Remove obsolete AntiBlind mixin|skipped: the hook is only redundant on 26.1+; on 1.21.11 blindness/darkness still change the sky, so the mixin is kept.
+deeeaff4c|Fix deprecated Gradle stuff|skipped: release-task modernization in build.gradle; the fork's build script is heavily customized for NiceWurst/AltBot packaging and does not use those tasks.

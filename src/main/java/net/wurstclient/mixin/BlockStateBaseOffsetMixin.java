@@ -43,6 +43,9 @@ public abstract class BlockStateBaseOffsetMixin
 		if(McVersionCompat.is((BlockState)(Object)this,
 			McVersionCompat.POTENT_SULFUR))
 			return;
+		if(textureRotator
+			.shouldIgnoreDripstoneAndBamboo((BlockState)(Object)this))
+			return;
 		
 		if(textureRotator.isNoRotationMode())
 			cir.setReturnValue(Vec3.ZERO);
@@ -57,8 +60,11 @@ public abstract class BlockStateBaseOffsetMixin
 	{
 		TextureRotatorHack textureRotator = getTextureRotator();
 		if(textureRotator == null || !textureRotator.isEnabled()
-			|| textureRotator.isNoRotationMode() || McVersionCompat
-				.is((BlockState)(Object)this, McVersionCompat.POTENT_SULFUR))
+			|| textureRotator.isNoRotationMode()
+			|| McVersionCompat.is((BlockState)(Object)this,
+				McVersionCompat.POTENT_SULFUR)
+			|| textureRotator
+				.shouldIgnoreDripstoneAndBamboo((BlockState)(Object)this))
 			return pos;
 		
 		return textureRotator.getRandomizedOffsetPos(pos);
