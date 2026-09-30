@@ -34,22 +34,18 @@ public interface RenderListener extends Listener
 			boolean profile = HackPerformanceTracker.shouldProfile();
 			for(RenderListener listener : listeners)
 			{
-				if(!profile)
-				{
-					listener.onRender(matrixStack, partialTicks);
-					continue;
-				}
-				
-				long start = System.nanoTime();
+				net.wurstclient.render.esp.EspViewCulling.beginSource(listener);
+				long start = profile ? System.nanoTime() : 0;
 				try
 				{
 					listener.onRender(matrixStack, partialTicks);
-					
 				}finally
 				{
-					HackPerformanceTracker.record(listener,
-						HackPerformanceTracker.Phase.RENDER,
-						System.nanoTime() - start);
+					net.wurstclient.render.esp.EspViewCulling.endSource();
+					if(profile)
+						HackPerformanceTracker.record(listener,
+							HackPerformanceTracker.Phase.RENDER,
+							System.nanoTime() - start);
 				}
 			}
 		}

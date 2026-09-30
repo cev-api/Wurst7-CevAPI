@@ -93,6 +93,21 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 		"Enable global ESP/tracer range",
 		"When enabled, ESP and tracer targets outside the global range are ignored.",
 		false);
+	private final CheckboxSetting cullEspOutsideView = new CheckboxSetting(
+		"Cull ESP outside view",
+		"Skips ESP targets outside the camera view. Wall visibility is unchanged.",
+		false);
+	private final CheckboxSetting offscreenTracers = new CheckboxSetting(
+		"Allow off-screen tracers",
+		"Keep tracers pointing toward off-screen targets while their ESP shapes are culled. Existing tracer filters still apply.",
+		false);
+	private final SettingGroup viewCullFilters =
+		new SettingGroup("View culling exceptions",
+			WText.literal(
+				"Checked ESP sources are exempt from camera-view culling."),
+			false, true);
+	private final java.util.LinkedHashMap<String, CheckboxSetting> viewCullExceptions =
+		new java.util.LinkedHashMap<>();
 	private final SliderSetting globalEspRange = new SliderSetting(
 		"Global ESP/tracer range",
 		"Maximum distance for ESP and tracer targets when the global range limiter is enabled.",
@@ -152,6 +167,9 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 		addSetting(globalEspRenderLimit);
 		addSetting(globalEspRangeEnabled);
 		addSetting(globalEspRange);
+		addSetting(cullEspOutsideView);
+		addSetting(offscreenTracers);
+		addSetting(viewCullFilters);
 		addSetting(espTextBackground);
 		addSetting(disableAllTracers);
 		addSetting(nearestTracerOnly);
@@ -173,6 +191,20 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 		lastSearchThreadPriority = searchThreadPriority.getValueI();
 		
 		EVENTS.add(UpdateListener.class, this);
+	}
+	
+	public boolean shouldCullEspSource(String source)
+	{
+		if(!cullEspOutsideView.isChecked() || source == null)
+			return false;
+		CheckboxSetting exception =
+			viewCullExceptions.get(source.toLowerCase(java.util.Locale.ROOT));
+		return exception == null || !exception.isChecked();
+	}
+	
+	public boolean allowOffscreenTracers()
+	{
+		return offscreenTracers.isChecked();
 	}
 	
 	public boolean shouldIgnoreManualPlayer(String name)
@@ -275,6 +307,31 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 				: "Global tracer suppression disabled.");
 			lastDisableAllTracers = suppressTracers;
 		}
+	}
+	
+	// Called by HackList before the settings file is loaded, so exceptions
+	// persist across restarts and never register/save settings during
+	// rendering.
+	public void initializeViewCullExceptions(
+		net.wurstclient.hack.HackList hacks)
+	{
+		for(Hack hack : hacks.getAllHax())
+			if(hack instanceof net.wurstclient.events.RenderListener || hack
+				.getName().toLowerCase(java.util.Locale.ROOT).contains("esp"))
+				registerViewCullException(
+					hack.getName().toLowerCase(java.util.Locale.ROOT),
+					"Allow off-screen " + hack.getName(), false);
+	}
+	
+	private void registerViewCullException(String key, String label,
+		boolean allowed)
+	{
+		if(viewCullExceptions.containsKey(key))
+			return;
+		CheckboxSetting setting = new CheckboxSetting(label, allowed);
+		viewCullExceptions.put(key, setting);
+		viewCullFilters.addChild(setting);
+		addSetting(setting);
 	}
 	
 	public boolean usePartialChunkScan()

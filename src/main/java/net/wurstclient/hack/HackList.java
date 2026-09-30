@@ -439,6 +439,7 @@ public final class HackList implements UpdateListener
 			throw new ReportedException(report);
 		}
 		
+		globalToggleHack.initializeViewCullExceptions(this);
 		eventManager.add(UpdateListener.class, this);
 	}
 	

@@ -82,9 +82,16 @@ public class LevelRendererMixin
 		matrixStack.mulPose(cameraState.viewRotationMatrix);
 		float tickProgress = levelRenderState.worldPartialTicks;
 		RenderEvent event = new RenderEvent(matrixStack, tickProgress);
-		EventManager.fire(event);
-		GlobalEspManager.getInstance().endFrame(matrixStack);
-		net.wurstclient.util.RenderUtils.endTextFrame();
+		net.wurstclient.render.esp.EspViewCulling.beginFrame(cameraState);
+		try
+		{
+			EventManager.fire(event);
+			GlobalEspManager.getInstance().endFrame(matrixStack);
+			net.wurstclient.util.RenderUtils.endTextFrame();
+		}finally
+		{
+			net.wurstclient.render.esp.EspViewCulling.endFrame();
+		}
 	}
 	
 	@Inject(method = "submitBlockOutline", at = @At("HEAD"), cancellable = true)

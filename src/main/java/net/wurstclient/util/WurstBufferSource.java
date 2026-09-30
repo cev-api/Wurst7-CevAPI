@@ -20,6 +20,8 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.renderer.StagedVertexBuffer;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.wurstclient.WurstClient;
+import net.wurstclient.render.esp.CullingVertexConsumer;
+import net.wurstclient.render.esp.EspViewCulling;
 
 /**
  * Simple wrapper around {@link StagedVertexBuffer} to replace Minecraft's
@@ -37,6 +39,7 @@ public final class WurstBufferSource
 	private final List<StagedVertexBuffer.Draw> draws = new ArrayList<>();
 	private final List<RenderType> drawTypes = new ArrayList<>();
 	private boolean closed;
+	private final List<VertexConsumer> consumers = new ArrayList<>();
 	
 	private static StagedVertexBuffer newStagedBuffer()
 	{
@@ -66,7 +69,12 @@ public final class WurstBufferSource
 		
 		if(!drawTypes.isEmpty() && drawTypes.getLast() == renderType
 			&& renderType.canConsolidateConsecutiveGeometry())
-			return stagedBuffer.getVertexBuilder(draws.getLast());
+			return consumers.getLast();
+		// Switching draws finalizes the old BufferBuilder. Flush its last
+		// pending primitive before asking StagedVertexBuffer for another one.
+		if(!consumers.isEmpty()
+			&& consumers.getLast() instanceof CullingVertexConsumer culling)
+			culling.finish();
 		
 		StagedVertexBuffer.Draw draw =
 			stagedBuffer.appendDraw(renderType.format(),
@@ -75,7 +83,13 @@ public final class WurstBufferSource
 		
 		draws.add(draw);
 		drawTypes.add(renderType);
-		return stagedBuffer.getVertexBuilder(draw);
+		VertexConsumer consumer = stagedBuffer.getVertexBuilder(draw);
+		var topology = renderType.primitiveTopology();
+		if(EspViewCulling.isActive() && !topology.connectedPrimitives)
+			consumer = new CullingVertexConsumer(consumer,
+				EspViewCulling.bufferFrustum(), topology.primitiveLength);
+		consumers.add(consumer);
+		return consumer;
 	}
 	
 	public void uploadAndDraw()
@@ -85,6 +99,9 @@ public final class WurstBufferSource
 			if(draws.isEmpty())
 				return;
 			
+			for(VertexConsumer consumer : consumers)
+				if(consumer instanceof CullingVertexConsumer culling)
+					culling.finish();
 			stagedBuffer.upload();
 			RenderTarget renderTarget =
 				WurstClient.MC.gameRenderer.mainRenderTarget();
@@ -107,6 +124,7 @@ public final class WurstBufferSource
 		{
 			draws.clear();
 			drawTypes.clear();
+			consumers.clear();
 			stagedBuffer.close();
 			closed = true;
 		}
@@ -130,6 +148,7 @@ public final class WurstBufferSource
 	{
 		draws.clear();
 		drawTypes.clear();
+		consumers.clear();
 		if(!closed)
 		{
 			stagedBuffer.close();

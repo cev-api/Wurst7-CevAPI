@@ -556,3 +556,16 @@ task closeMilestone {
 		}
 	}
 }
+
+// These CPU rendering checks run without starting Minecraft or creating a GPU.
+tasks.register("espCullingRegressionTest", JavaExec) {
+	dependsOn tasks.named("testClasses")
+	classpath = sourceSets.test.runtimeClasspath
+	mainClass = "net.wurstclient.render.esp.EspCullingRegressionTest"
+}
+tasks.named("test") {
+	exclude "net/wurstclient/render/esp/EspCullingRegressionTest*"
+}
+tasks.named("check") {
+	dependsOn tasks.named("espCullingRegressionTest")
+}

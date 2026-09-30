@@ -47,6 +47,7 @@ public final class EasyVertexBuffer implements AutoCloseable
 	private final GpuBuffer vertexBuffer;
 	private final PrimitiveTopology drawMode;
 	private final int indexCount;
+	private final net.wurstclient.render.esp.EspMeshBounds espBounds;
 	
 	/**
 	 * Drop-in replacement for {@code VertexBuffer.createAndUpload()}.
@@ -73,6 +74,7 @@ public final class EasyVertexBuffer implements AutoCloseable
 	private EasyVertexBuffer(MeshData buffer, PrimitiveTopology drawMode)
 	{
 		DrawState drawParams = buffer.drawState();
+		espBounds = new net.wurstclient.render.esp.EspMeshBounds(buffer);
 		this.drawMode = drawMode;
 		shapeIndexBuffer =
 			RenderSystem.getSequentialBuffer(drawParams.primitiveTopology());
@@ -88,6 +90,7 @@ public final class EasyVertexBuffer implements AutoCloseable
 		this.drawMode = drawMode;
 		shapeIndexBuffer = null;
 		indexCount = 0;
+		espBounds = null;
 		vertexBuffer = null;
 	}
 	
@@ -154,6 +157,9 @@ public final class EasyVertexBuffer implements AutoCloseable
 			green, blue, alpha))
 			return;
 		
+		int[] visibleRanges = getVisibleRanges(matrixStack.last().pose());
+		if(visibleRanges != null && visibleRanges.length == 0)
+			return;
 		Matrix4fStack modelViewStack = RenderSystem.getModelViewStack();
 		modelViewStack.pushMatrix();
 		modelViewStack.mul(matrixStack.last().pose());
@@ -179,10 +185,35 @@ public final class EasyVertexBuffer implements AutoCloseable
 			renderPass.setUniform("DynamicTransforms", gpuBufferSlice);
 			renderPass.setVertexBuffer(0, vertexBuffer.slice());
 			renderPass.setIndexBuffer(indexBuffer, shapeIndexBuffer.type());
-			renderPass.drawIndexed(indexCountToDraw, 1, 0, 0, 0);
+			drawVisibleRanges(renderPass, indexCountToDraw, visibleRanges);
 		}
 		
 		modelViewStack.popMatrix();
+	}
+	
+	public int[] getVisibleRanges(org.joml.Matrix4fc pose)
+	{
+		if(espBounds == null
+			|| !net.wurstclient.render.esp.EspViewCulling.isActive())
+			return null;
+		return espBounds.visibleRanges(
+			net.wurstclient.render.esp.EspViewCulling.localFrustum(pose));
+	}
+	
+	public static void drawVisibleRanges(RenderPass pass, int limit,
+		int[] ranges)
+	{
+		if(ranges == null)
+		{
+			pass.drawIndexed(limit, 1, 0, 0, 0);
+			return;
+		}
+		for(int i = 0; i < ranges.length; i += 2)
+		{
+			int count = Math.min(ranges[i + 1], limit - ranges[i]);
+			if(count > 0)
+				pass.drawIndexed(count, 1, ranges[i], 0, 0);
+		}
 	}
 	
 	public GpuBuffer getVertexBufferForGlobalEsp()

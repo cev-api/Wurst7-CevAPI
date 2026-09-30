@@ -107,6 +107,18 @@ public enum RenderUtils
 		return granted;
 	}
 	
+	private static boolean shouldCullEspPoint(Vec3 point)
+	{
+		return net.wurstclient.render.esp.EspViewCulling
+			.shouldCullTracer(point);
+	}
+	
+	private static boolean shouldCullEspBox(PoseStack matrices, AABB box)
+	{
+		return net.wurstclient.render.esp.EspViewCulling
+			.shouldCullBox(matrices.last().pose(), box);
+	}
+	
 	private static boolean shouldSuppressAllTracers()
 	{
 		try
@@ -122,6 +134,8 @@ public enum RenderUtils
 				return false;
 			
 			String source = TRACER_SOURCE.get();
+			if(source == null)
+				source = net.wurstclient.render.esp.EspViewCulling.getSource();
 			if(source == null)
 				source = deriveTracerSource();
 			if(source == null)
@@ -421,8 +435,18 @@ public enum RenderUtils
 					textDrawTypes.add(type);
 					textLastType = type;
 				}
-				glyph.render(matrix, svb.getVertexBuilder(textLastDraw),
-					packedLight, false);
+				VertexConsumer consumer = svb.getVertexBuilder(textLastDraw);
+				if(net.wurstclient.render.esp.EspViewCulling.isActive())
+				{
+					var culling =
+						new net.wurstclient.render.esp.CullingVertexConsumer(
+							consumer, net.wurstclient.render.esp.EspViewCulling
+								.bufferFrustum(),
+							4);
+					glyph.render(matrix, culling, packedLight, false);
+					culling.finish();
+				}else
+					glyph.render(matrix, consumer, packedLight, false);
 			}
 			
 			@Override
@@ -441,8 +465,18 @@ public enum RenderUtils
 					textDrawTypes.add(type);
 					textLastType = type;
 				}
-				effect.render(matrix, svb.getVertexBuilder(textLastDraw),
-					packedLight, false);
+				VertexConsumer consumer = svb.getVertexBuilder(textLastDraw);
+				if(net.wurstclient.render.esp.EspViewCulling.isActive())
+				{
+					var culling =
+						new net.wurstclient.render.esp.CullingVertexConsumer(
+							consumer, net.wurstclient.render.esp.EspViewCulling
+								.bufferFrustum(),
+							4);
+					effect.render(matrix, culling, packedLight, false);
+					culling.finish();
+				}else
+					effect.render(matrix, consumer, packedLight, false);
 			}
 		});
 	}
@@ -569,7 +603,7 @@ public enum RenderUtils
 			NiceWurstModule.shouldEnforceTracerVisibility();
 		if(enforceVisibility && !NiceWurstModule.shouldRenderTarget(end))
 			return;
-		if(!tryReserveEspRenderSlot())
+		if(shouldCullEspPoint(end) || !tryReserveEspRenderSlot())
 			return;
 		
 		if(!enforceVisibility)
@@ -618,6 +652,8 @@ public enum RenderUtils
 		{
 			for(Vec3 end : ends)
 			{
+				if(shouldCullEspPoint(end))
+					continue;
 				if(!WurstClient.INSTANCE.getHax().globalToggleHack
 					.isWithinGlobalEspRange(end))
 					continue;
@@ -641,6 +677,8 @@ public enum RenderUtils
 		boolean rendered = false;
 		for(Vec3 end : ends)
 		{
+			if(shouldCullEspPoint(end))
+				continue;
 			if(!WurstClient.INSTANCE.getHax().globalToggleHack
 				.isWithinGlobalEspRange(end))
 				continue;
@@ -686,6 +724,8 @@ public enum RenderUtils
 			for(ColoredPoint end : ends)
 			{
 				Vec3 point = end.point();
+				if(shouldCullEspPoint(point))
+					continue;
 				if(!WurstClient.INSTANCE.getHax().globalToggleHack
 					.isWithinGlobalEspRange(point))
 					continue;
@@ -710,6 +750,8 @@ public enum RenderUtils
 		for(ColoredPoint end : ends)
 		{
 			Vec3 point = end.point();
+			if(shouldCullEspPoint(point))
+				continue;
 			if(!WurstClient.INSTANCE.getHax().globalToggleHack
 				.isWithinGlobalEspRange(point))
 				continue;
@@ -761,6 +803,8 @@ public enum RenderUtils
 			for(ColoredPoint end : ends)
 			{
 				Vec3 point = end.point();
+				if(shouldCullEspPoint(point))
+					continue;
 				if(!WurstClient.INSTANCE.getHax().globalToggleHack
 					.isWithinGlobalEspRange(point))
 					continue;
@@ -785,6 +829,8 @@ public enum RenderUtils
 		for(ColoredPoint end : ends)
 		{
 			Vec3 point = end.point();
+			if(shouldCullEspPoint(point))
+				continue;
 			if(!WurstClient.INSTANCE.getHax().globalToggleHack
 				.isWithinGlobalEspRange(point))
 				continue;
@@ -1034,7 +1080,9 @@ public enum RenderUtils
 		boolean overlay = NiceWurstModule.shouldOverlayEntityShapes();
 		if(overlay && !isBoxVisible(box))
 			return;
-		if(!tryReserveEspRenderSlot())
+		if(shouldCullEspBox(matrices, box))
+			return;
+		if(!tryReserveEspRenderSlot(box))
 			return;
 		
 		if(!overlay)
@@ -1068,7 +1116,9 @@ public enum RenderUtils
 			{
 				if(overlay && !isBoxVisible(box))
 					continue;
-				if(!tryReserveEspRenderSlot())
+				if(shouldCullEspBox(matrices, box))
+					continue;
+				if(!tryReserveEspRenderSlot(box))
 					break;
 				
 				globalEsp.submitSolidBox(matrices, box.move(camOffset), color,
@@ -1087,6 +1137,8 @@ public enum RenderUtils
 		for(AABB box : boxes)
 		{
 			if(overlay && !isBoxVisible(box))
+				continue;
+			if(shouldCullEspBox(matrices, box))
 				continue;
 			if(!tryReserveEspRenderSlot(box))
 				break;
@@ -1123,7 +1175,9 @@ public enum RenderUtils
 			{
 				if(overlay && !isBoxVisible(box.box()))
 					continue;
-				if(!tryReserveEspRenderSlot())
+				if(shouldCullEspBox(matrices, box.box()))
+					continue;
+				if(!tryReserveEspRenderSlot(box.box()))
 					break;
 				
 				globalEsp.submitSolidBox(matrices, box.box().move(camOffset),
@@ -1142,6 +1196,8 @@ public enum RenderUtils
 		for(ColoredBox box : boxes)
 		{
 			if(overlay && !isBoxVisible(box.box()))
+				continue;
+			if(shouldCullEspBox(matrices, box.box()))
 				continue;
 			if(!tryReserveEspRenderSlot(box.box()))
 				break;
@@ -1463,7 +1519,9 @@ public enum RenderUtils
 		boolean overlay = NiceWurstModule.shouldOverlayEntityShapes();
 		if(overlay && !isBoxVisible(box))
 			return;
-		if(!tryReserveEspRenderSlot())
+		if(shouldCullEspBox(matrices, box))
+			return;
+		if(!tryReserveEspRenderSlot(box))
 			return;
 		
 		if(!overlay)
@@ -1498,7 +1556,9 @@ public enum RenderUtils
 			{
 				if(overlay && !isBoxVisible(box))
 					continue;
-				if(!tryReserveEspRenderSlot())
+				if(shouldCullEspBox(matrices, box))
+					continue;
+				if(!tryReserveEspRenderSlot(box))
 					break;
 				
 				globalEsp.submitOutlinedBox(matrices, box.move(camOffset),
@@ -1517,6 +1577,8 @@ public enum RenderUtils
 		for(AABB box : boxes)
 		{
 			if(overlay && !isBoxVisible(box))
+				continue;
+			if(shouldCullEspBox(matrices, box))
 				continue;
 			if(!tryReserveEspRenderSlot(box))
 				break;
@@ -1553,7 +1615,9 @@ public enum RenderUtils
 			{
 				if(overlay && !isBoxVisible(box.box()))
 					continue;
-				if(!tryReserveEspRenderSlot())
+				if(shouldCullEspBox(matrices, box.box()))
+					continue;
+				if(!tryReserveEspRenderSlot(box.box()))
 					break;
 				
 				globalEsp.submitOutlinedBox(matrices, box.box().move(camOffset),
@@ -1572,6 +1636,8 @@ public enum RenderUtils
 		for(ColoredBox box : boxes)
 		{
 			if(overlay && !isBoxVisible(box.box()))
+				continue;
+			if(shouldCullEspBox(matrices, box.box()))
 				continue;
 			if(!tryReserveEspRenderSlot(box.box()))
 				break;
@@ -1614,7 +1680,9 @@ public enum RenderUtils
 			{
 				if(overlay && !isBoxVisible(box.box()))
 					continue;
-				if(!tryReserveEspRenderSlot())
+				if(shouldCullEspBox(matrices, box.box()))
+					continue;
+				if(!tryReserveEspRenderSlot(box.box()))
 					break;
 				
 				globalEsp.submitOutlinedBox(matrices, box.box().move(camOffset),
@@ -1633,6 +1701,8 @@ public enum RenderUtils
 		for(ColoredBox box : boxes)
 		{
 			if(overlay && !isBoxVisible(box.box()))
+				continue;
+			if(shouldCullEspBox(matrices, box.box()))
 				continue;
 			if(!tryReserveEspRenderSlot(box.box()))
 				break;
@@ -1737,7 +1807,9 @@ public enum RenderUtils
 		boolean depthTest)
 	{
 		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
-		if(!tryReserveEspRenderSlot())
+		if(shouldCullEspBox(matrices, box))
+			return;
+		if(!tryReserveEspRenderSlot(box))
 			return;
 		AABB shiftedBox = box.move(getCameraPos().reverse());
 		GlobalEspManager globalEsp = GlobalEspManager.getInstance();
@@ -1765,7 +1837,9 @@ public enum RenderUtils
 		{
 			for(AABB box : boxes)
 			{
-				if(!tryReserveEspRenderSlot())
+				if(shouldCullEspBox(matrices, box))
+					continue;
+				if(!tryReserveEspRenderSlot(box))
 					break;
 				globalEsp.submitCrossBox(matrices, box.move(camOffset), color,
 					depthTest, DEFAULT_LINE_WIDTH);
@@ -1780,7 +1854,9 @@ public enum RenderUtils
 		
 		for(AABB box : boxes)
 		{
-			if(!tryReserveEspRenderSlot())
+			if(shouldCullEspBox(matrices, box))
+				continue;
+			if(!tryReserveEspRenderSlot(box))
 				break;
 			drawCrossBox(matrices, buffer, box.move(camOffset), color);
 		}
@@ -1799,7 +1875,9 @@ public enum RenderUtils
 		{
 			for(ColoredBox box : boxes)
 			{
-				if(!tryReserveEspRenderSlot())
+				if(shouldCullEspBox(matrices, box.box()))
+					continue;
+				if(!tryReserveEspRenderSlot(box.box()))
 					break;
 				globalEsp.submitCrossBox(matrices, box.box().move(camOffset),
 					box.color(), depthTest, DEFAULT_LINE_WIDTH);
@@ -1814,7 +1892,9 @@ public enum RenderUtils
 		
 		for(ColoredBox box : boxes)
 		{
-			if(!tryReserveEspRenderSlot())
+			if(shouldCullEspBox(matrices, box.box()))
+				continue;
+			if(!tryReserveEspRenderSlot(box.box()))
 				break;
 			drawCrossBox(matrices, buffer, box.box().move(camOffset),
 				box.color());
@@ -1909,7 +1989,9 @@ public enum RenderUtils
 		boolean depthTest)
 	{
 		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
-		if(!tryReserveEspRenderSlot())
+		if(shouldCullEspBox(matrices, box))
+			return;
+		if(!tryReserveEspRenderSlot(box))
 			return;
 		AABB shiftedBox = box.move(getCameraPos().reverse());
 		GlobalEspManager globalEsp = GlobalEspManager.getInstance();
@@ -1937,7 +2019,9 @@ public enum RenderUtils
 		{
 			for(AABB box : boxes)
 			{
-				if(!tryReserveEspRenderSlot())
+				if(shouldCullEspBox(matrices, box))
+					continue;
+				if(!tryReserveEspRenderSlot(box))
 					break;
 				globalEsp.submitNode(matrices, box.move(camOffset), color,
 					depthTest, DEFAULT_LINE_WIDTH);
@@ -1952,7 +2036,9 @@ public enum RenderUtils
 		
 		for(AABB box : boxes)
 		{
-			if(!tryReserveEspRenderSlot())
+			if(shouldCullEspBox(matrices, box))
+				continue;
+			if(!tryReserveEspRenderSlot(box))
 				break;
 			drawNode(matrices, buffer, box.move(camOffset), color);
 		}
@@ -1969,7 +2055,9 @@ public enum RenderUtils
 		{
 			for(ColoredBox box : boxes)
 			{
-				if(!tryReserveEspRenderSlot())
+				if(shouldCullEspBox(matrices, box.box()))
+					continue;
+				if(!tryReserveEspRenderSlot(box.box()))
 					break;
 				globalEsp.submitNode(matrices, box.box().move(camOffset),
 					box.color(), depthTest, DEFAULT_LINE_WIDTH);
@@ -1984,7 +2072,9 @@ public enum RenderUtils
 		
 		for(ColoredBox box : boxes)
 		{
-			if(!tryReserveEspRenderSlot())
+			if(shouldCullEspBox(matrices, box.box()))
+				continue;
+			if(!tryReserveEspRenderSlot(box.box()))
 				break;
 			drawNode(matrices, buffer, box.box().move(camOffset), box.color());
 		}

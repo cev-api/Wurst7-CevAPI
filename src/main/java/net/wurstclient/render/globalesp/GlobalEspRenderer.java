@@ -181,7 +181,8 @@ public final class GlobalEspRenderer
 			GpuBuffer indexBuffer = indexAccessor.getBuffer(indexCount);
 			
 			preparedMeshDraws.add(new MeshDrawCall(pipeline, transformSlice,
-				vertexBuffer, indexBuffer, indexAccessor, indexCount));
+				vertexBuffer, indexBuffer, indexAccessor, indexCount,
+				mesh.visibleRanges));
 		}
 		
 		if(preparedMeshDraws.isEmpty())
@@ -204,7 +205,8 @@ public final class GlobalEspRenderer
 				renderPass.setVertexBuffer(0, drawCall.vertexBuffer.slice());
 				renderPass.setIndexBuffer(drawCall.indexBuffer,
 					drawCall.indexAccessor.type());
-				renderPass.drawIndexed(drawCall.indexCount, 1, 0, 0, 0);
+				EasyVertexBuffer.drawVisibleRanges(renderPass,
+					drawCall.indexCount, drawCall.visibleRanges);
 			}
 		}
 	}
@@ -217,10 +219,12 @@ public final class GlobalEspRenderer
 		private final GpuBuffer indexBuffer;
 		private final RenderSystem.AutoStorageIndexBuffer indexAccessor;
 		private final int indexCount;
+		private final int[] visibleRanges;
 		
 		private MeshDrawCall(RenderPipeline pipeline, GpuBufferSlice transform,
 			GpuBuffer vertexBuffer, GpuBuffer indexBuffer,
-			RenderSystem.AutoStorageIndexBuffer indexAccessor, int indexCount)
+			RenderSystem.AutoStorageIndexBuffer indexAccessor, int indexCount,
+			int[] visibleRanges)
 		{
 			this.pipeline = pipeline;
 			this.transform = transform;
@@ -228,6 +232,7 @@ public final class GlobalEspRenderer
 			this.indexBuffer = indexBuffer;
 			this.indexAccessor = indexAccessor;
 			this.indexCount = indexCount;
+			this.visibleRanges = visibleRanges;
 		}
 	}
 	

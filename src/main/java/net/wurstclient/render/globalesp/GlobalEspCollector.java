@@ -17,6 +17,7 @@ import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.util.EasyVertexBuffer;
+import net.wurstclient.render.esp.EspViewCulling;
 
 public final class GlobalEspCollector
 {
@@ -64,6 +65,11 @@ public final class GlobalEspCollector
 		float x2, float y2, float z2, int color, boolean depthTest,
 		float lineWidth)
 	{
+		if(EspViewCulling.isActive()
+			&& !EspViewCulling.localFrustum(entry.pose()).intersects(
+				Math.min(x1, x2), Math.min(y1, y2), Math.min(z1, z2),
+				Math.max(x1, x2), Math.max(y1, y2), Math.max(z1, z2)))
+			return;
 		LinePrimitive line = takeLine(depthTest);
 		line.pose.set(entry.pose());
 		line.normal.set(entry.normal());
@@ -244,7 +250,11 @@ public final class GlobalEspCollector
 		if(buffer == null || layer == null)
 			return;
 		
+		int[] ranges = buffer.getVisibleRanges(entry.pose());
+		if(ranges != null && ranges.length == 0)
+			return;
 		MeshPrimitive mesh = takeMesh();
+		mesh.visibleRanges = ranges;
 		mesh.transformIndex = storeTransform(entry);
 		mesh.buffer = buffer;
 		mesh.layer = layer;
@@ -338,6 +348,10 @@ public final class GlobalEspCollector
 		float minZ, float maxX, float maxY, float maxZ, int color,
 		boolean depthTest, float lineWidth)
 	{
+		if(EspViewCulling.isActive()
+			&& !EspViewCulling.localFrustum(transforms.get(transformIndex).pose)
+				.intersects(minX, minY, minZ, maxX, maxY, maxZ))
+			return;
 		SolidBoxPrimitive solidBox = takeSolidBox(depthTest);
 		solidBox.transformIndex = transformIndex;
 		solidBox.minX = minX;
@@ -409,6 +423,7 @@ public final class GlobalEspCollector
 	
 	static final class MeshPrimitive
 	{
+		int[] visibleRanges;
 		int transformIndex;
 		EasyVertexBuffer buffer;
 		RenderType layer;
