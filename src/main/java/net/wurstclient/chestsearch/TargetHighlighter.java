@@ -97,6 +97,12 @@ public final class TargetHighlighter implements RenderListener
 	}
 	
 	@Override
+	public String espCullingSource()
+	{
+		return "ChestSearchHighlights";
+	}
+	
+	@Override
 	public synchronized void onRender(PoseStack matrixStack, float partialTicks)
 	{
 		if(WurstClient.MC == null || WurstClient.MC.level == null)

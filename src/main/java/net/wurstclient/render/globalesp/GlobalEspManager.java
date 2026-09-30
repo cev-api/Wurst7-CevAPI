@@ -289,13 +289,13 @@ public final class GlobalEspManager
 	
 	public synchronized boolean submitMeshDraw(PoseStack matrices,
 		EasyVertexBuffer buffer, RenderType layer, float red, float green,
-		float blue, float alpha)
+		float blue, float alpha, int[] visibleRanges)
 	{
 		if(!shouldTakeOverRenderCalls() || !isEspLayer(layer))
 			return false;
 		
 		collector.submitMeshDraw(matrices.last(), buffer, layer, red, green,
-			blue, alpha);
+			blue, alpha, visibleRanges);
 		return true;
 	}
 	

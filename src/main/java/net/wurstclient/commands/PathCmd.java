@@ -191,6 +191,12 @@ public final class PathCmd extends Command
 	}
 	
 	@Override
+	public String espCullingSource()
+	{
+		return "CommandPath";
+	}
+	
+	@Override
 	public void onRender(PoseStack matrixStack, float partialTicks)
 	{
 		pathFinder.renderPath(matrixStack, debugMode.isChecked(),

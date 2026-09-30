@@ -418,6 +418,12 @@ public final class NiceWurstModule
 		}
 		
 		@Override
+		public String espCullingSource()
+		{
+			return "OpenedChestMarkers";
+		}
+		
+		@Override
 		public void onRender(PoseStack matrixStack, float partialTicks)
 		{
 			if(matrixStack == null || openedChests.isEmpty())

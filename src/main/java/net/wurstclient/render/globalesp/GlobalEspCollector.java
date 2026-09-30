@@ -245,12 +245,12 @@ public final class GlobalEspCollector
 	}
 	
 	public void submitMeshDraw(PoseStack.Pose entry, EasyVertexBuffer buffer,
-		RenderType layer, float red, float green, float blue, float alpha)
+		RenderType layer, float red, float green, float blue, float alpha,
+		int[] ranges)
 	{
 		if(buffer == null || layer == null)
 			return;
 		
-		int[] ranges = buffer.getVisibleRanges(entry.pose());
 		if(ranges != null && ranges.length == 0)
 			return;
 		MeshPrimitive mesh = takeMesh();

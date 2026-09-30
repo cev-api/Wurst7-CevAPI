@@ -24,16 +24,21 @@ public final class EspFrustum
 	
 	public EspFrustum(Matrix4fc m, double margin)
 	{
+		this(m, margin, margin);
+	}
+	
+	public EspFrustum(Matrix4fc m, double marginX, double marginY)
+	{
 		// Extra screen margin preserves wide lines and shader outlines at
 		// edges.
-		set(0, margin * m.m03() + m.m00(), margin * m.m13() + m.m10(),
-			margin * m.m23() + m.m20(), margin * m.m33() + m.m30());
-		set(1, margin * m.m03() - m.m00(), margin * m.m13() - m.m10(),
-			margin * m.m23() - m.m20(), margin * m.m33() - m.m30());
-		set(2, margin * m.m03() + m.m01(), margin * m.m13() + m.m11(),
-			margin * m.m23() + m.m21(), margin * m.m33() + m.m31());
-		set(3, margin * m.m03() - m.m01(), margin * m.m13() - m.m11(),
-			margin * m.m23() - m.m21(), margin * m.m33() - m.m31());
+		set(0, marginX * m.m03() + m.m00(), marginX * m.m13() + m.m10(),
+			marginX * m.m23() + m.m20(), marginX * m.m33() + m.m30());
+		set(1, marginX * m.m03() - m.m00(), marginX * m.m13() - m.m10(),
+			marginX * m.m23() - m.m20(), marginX * m.m33() - m.m30());
+		set(2, marginY * m.m03() + m.m01(), marginY * m.m13() + m.m11(),
+			marginY * m.m23() + m.m21(), marginY * m.m33() + m.m31());
+		set(3, marginY * m.m03() - m.m01(), marginY * m.m13() - m.m11(),
+			marginY * m.m23() - m.m21(), marginY * m.m33() - m.m31());
 	}
 	
 	private void set(int i, double x, double y, double z, double w)

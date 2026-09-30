@@ -87,6 +87,12 @@ public enum RenderUtils
 	
 	private static boolean tryReserveEspRenderSlot(AABB box)
 	{
+		return net.wurstclient.render.esp.EspCullingStats
+			.submitted(reserveEspBox(box));
+	}
+	
+	private static boolean reserveEspBox(AABB box)
+	{
 		if(box == null)
 			return tryReserveEspRenderSlot();
 		if(!WurstClient.INSTANCE.getHax().globalToggleHack
@@ -416,6 +422,9 @@ public enum RenderUtils
 	private static void appendPreparedText(Font.PreparedText prepared,
 		Matrix4f matrix, DisplayMode displayMode, int packedLight)
 	{
+		// Keep text conservative: advance widths/lineHeight do not bound custom
+		// font glyph bearings, decorations or outlines. Do not allocate/test a
+		// culling consumer per character; the GPU clips label edges normally.
 		StagedVertexBuffer svb = textBuffer;
 		prepared.visit(new Font.GlyphVisitor()
 		{
@@ -436,17 +445,7 @@ public enum RenderUtils
 					textLastType = type;
 				}
 				VertexConsumer consumer = svb.getVertexBuilder(textLastDraw);
-				if(net.wurstclient.render.esp.EspViewCulling.isActive())
-				{
-					var culling =
-						new net.wurstclient.render.esp.CullingVertexConsumer(
-							consumer, net.wurstclient.render.esp.EspViewCulling
-								.bufferFrustum(),
-							4);
-					glyph.render(matrix, culling, packedLight, false);
-					culling.finish();
-				}else
-					glyph.render(matrix, consumer, packedLight, false);
+				glyph.render(matrix, consumer, packedLight, false);
 			}
 			
 			@Override
@@ -466,17 +465,7 @@ public enum RenderUtils
 					textLastType = type;
 				}
 				VertexConsumer consumer = svb.getVertexBuilder(textLastDraw);
-				if(net.wurstclient.render.esp.EspViewCulling.isActive())
-				{
-					var culling =
-						new net.wurstclient.render.esp.CullingVertexConsumer(
-							consumer, net.wurstclient.render.esp.EspViewCulling
-								.bufferFrustum(),
-							4);
-					effect.render(matrix, culling, packedLight, false);
-					culling.finish();
-				}else
-					effect.render(matrix, consumer, packedLight, false);
+				effect.render(matrix, consumer, packedLight, false);
 			}
 		});
 	}

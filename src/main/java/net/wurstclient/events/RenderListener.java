@@ -15,6 +15,12 @@ import net.wurstclient.util.HackPerformanceTracker;
 
 public interface RenderListener extends Listener
 {
+	/** Explicit identity for world overlays which are not Hacks. */
+	default String espCullingSource()
+	{
+		return null;
+	}
+	
 	public void onRender(PoseStack matrixStack, float partialTicks);
 	
 	public static class RenderEvent extends Event<RenderListener>

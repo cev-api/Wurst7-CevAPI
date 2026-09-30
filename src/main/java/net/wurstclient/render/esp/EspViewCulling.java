@@ -29,7 +29,7 @@ public final class EspViewCulling
 	private static final Matrix4f LAST_MODEL_VIEW = new Matrix4f();
 	private static final Matrix4f IDENTITY = new Matrix4f();
 	private static EspFrustum cachedLocal;
-	private static double screenMargin;
+	private static double screenMarginX, screenMarginY;
 	
 	private EspViewCulling()
 	{}
@@ -37,15 +37,37 @@ public final class EspViewCulling
 	public static void beginFrame(CameraRenderState state)
 	{
 		PROJECTION.set(state.projectionMatrix);
-		int pixels = Math.max(1, Math.min(WurstClient.MC.getWindow().getWidth(),
-			WurstClient.MC.getWindow().getHeight()));
-		screenMargin = 1 + 64.0 / pixels;
+		screenMarginX = pixelMargin(WurstClient.MC.getWindow().getWidth());
+		screenMarginY = pixelMargin(WurstClient.MC.getWindow().getHeight());
+		EspCullingStats.beginFrame(
+			net.wurstclient.util.HackPerformanceTracker.shouldProfile());
 		worldFrustum = new EspFrustum(
 			new Matrix4f(PROJECTION).mul(state.viewRotationMatrix),
-			screenMargin);
+			screenMarginX, screenMarginY);
 		camera = state.pos;
 		active = true;
 		cachedLocal = null;
+	}
+	
+	// NDC spans two units across the viewport: 64 pixels need 128 / size.
+	static double pixelMargin(int size)
+	{
+		return 1 + 128.0 / Math.max(1, size);
+	}
+	
+	static Matrix4f composeTransform(Matrix4fc projection, Matrix4fc modelView,
+		Matrix4fc pose)
+	{
+		return new Matrix4f(projection).mul(modelView).mul(pose);
+	}
+	
+	static boolean intersectsWorldBox(EspFrustum frustum, AABB box,
+		Vec3 cameraPosition)
+	{
+		return frustum.intersects(box.minX - cameraPosition.x,
+			box.minY - cameraPosition.y, box.minZ - cameraPosition.z,
+			box.maxX - cameraPosition.x, box.maxY - cameraPosition.y,
+			box.maxZ - cameraPosition.z);
 	}
 	
 	public static void endFrame()
@@ -56,7 +78,9 @@ public final class EspViewCulling
 	
 	public static void beginSource(Object listener)
 	{
-		source = listener instanceof Hack hack ? hack.getName() : null;
+		source = listener instanceof Hack hack ? hack.getName()
+			: listener instanceof net.wurstclient.events.RenderListener render
+				? render.espCullingSource() : null;
 		cullSource = active && source != null
 			&& WurstClient.INSTANCE.getHax().globalToggleHack
 				.shouldCullEspSource(source);
@@ -87,9 +111,10 @@ public final class EspViewCulling
 	
 	public static boolean shouldCullBox(Matrix4fc pose, AABB box)
 	{
-		return isActive() && !localFrustum(pose).intersects(box.minX - camera.x,
-			box.minY - camera.y, box.minZ - camera.z, box.maxX - camera.x,
-			box.maxY - camera.y, box.maxZ - camera.z);
+		boolean culled =
+			isActive() && !intersectsWorldBox(localFrustum(pose), box, camera);
+		EspCullingStats.target(culled);
+		return culled;
 	}
 	
 	public static boolean shouldCullTracer(Vec3 point)
@@ -117,9 +142,9 @@ public final class EspViewCulling
 		{
 			LAST_POSE.set(pose);
 			LAST_MODEL_VIEW.set(modelView);
-			cachedLocal = new EspFrustum(
-				new Matrix4f(PROJECTION).mul(modelView).mul(pose),
-				screenMargin);
+			cachedLocal =
+				new EspFrustum(composeTransform(PROJECTION, modelView, pose),
+					screenMarginX, screenMarginY);
 		}
 		return cachedLocal;
 	}

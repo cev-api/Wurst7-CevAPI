@@ -128,6 +128,10 @@ public final class EasyVertexBuffer implements AutoCloseable
 		if(vertexBuffer == null)
 			return;
 		
+		int[] visibleRanges = getVisibleRanges(matrixStack.last().pose());
+		if(visibleRanges != null && visibleRanges.length == 0)
+			return;
+		
 		RenderType effectiveLayer = NiceWurstModule.enforceDepthTest(layer);
 		GlobalEspManager globalEsp = GlobalEspManager.getInstance();
 		int indexCountToDraw = indexCount;
@@ -154,12 +158,9 @@ public final class EasyVertexBuffer implements AutoCloseable
 			}
 		}
 		if(globalEsp.submitMeshDraw(matrixStack, this, effectiveLayer, red,
-			green, blue, alpha))
+			green, blue, alpha, visibleRanges))
 			return;
 		
-		int[] visibleRanges = getVisibleRanges(matrixStack.last().pose());
-		if(visibleRanges != null && visibleRanges.length == 0)
-			return;
 		Matrix4fStack modelViewStack = RenderSystem.getModelViewStack();
 		modelViewStack.pushMatrix();
 		modelViewStack.mul(matrixStack.last().pose());

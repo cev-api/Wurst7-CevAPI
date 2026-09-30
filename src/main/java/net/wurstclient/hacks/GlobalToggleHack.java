@@ -95,12 +95,12 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 		false);
 	private final CheckboxSetting cullEspOutsideView = new CheckboxSetting(
 		"Cull ESP outside view",
-		"Skips ESP targets outside the camera view. Wall visibility is unchanged.",
-		false);
+		"Skips ESP targets outside the camera view. Greatly increases FPS and ESP rendering speed. Wall visibility is unchanged.",
+		true);
 	private final CheckboxSetting offscreenTracers = new CheckboxSetting(
-		"Allow off-screen tracers",
+		"Allow off-screen tracers while culled",
 		"Keep tracers pointing toward off-screen targets while their ESP shapes are culled. Existing tracer filters still apply.",
-		false);
+		true);
 	private final SettingGroup viewCullFilters =
 		new SettingGroup("View culling exceptions",
 			WText.literal(
@@ -315,6 +315,10 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 	public void initializeViewCullExceptions(
 		net.wurstclient.hack.HackList hacks)
 	{
+		for(String source : new String[]{"ChestSearchHighlights",
+			"OpenedChestMarkers", "GoToPath", "CommandPath"})
+			registerViewCullException(source.toLowerCase(java.util.Locale.ROOT),
+				"Allow off-screen " + source, false);
 		for(Hack hack : hacks.getAllHax())
 			if(hack instanceof net.wurstclient.events.RenderListener || hack
 				.getName().toLowerCase(java.util.Locale.ROOT).contains("esp"))

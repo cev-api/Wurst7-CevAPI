@@ -20,6 +20,13 @@ import com.mojang.renderpearl.api.pipeline.PrimitiveTopology;
  */
 public final class EspMeshBounds
 {
+	// Bound CPU scanning and GPU submission overhead: at most eight draws
+	// instead of an unbounded draw per alternating visible/hidden primitive.
+	// The ninth run falls back to one full draw, conservatively.
+	static final int MAX_VISIBLE_RANGES = 8;
+	private static final int[] EMPTY_RANGES = new int[0];
+	// Render-thread scratch only. Never returned: queued draws own snapshots.
+	private int[] rangeScratch;
 	private final float[] bounds;
 	private final int indicesPerPrimitive;
 	private final float[] total =
@@ -76,14 +83,16 @@ public final class EspMeshBounds
 	public int[] visibleRanges(EspFrustum frustum)
 	{
 		if(bounds == null)
-			return null;
+			return EspCullingStats.mesh(null, false);
 		if(!frustum.intersects(total[0], total[1], total[2], total[3], total[4],
 			total[5]))
-			return new int[0];
+			return EspCullingStats.mesh(EMPTY_RANGES, false);
 		if(frustum.contains(total[0], total[1], total[2], total[3], total[4],
 			total[5]))
-			return null;
-		int[] ranges = new int[16];
+			return EspCullingStats.mesh(null, false);
+		if(rangeScratch == null)
+			rangeScratch = new int[MAX_VISIBLE_RANGES * 2];
+		int[] ranges = rangeScratch;
 		int used = 0, runStart = -1;
 		int count = bounds.length / 6;
 		for(int i = 0; i <= count; i++)
@@ -93,18 +102,21 @@ public final class EspMeshBounds
 				i < count && frustum.intersects(bounds[b], bounds[b + 1],
 					bounds[b + 2], bounds[b + 3], bounds[b + 4], bounds[b + 5]);
 			if(visible && runStart < 0)
+			{
+				if(used == ranges.length)
+					return EspCullingStats.mesh(null, true);
 				runStart = i;
+			}
 			if(!visible && runStart >= 0)
 			{
 				if(runStart == 0 && i == count)
-					return null;
-				if(used + 2 > ranges.length)
-					ranges = Arrays.copyOf(ranges, ranges.length * 2);
+					return EspCullingStats.mesh(null, false);
 				ranges[used++] = runStart * indicesPerPrimitive;
 				ranges[used++] = (i - runStart) * indicesPerPrimitive;
 				runStart = -1;
 			}
 		}
-		return Arrays.copyOf(ranges, used);
+		return EspCullingStats.mesh(
+			used == 0 ? EMPTY_RANGES : Arrays.copyOf(ranges, used), false);
 	}
 }

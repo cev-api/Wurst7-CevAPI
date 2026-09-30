@@ -81,6 +81,7 @@ public final class HackPerformanceOverlay
 		int availableWidth = Math.max(120,
 			scaledWidth - HORIZONTAL_MARGIN * 2 - BOX_PADDING * 2);
 		ArrayList<String> lines = buildLines(snapshot, otf);
+		net.wurstclient.render.esp.EspCullingStats.appendOverlay(lines);
 		if(lines.isEmpty())
 			return;
 		

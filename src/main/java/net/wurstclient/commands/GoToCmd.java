@@ -169,6 +169,12 @@ public final class GoToCmd extends Command
 	}
 	
 	@Override
+	public String espCullingSource()
+	{
+		return "GoToPath";
+	}
+	
+	@Override
 	public void onRender(PoseStack matrixStack, float partialTicks)
 	{
 		PathCmd pathCmd = WURST.getCmds().pathCmd;
