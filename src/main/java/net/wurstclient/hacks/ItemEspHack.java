@@ -46,6 +46,7 @@ import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.render.esp.ItemTagClusterer;
 import net.wurstclient.render.esp.EspItemIconRenderer;
+import net.wurstclient.render.esp.EspItemTagBatcher;
 import net.wurstclient.render.esp.EspScreenProjector;
 import net.wurstclient.render.esp.ItemTagClusterer.Cluster;
 import net.wurstclient.render.esp.ScreenTagLayout;
@@ -184,6 +185,7 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 	private final ArrayList<ItemEntity> items = new ArrayList<>();
 	private final ScreenTagLayout tagLayout = new ScreenTagLayout();
 	private final EspItemIconRenderer tagIcons = new EspItemIconRenderer();
+	private final EspItemTagBatcher tagBatcher = new EspItemTagBatcher();
 	private final EspScreenProjector tagProjection = new EspScreenProjector();
 	private final ItemTagClusterer.Cache<ItemEntity, Item> tagGroups =
 		new ItemTagClusterer.Cache<>();
@@ -323,27 +325,35 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 			tags.sort(Comparator
 				.comparingDouble(tag -> tag.position().distanceToSqr(camera)));
 		
-		for(Cluster<ItemEntity> tag : tags)
+		tagBatcher.begin(context);
+		try
 		{
-			if(tagLayout.isFull())
-				break;
-			Vec3 worldPos = tag.position();
-			if(reuseProjection ? tagProjection.isBehindCamera(worldPos)
-				: isBehindCamera(worldPos))
-				continue;
-			Vec3 projected = reuseProjection ? tagProjection.project(worldPos)
-				: MC.gameRenderer.projectPointToScreen(worldPos);
-			if(projected.z <= -1 || projected.z >= 1)
-				continue;
-			if(projected.x <= -1 || projected.x >= 1 || projected.y <= -1
-				|| projected.y >= 1)
-				continue;
-			
-			float x = (float)((projected.x + 1) * 0.5 * context.guiWidth());
-			float y =
-				(float)((1 - (projected.y + 1) * 0.5) * context.guiHeight());
-			drawItemTag(context, MC.font, tag.seed().getItem(), tag.count(), x,
-				y);
+			for(Cluster<ItemEntity> tag : tags)
+			{
+				if(tagLayout.isFull())
+					break;
+				Vec3 worldPos = tag.position();
+				if(reuseProjection ? tagProjection.isBehindCamera(worldPos)
+					: isBehindCamera(worldPos))
+					continue;
+				Vec3 projected =
+					reuseProjection ? tagProjection.project(worldPos)
+						: MC.gameRenderer.projectPointToScreen(worldPos);
+				if(projected.z <= -1 || projected.z >= 1)
+					continue;
+				if(projected.x <= -1 || projected.x >= 1 || projected.y <= -1
+					|| projected.y >= 1)
+					continue;
+				
+				float x = (float)((projected.x + 1) * 0.5 * context.guiWidth());
+				float y = (float)((1 - (projected.y + 1) * 0.5)
+					* context.guiHeight());
+				drawItemTag(context, MC.font, tag.seed().getItem(), tag.count(),
+					x, y);
+			}
+		}finally
+		{
+			tagBatcher.end();
 		}
 	}
 	
@@ -372,6 +382,13 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		float y = centerY - height / 2F;
 		if(!tagLayout.reserve(x - 2, y - 2, x + width + 2, y + height + 2))
 			return;
+		if(global.shouldBatchItemTags())
+		{
+			tagBatcher.add(tagIcons, font, stack, text, icons,
+				global.shouldReuseEspItemModels(), !global.useSimpleEspText(),
+				x, y, width, height, scale);
+			return;
+		}
 		
 		RenderUtils.fill2D(context, x - 2, y - 2, x + width + 2, y + height + 2,
 			0x90000000);
@@ -636,8 +653,8 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 				continue;
 			if(isIgnored(stack))
 				continue;
-			AABB box = EntityUtils.getLerpedBox(e, partialTicks)
-				.move(0, extraSize, 0).inflate(extraSize);
+			AABB entityBox = EntityUtils.getLerpedBox(e, partialTicks);
+			AABB box = entityBox.move(0, extraSize, 0).inflate(extraSize);
 			boolean isSpecial = isSpecial(stack);
 			// check traced override from ItemHandlerHack (use synthetic id if
 			// present)
@@ -659,18 +676,18 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 			if(isTraced)
 			{
 				tracedBoxes.add(box);
-				tracedEnds
-					.add(EntityUtils.getLerpedBox(e, partialTicks).getCenter());
+				if(style.hasLines())
+					tracedEnds.add(entityBox.getCenter());
 			}else if(isSpecial)
 			{
 				specialBoxes.add(box);
-				specialEnds
-					.add(EntityUtils.getLerpedBox(e, partialTicks).getCenter());
+				if(style.hasLines())
+					specialEnds.add(entityBox.getCenter());
 			}else
 			{
 				normalBoxes.add(box);
-				normalEnds
-					.add(EntityUtils.getLerpedBox(e, partialTicks).getCenter());
+				if(style.hasLines())
+					normalEnds.add(entityBox.getCenter());
 			}
 		}
 		// Integrate XP orbs into boxes/ends as synthetic items

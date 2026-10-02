@@ -136,12 +136,21 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 		new CheckboxSetting("Reuse ESP camera transforms",
 			"Builds ItemESP's projection matrix and camera direction once per GUI frame. Uses the same projection math and keeps smooth movement and all tag positions.",
 			true);
+	private final CheckboxSetting fastEspBoxGeometry = new CheckboxSetting(
+		"Fast ESP box geometry",
+		"Transforms each box corner once and reuses temporary vectors. Skips redundant primitive culling for fully visible boxes. Keeps the original vertices, colors, normals, and widths.",
+		true);
+	private final CheckboxSetting batchItemTags = new CheckboxSetting(
+		"Batch non-overlapping item tags",
+		"Submits independent ItemESP backgrounds, icons, and counts together. Keeps all tags and preserves the order of overlapping tags. Uses actual model and text bounds.",
+		true);
 	private final SettingGroup renderingOptimizations =
 		new SettingGroup("ESP rendering optimizations",
 			WText.literal(
 				"Reduces repeated work while preserving the existing visuals."),
 			false, true).addChildren(reuseEspBuffers, cacheEspTagGroups,
-				reuseEspItemModels, reuseEspCameraTransforms);
+				reuseEspItemModels, reuseEspCameraTransforms,
+				fastEspBoxGeometry, batchItemTags);
 	private final CheckboxSetting disableEspLabels = new CheckboxSetting(
 		"Disable ESP labels",
 		"Hides Wurst world-space text and ItemESP tags while keeping ESP geometry and other HUD overlays.",
@@ -539,6 +548,16 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 	public boolean shouldReuseEspCameraTransforms()
 	{
 		return reuseEspCameraTransforms.isChecked();
+	}
+	
+	public boolean shouldUseFastEspBoxGeometry()
+	{
+		return fastEspBoxGeometry.isChecked();
+	}
+	
+	public boolean shouldBatchItemTags()
+	{
+		return batchItemTags.isChecked();
 	}
 	
 	public boolean shouldDisableEspLabels()

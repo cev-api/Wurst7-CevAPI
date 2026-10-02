@@ -48,6 +48,7 @@ public class LevelRendererMixin
 		CallbackInfo ci)
 	{
 		RenderUtils.beginEspFrame();
+		net.wurstclient.util.HackPerformanceTracker.beginRenderFrame();
 		GlobalEspManager.getInstance().beginFrame();
 	}
 	

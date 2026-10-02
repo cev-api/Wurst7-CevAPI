@@ -170,7 +170,7 @@ public final class PerformanceOverlayOtf extends OtherFeature
 	
 	public enum SortMode
 	{
-		TOTAL_TIME("Total time (1s)"),
+		TOTAL_TIME("Average/frame (1s)"),
 		PEAK_TIME("Peak callback");
 		
 		private final String name;

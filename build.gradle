@@ -566,6 +566,7 @@ tasks.register("espCullingRegressionTest", JavaExec) {
 tasks.named("test") {
 	exclude "net/wurstclient/render/esp/EspCullingRegressionTest*"
 	exclude "net/wurstclient/render/esp/EspPerformanceRegressionTest*"
+	exclude "net/wurstclient/render/esp/EspGeometryRegressionTest*"
 }
 tasks.register("espPerformanceRegressionTest", JavaExec) {
 	dependsOn tasks.named("testClasses")
@@ -575,4 +576,19 @@ tasks.register("espPerformanceRegressionTest", JavaExec) {
 tasks.named("check") {
 	dependsOn tasks.named("espCullingRegressionTest")
 	dependsOn tasks.named("espPerformanceRegressionTest")
+}
+
+tasks.register("espGeometryRegressionTest", JavaExec) {
+	dependsOn tasks.named("testClasses")
+	classpath = sourceSets.test.runtimeClasspath
+	mainClass = "net.wurstclient.render.esp.EspGeometryRegressionTest"
+}
+tasks.register("espRenderingBenchmark", JavaExec) {
+	dependsOn tasks.named("testClasses")
+	classpath = sourceSets.test.runtimeClasspath
+	mainClass = "net.wurstclient.render.esp.EspGeometryRegressionTest"
+	args "--benchmark"
+}
+tasks.named("check") {
+	dependsOn tasks.named("espGeometryRegressionTest")
 }

@@ -71,6 +71,17 @@ public final class CullingVertexConsumer implements VertexConsumer
 		return vertices[count - 1];
 	}
 	
+	/** Fully contained geometry cannot benefit from another primitive test. */
+	public VertexConsumer forBounds(double minX, double minY, double minZ,
+		double maxX, double maxY, double maxZ)
+	{
+		// Submit any preceding primitive before bypassing the wrapper, so
+		// translucent geometry keeps its original order.
+		finish();
+		return frustum.contains(minX, minY, minZ, maxX, maxY, maxZ) ? target
+			: this;
+	}
+	
 	@Override
 	public VertexConsumer setColor(int r, int g, int b, int a)
 	{

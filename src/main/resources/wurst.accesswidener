@@ -17,6 +17,9 @@ accessible	field	net/minecraft/client/Minecraft	rightClickDelay	I
 accessible	field	net/minecraft/client/ClientClockManager	clocks	Ljava/util/Map;
 accessible	field	net/minecraft/client/gui/GuiGraphicsExtractor	scissorStack	Lnet/minecraft/client/gui/GuiGraphicsExtractor$ScissorStack;
 accessible	field	net/minecraft/client/gui/GuiGraphicsExtractor	guiRenderState	Lnet/minecraft/client/renderer/state/gui/GuiRenderState;
+accessible	class	net/minecraft/client/renderer/state/gui/GuiRenderState$Node
+accessible	field	net/minecraft/client/renderer/state/gui/GuiRenderState	current	Lnet/minecraft/client/renderer/state/gui/GuiRenderState$Node;
+accessible	field	net/minecraft/client/renderer/state/gui/GuiRenderState	itemModelIdentities	Ljava/util/Set;
 accessible	field	net/minecraft/client/gui/components/ChatComponent	trimmedMessages	Ljava/util/List;
 accessible	field	net/minecraft/client/gui/screens/Screen	renderables	Ljava/util/List;
 mutable		field	net/minecraft/client/gui/screens/Screen	title	Lnet/minecraft/network/chat/Component;

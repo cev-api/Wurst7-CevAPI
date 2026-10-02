@@ -147,14 +147,12 @@ public final class HackPerformanceOverlay
 		lines.add("Hack Performance [" + mode + "] sort="
 			+ (otf.getSortMode() == SortMode.PEAK_TIME ? "peak" : "total"));
 		
-		double fps = Math.max(1, MC.getFps());
+		double fps = Math.max(1, snapshot.renderFramesPerSecond());
 		double frameMs = 1000.0 / fps;
-		double unattributedMs = Math.max(0, frameMs - snapshot.allTotalMs());
-		lines.add("Frame " + formatMs(frameMs) + " | Hacks "
-			+ formatMs(snapshot.allTotalMs()) + " | Other "
-			+ formatMs(unattributedMs));
-		lines.add("Top hacks: total " + (usingWindowData ? "ms/s" : "ms")
-			+ " (peak callback ms)");
+		lines.add("Frame " + formatMs(frameMs) + " | Hack callbacks "
+			+ formatMs(snapshot.allTotalMs()) + "/frame");
+		lines.add("Top hacks: average ms/frame (peak callback ms)");
+		lines.add("GPU time and deferred HUD drawing are not measured here.");
 		if(snapshot.hiddenRowsTotalMs() > 0.01)
 			lines.add("Hidden by row limit: "
 				+ formatMs(snapshot.hiddenRowsTotalMs()));
@@ -277,7 +275,7 @@ public final class HackPerformanceOverlay
 		double latest = graphSize > 0 ? getGraphSample(graphSize - 1) : 0;
 		double peak = getGraphMax();
 		String label =
-			"Graph T: " + formatMs(latest) + " (max " + formatMs(peak) + ")";
+			"CPU/frame: " + formatMs(latest) + " (max " + formatMs(peak) + ")";
 		int labelMaxWidth =
 			Math.max(40, (int)Math.floor(graphWidth / fontScale));
 		String clippedLabel = clipToWidth(font, label, labelMaxWidth);

@@ -30,6 +30,9 @@ public enum HackPerformanceTracker
 	
 	private static long windowStartNs = System.nanoTime();
 	private static boolean hasCompletedWindow;
+	private static int currentRenderFrames;
+	private static int lastRenderFrames;
+	private static long lastWindowNs = WINDOW_NS;
 	
 	public enum Phase
 	{
@@ -46,6 +49,17 @@ public enum HackPerformanceTracker
 			return false;
 		
 		return wurst.getOtfs().performanceOverlayOtf.isEnabled();
+	}
+	
+	public static void beginRenderFrame()
+	{
+		if(!shouldProfile())
+			return;
+		synchronized(LOCK)
+		{
+			rollWindow(System.nanoTime());
+			currentRenderFrames++;
+		}
 	}
 	
 	public static void record(Listener listener, Phase phase, long durationNs)
@@ -71,6 +85,10 @@ public enum HackPerformanceTracker
 			rollWindow(nowNs);
 			
 			Collection<Map.Entry<Hack, Stats>> entries = STATS.entrySet();
+			int frames =
+				hasCompletedWindow ? lastRenderFrames : currentRenderFrames;
+			long elapsed = hasCompletedWindow ? lastWindowNs
+				: Math.max(1, nowNs - windowStartNs);
 			ArrayList<Row> rows = new ArrayList<>(entries.size());
 			for(Map.Entry<Hack, Stats> e : entries)
 			{
@@ -81,7 +99,8 @@ public enum HackPerformanceTracker
 				if(!hack.isEnabled() && nowNs - stats.lastSeenNs > STALE_NS)
 					continue;
 				
-				rows.add(stats.toRow(hack.getName(), hasCompletedWindow));
+				rows.add(
+					stats.toRow(hack.getName(), hasCompletedWindow, frames));
 			}
 			
 			if(sortMode == SortMode.PEAK_TIME)
@@ -112,7 +131,8 @@ public enum HackPerformanceTracker
 			
 			return new ListSnapshot(visibleRows, hasCompletedWindow,
 				allUpdateMs, allRenderMs, allGuiMs, allTotalMs,
-				allTotalMs - visibleTotalMs);
+				allTotalMs - visibleTotalMs, frames,
+				frames * 1_000_000_000D / elapsed);
 		}
 	}
 	
@@ -121,8 +141,10 @@ public enum HackPerformanceTracker
 		if(nowNs - windowStartNs < WINDOW_NS)
 			return;
 		
-		long windowsElapsed = Math.max(1L, (nowNs - windowStartNs) / WINDOW_NS);
-		windowStartNs += windowsElapsed * WINDOW_NS;
+		lastWindowNs = nowNs - windowStartNs;
+		windowStartNs = nowNs;
+		lastRenderFrames = currentRenderFrames;
+		currentRenderFrames = 0;
 		hasCompletedWindow = true;
 		
 		ArrayList<Hack> stale = new ArrayList<>();
@@ -179,14 +201,17 @@ public enum HackPerformanceTracker
 			}
 		}
 		
-		private Row toRow(String name, boolean useLastWindow)
+		private Row toRow(String name, boolean useLastWindow, int frames)
 		{
 			long[] totals = useLastWindow ? lastTotalNs : currentTotalNs;
 			long[] maxes = useLastWindow ? lastMaxNs : currentMaxNs;
 			
-			double updateMs = nanosToMillis(totals[Phase.UPDATE.ordinal()]);
-			double renderMs = nanosToMillis(totals[Phase.RENDER.ordinal()]);
-			double guiMs = nanosToMillis(totals[Phase.GUI.ordinal()]);
+			double updateMs =
+				averageFrameMillis(totals[Phase.UPDATE.ordinal()], frames);
+			double renderMs =
+				averageFrameMillis(totals[Phase.RENDER.ordinal()], frames);
+			double guiMs =
+				averageFrameMillis(totals[Phase.GUI.ordinal()], frames);
 			double totalMs = updateMs + renderMs + guiMs;
 			
 			double windowPeakMs =
@@ -208,12 +233,18 @@ public enum HackPerformanceTracker
 		}
 	}
 	
+	public static double averageFrameMillis(long durationNs, int frames)
+	{
+		return frames <= 0 ? 0 : durationNs / (frames * 1_000_000D);
+	}
+	
 	public record Row(String name, double updateMs, double renderMs,
 		double guiMs, double totalMs, double peakMs)
 	{}
 	
 	public record ListSnapshot(ArrayList<Row> rows, boolean usingWindowData,
 		double allUpdateMs, double allRenderMs, double allGuiMs,
-		double allTotalMs, double hiddenRowsTotalMs)
+		double allTotalMs, double hiddenRowsTotalMs, int renderedFrames,
+		double renderFramesPerSecond)
 	{}
 }

@@ -36,24 +36,31 @@ public final class EspItemIconRenderer
 	public void draw(GuiGraphicsExtractor context, ItemStack stack, int x,
 		int y)
 	{
+		GuiItemRenderState icon = prepare(context, stack, x, y, true);
+		if(icon != null)
+			context.guiRenderState.addItem(icon);
+	}
+	
+	public GuiItemRenderState prepare(GuiGraphicsExtractor context,
+		ItemStack stack, int x, int y, boolean reuse)
+	{
 		if(stack.isEmpty())
-			return;
+			return null;
 		Key key = new Key(stack.getItem(), stack.getCount(),
 			stack.getComponentsPatch(), stack.getPopTime());
-		TrackingItemStackRenderState state = models.get(key);
+		TrackingItemStackRenderState state = reuse ? models.get(key) : null;
 		if(state == null)
 		{
 			state = new TrackingItemStackRenderState();
 			var mc = WurstClient.MC;
 			mc.getItemModelResolver().updateForTopItem(state, stack,
 				ItemDisplayContext.GUI, mc.level, mc.player, 0);
-			if(!state.isAnimated())
+			if(reuse && !state.isAnimated())
 				models.put(key, state);
 		}
 		// This is the same state submission as GuiGraphicsExtractor.item():
 		// a distinct pose and screen bounds for EVERY icon, in original order.
-		context.guiRenderState
-			.addItem(new GuiItemRenderState(new Matrix3x2f(context.pose()),
-				state, x, y, context.scissorStack.peek()));
+		return new GuiItemRenderState(new Matrix3x2f(context.pose()), state, x,
+			y, context.scissorStack.peek());
 	}
 }

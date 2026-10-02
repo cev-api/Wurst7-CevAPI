@@ -1269,6 +1269,13 @@ public enum RenderUtils
 		if(globalEsp.shouldTakeOverBufferedQuadCalls()
 			&& globalEsp.submitBufferedSolidBox(matrices, box, color))
 			return;
+		if(WurstClient.INSTANCE.getHax().globalToggleHack
+			.shouldUseFastEspBoxGeometry())
+		{
+			net.wurstclient.render.esp.EspBoxGeometry.solid(matrices.last(),
+				buffer, box, color);
+			return;
+		}
 		
 		PoseStack.Pose entry = matrices.last();
 		float x1 = (float)box.minX;
@@ -1782,6 +1789,13 @@ public enum RenderUtils
 			&& globalEsp.submitBufferedOutlinedBox(matrices, box, color,
 				DEFAULT_LINE_WIDTH))
 			return;
+		if(WurstClient.INSTANCE.getHax().globalToggleHack
+			.shouldUseFastEspBoxGeometry())
+		{
+			net.wurstclient.render.esp.EspBoxGeometry.outline(matrices.last(),
+				buffer, box, color);
+			return;
+		}
 		
 		PoseStack.Pose entry = matrices.last();
 		float x1 = (float)box.minX;
