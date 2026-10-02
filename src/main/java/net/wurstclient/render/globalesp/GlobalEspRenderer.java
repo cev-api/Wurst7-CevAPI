@@ -159,7 +159,8 @@ public final class GlobalEspRenderer
 			GpuBuffer vertexBuffer = buffer.getVertexBufferForGlobalEsp();
 			RenderSystem.AutoStorageIndexBuffer indexAccessor =
 				buffer.getIndexBufferForGlobalEsp();
-			int indexCount = buffer.getIndexCountForGlobalEsp();
+			int indexCount =
+				Math.min(mesh.indexCount, buffer.getIndexCountForGlobalEsp());
 			if(vertexBuffer == null || indexAccessor == null || indexCount < 1)
 				continue;
 			

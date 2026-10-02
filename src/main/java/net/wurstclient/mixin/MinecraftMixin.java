@@ -236,6 +236,14 @@ public abstract class MinecraftMixin
 		GlobalEspManager.getInstance().cleanup();
 	}
 	
+	@Inject(at = @At("HEAD"),
+		method = "disconnect(Lnet/minecraft/client/gui/screens/Screen;ZZ)V")
+	private void onDisconnect(net.minecraft.client.gui.screens.Screen screen,
+		boolean transferring, boolean keepResourcePacks, CallbackInfo ci)
+	{
+		net.wurstclient.util.RenderUtils.cleanupEspBuffers();
+	}
+	
 	@Override
 	public ILocalPlayer getPlayer()
 	{

@@ -90,7 +90,13 @@ public class LevelRendererMixin
 			net.wurstclient.util.RenderUtils.endTextFrame();
 		}finally
 		{
-			net.wurstclient.render.esp.EspViewCulling.endFrame();
+			try
+			{
+				RenderUtils.endEspFrame();
+			}finally
+			{
+				net.wurstclient.render.esp.EspViewCulling.endFrame();
+			}
 		}
 	}
 	

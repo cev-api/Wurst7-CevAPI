@@ -246,7 +246,7 @@ public final class GlobalEspCollector
 	
 	public void submitMeshDraw(PoseStack.Pose entry, EasyVertexBuffer buffer,
 		RenderType layer, float red, float green, float blue, float alpha,
-		int[] ranges)
+		int[] ranges, int indexCount)
 	{
 		if(buffer == null || layer == null)
 			return;
@@ -255,6 +255,7 @@ public final class GlobalEspCollector
 			return;
 		MeshPrimitive mesh = takeMesh();
 		mesh.visibleRanges = ranges;
+		mesh.indexCount = indexCount;
 		mesh.transformIndex = storeTransform(entry);
 		mesh.buffer = buffer;
 		mesh.layer = layer;
@@ -382,6 +383,7 @@ public final class GlobalEspCollector
 		{
 			mesh.buffer = null;
 			mesh.layer = null;
+			mesh.visibleRanges = null;
 			meshPool.addLast(mesh);
 		}
 		
@@ -424,6 +426,7 @@ public final class GlobalEspCollector
 	static final class MeshPrimitive
 	{
 		int[] visibleRanges;
+		int indexCount;
 		int transformIndex;
 		EasyVertexBuffer buffer;
 		RenderType layer;

@@ -62,7 +62,7 @@ public final class GlobalEspManager
 		if(!frameOpen)
 			return;
 		
-		if(isShaderOutlineMode())
+		if(isShaderOutlineMode() || shouldBatchMeshDraws())
 			renderer.render(matrices, collector);
 		
 		collector.clear();
@@ -71,6 +71,7 @@ public final class GlobalEspManager
 	
 	public synchronized void cleanup()
 	{
+		net.wurstclient.util.RenderUtils.cleanupEspBuffers();
 		collector.clear();
 		renderer.cleanup();
 		renderedEspItemsThisFrame = 0;
@@ -97,7 +98,8 @@ public final class GlobalEspManager
 	
 	public synchronized boolean shouldTakeOverRenderCalls()
 	{
-		return frameOpen && isShaderOutlineMode() && !isReplayingGlobalEsp;
+		return frameOpen && isShaderOutlineMode() && !isReplayingGlobalEsp
+			&& !net.wurstclient.render.esp.EspRenderPolicy.isBuildingMesh();
 	}
 	
 	public boolean shouldTakeOverBufferedLineCalls()
@@ -289,13 +291,14 @@ public final class GlobalEspManager
 	
 	public synchronized boolean submitMeshDraw(PoseStack matrices,
 		EasyVertexBuffer buffer, RenderType layer, float red, float green,
-		float blue, float alpha, int[] visibleRanges)
+		float blue, float alpha, int[] visibleRanges, int indexCount)
 	{
-		if(!shouldTakeOverRenderCalls() || !isEspLayer(layer))
+		if((!shouldTakeOverRenderCalls() && !shouldBatchMeshDraws())
+			|| !isEspLayer(layer))
 			return false;
 		
 		collector.submitMeshDraw(matrices.last(), buffer, layer, red, green,
-			blue, alpha, visibleRanges);
+			blue, alpha, visibleRanges, indexCount);
 		return true;
 	}
 	
@@ -313,6 +316,14 @@ public final class GlobalEspManager
 	public synchronized boolean isShaderOutlineMode()
 	{
 		return getRenderMode() == GlobalEspRenderMode.SHADER_OUTLINE;
+	}
+	
+	private boolean shouldBatchMeshDraws()
+	{
+		HackList hax = WurstClient.INSTANCE.getHax();
+		return frameOpen && !isReplayingGlobalEsp && hax != null
+			&& hax.globalToggleHack != null
+			&& hax.globalToggleHack.shouldBatchEspMeshes();
 	}
 	
 	/**

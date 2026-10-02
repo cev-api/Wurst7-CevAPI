@@ -43,6 +43,8 @@ import net.minecraft.world.phys.Vec3;
 import net.wurstclient.WurstClient;
 import net.wurstclient.WurstRenderLayers;
 import net.wurstclient.nicewurst.NiceWurstModule;
+import net.wurstclient.render.esp.EspRenderPolicy;
+import net.wurstclient.render.esp.FrameResourcePool;
 import net.wurstclient.render.globalesp.GlobalEspManager;
 
 public enum RenderUtils
@@ -73,10 +75,32 @@ public enum RenderUtils
 		ThreadLocal.withInitial(() -> null);
 	private static final ThreadLocal<IdentityHashMap<AABB, Boolean>> BOX_BUDGET =
 		ThreadLocal.withInitial(IdentityHashMap::new);
+	// Retain at most 16 native staging buffers. Each acquisition is unique
+	// within the frame, so nested drawing helpers cannot alias live builders.
+	private static final FrameResourcePool<WurstBufferSource> ESP_BUFFERS =
+		new FrameResourcePool<>(16, WurstBufferSource::new,
+			WurstBufferSource::endFrame, WurstBufferSource::close);
+	private static boolean espFrameOpen;
 	
 	public static void beginEspFrame()
 	{
 		BOX_BUDGET.get().clear();
+		espFrameOpen = true;
+		if(!WurstClient.INSTANCE.getHax().globalToggleHack
+			.shouldReuseEspBuffers())
+			ESP_BUFFERS.clear();
+	}
+	
+	public static void endEspFrame()
+	{
+		espFrameOpen = false;
+		ESP_BUFFERS.endFrame();
+	}
+	
+	public static void cleanupEspBuffers()
+	{
+		espFrameOpen = false;
+		ESP_BUFFERS.clear();
 	}
 	
 	private static boolean tryReserveEspRenderSlot()
@@ -295,6 +319,12 @@ public enum RenderUtils
 	
 	public static WurstBufferSource getVCP()
 	{
+		if(espFrameOpen
+			&& net.wurstclient.render.esp.EspViewCulling.getSource() != null
+			&& !EspRenderPolicy.isBuildingMesh()
+			&& WurstClient.INSTANCE.getHax().globalToggleHack
+				.shouldReuseEspBuffers())
+			return ESP_BUFFERS.acquire();
 		return new WurstBufferSource();
 	}
 	
@@ -356,12 +386,14 @@ public enum RenderUtils
 		int color, boolean shadow, Matrix4f matrix, WurstBufferSource vcp,
 		DisplayMode displayMode, int backgroundColor, int packedLight)
 	{
-		if(text == null || text.isEmpty())
+		if(text == null || text.isEmpty() || EspRenderPolicy.skipLabel(matrix))
 			return;
 		
 		if(textBuffer == null)
 			textBuffer = new StagedVertexBuffer(() -> "wurstText", 0x4000);
 		
+		shadow &=
+			!WurstClient.INSTANCE.getHax().globalToggleHack.useSimpleEspText();
 		var prepared = font.prepareText(
 			Component.literal(text).getVisualOrderText(), x, y, color, shadow,
 			false, WurstClient.INSTANCE.getHax().globalToggleHack
@@ -378,12 +410,14 @@ public enum RenderUtils
 		WurstBufferSource vcp, DisplayMode displayMode, int backgroundColor,
 		int packedLight)
 	{
-		if(text == null)
+		if(text == null || EspRenderPolicy.skipLabel(matrix))
 			return;
 		
 		if(textBuffer == null)
 			textBuffer = new StagedVertexBuffer(() -> "wurstText", 0x4000);
 		
+		shadow &=
+			!WurstClient.INSTANCE.getHax().globalToggleHack.useSimpleEspText();
 		var prepared = font.prepareText(text, x, y, color, shadow, false,
 			WurstClient.INSTANCE.getHax().globalToggleHack
 				.isEspTextBackgroundEnabled() ? backgroundColor : 0);
@@ -394,8 +428,14 @@ public enum RenderUtils
 		float y, int color, int outlineColor, Matrix4f matrix,
 		DisplayMode displayMode, int backgroundColor, int packedLight)
 	{
-		if(text == null || text.isEmpty())
+		if(text == null || text.isEmpty() || EspRenderPolicy.skipLabel(matrix))
 			return;
+		if(WurstClient.INSTANCE.getHax().globalToggleHack.useSimpleEspText())
+		{
+			drawTextInBatch(font, text, x, y, color, false, matrix, null,
+				displayMode, backgroundColor, packedLight);
+			return;
+		}
 		
 		if(textBuffer == null)
 			textBuffer = new StagedVertexBuffer(() -> "wurstText", 0x4000);
@@ -1066,6 +1106,8 @@ public enum RenderUtils
 	public static void drawSolidBox(PoseStack matrices, AABB box, int color,
 		boolean depthTest)
 	{
+		if(EspRenderPolicy.skipFill())
+			return;
 		boolean overlay = NiceWurstModule.shouldOverlayEntityShapes();
 		if(overlay && !isBoxVisible(box))
 			return;
@@ -1093,6 +1135,8 @@ public enum RenderUtils
 	public static void drawSolidBoxes(PoseStack matrices, List<AABB> boxes,
 		int color, boolean depthTest)
 	{
+		if(EspRenderPolicy.skipFill())
+			return;
 		boolean overlay = NiceWurstModule.shouldOverlayEntityShapes();
 		if(!overlay)
 			depthTest = NiceWurstModule.enforceDepthTest(depthTest);
@@ -1152,6 +1196,8 @@ public enum RenderUtils
 	public static void drawSolidBoxes(PoseStack matrices,
 		List<ColoredBox> boxes, boolean depthTest)
 	{
+		if(EspRenderPolicy.skipFill())
+			return;
 		boolean overlay = NiceWurstModule.shouldOverlayEntityShapes();
 		if(!overlay)
 			depthTest = NiceWurstModule.enforceDepthTest(depthTest);
@@ -1217,6 +1263,8 @@ public enum RenderUtils
 	public static void drawSolidBox(PoseStack matrices, VertexConsumer buffer,
 		AABB box, int color)
 	{
+		if(EspRenderPolicy.skipFill())
+			return;
 		GlobalEspManager globalEsp = GlobalEspManager.getInstance();
 		if(globalEsp.shouldTakeOverBufferedQuadCalls()
 			&& globalEsp.submitBufferedSolidBox(matrices, box, color))
@@ -1320,6 +1368,8 @@ public enum RenderUtils
 	public static void drawSolidOctahedrons(PoseStack matrices,
 		List<AABB> boxes, int color, boolean depthTest)
 	{
+		if(EspRenderPolicy.skipFill())
+			return;
 		boolean overlay = NiceWurstModule.shouldOverlayEntityShapes();
 		if(!overlay)
 			depthTest = NiceWurstModule.enforceDepthTest(depthTest);
@@ -1347,6 +1397,8 @@ public enum RenderUtils
 	public static void drawSolidOctahedrons(PoseStack matrices,
 		List<ColoredBox> boxes, boolean depthTest)
 	{
+		if(EspRenderPolicy.skipFill())
+			return;
 		boolean overlay = NiceWurstModule.shouldOverlayEntityShapes();
 		if(!overlay)
 			depthTest = NiceWurstModule.enforceDepthTest(depthTest);
@@ -1423,6 +1475,8 @@ public enum RenderUtils
 	public static void drawSolidOctahedron(PoseStack matrices,
 		VertexConsumer buffer, AABB box, int color)
 	{
+		if(EspRenderPolicy.skipFill())
+			return;
 		PoseStack.Pose entry = matrices.last();
 		float x1 = (float)box.minX;
 		float y1 = (float)box.minY;

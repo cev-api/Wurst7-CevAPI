@@ -16,7 +16,7 @@ import java.util.List;
 public final class EspCullingStats
 {
 	private static boolean enabled;
-	private static final long[] counts = new long[8];
+	private static final long[] counts = new long[10];
 	
 	private EspCullingStats()
 	{}
@@ -73,6 +73,14 @@ public final class EspCullingStats
 			+ " | partial " + counts[5]);
 		lines
 			.add("Mesh ranges " + counts[6] + " | full fallbacks " + counts[7]);
-		lines.add("Labels skipped: 0 (text culling disabled)");
+		lines.add("World text calls: allowed " + counts[8] + " | skipped "
+			+ counts[9]);
+	}
+	
+	static boolean label(boolean rejected)
+	{
+		if(enabled)
+			counts[rejected ? 9 : 8]++;
+		return rejected;
 	}
 }

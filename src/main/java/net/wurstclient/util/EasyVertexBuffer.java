@@ -59,7 +59,14 @@ public final class EasyVertexBuffer implements AutoCloseable
 		{
 			BufferBuilder bufferBuilder =
 				new BufferBuilder(byteBufferBuilder, drawMode, format);
-			callback.accept(bufferBuilder);
+			net.wurstclient.render.esp.EspRenderPolicy.beginMeshBuild();
+			try
+			{
+				callback.accept(bufferBuilder);
+			}finally
+			{
+				net.wurstclient.render.esp.EspRenderPolicy.endMeshBuild();
+			}
 			
 			try(MeshData buffer = bufferBuilder.build())
 			{
@@ -125,7 +132,8 @@ public final class EasyVertexBuffer implements AutoCloseable
 	public void draw(PoseStack matrixStack, RenderType layer, float red,
 		float green, float blue, float alpha)
 	{
-		if(vertexBuffer == null)
+		if(vertexBuffer == null
+			|| net.wurstclient.render.esp.EspRenderPolicy.skipFill(layer))
 			return;
 		
 		int[] visibleRanges = getVisibleRanges(matrixStack.last().pose());
@@ -158,7 +166,7 @@ public final class EasyVertexBuffer implements AutoCloseable
 			}
 		}
 		if(globalEsp.submitMeshDraw(matrixStack, this, effectiveLayer, red,
-			green, blue, alpha, visibleRanges))
+			green, blue, alpha, visibleRanges, indexCountToDraw))
 			return;
 		
 		Matrix4fStack modelViewStack = RenderSystem.getModelViewStack();

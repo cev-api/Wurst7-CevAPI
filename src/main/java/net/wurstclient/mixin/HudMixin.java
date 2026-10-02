@@ -33,7 +33,9 @@ public class HudMixin
 	private void onRenderPlayerList(GuiGraphicsExtractor context,
 		DeltaTracker tickCounter, CallbackInfo ci)
 	{
-		if(WurstClient.MC.debugEntries.isOverlayVisible())
+		if(WurstClient.MC.debugEntries.isOverlayVisible()
+			|| WurstClient.INSTANCE.getHax().globalToggleHack
+				.shouldHideWurstHud())
 			return;
 		
 		float tickDelta = tickCounter.getGameTimeDeltaPartialTick(true);

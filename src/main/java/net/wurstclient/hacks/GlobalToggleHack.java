@@ -116,6 +116,79 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 		"ESP text background",
 		"Shows a semi-transparent black background behind world-space ESP text labels.",
 		true);
+	private final CheckboxSetting hideWurstHud = new CheckboxSetting(
+		"Hide Wurst HUD",
+		"Skips Wurst HUD overlays and ItemESP tags, like opening F3. World ESP stays visible. Other mods control their own HUDs.",
+		false);
+	private final CheckboxSetting reuseEspBuffers = new CheckboxSetting(
+		"Reuse ESP render buffers",
+		"Recycles ESP vertex/upload buffers across frames using GPU fences. Keeps every draw, its order, and its appearance.",
+		true);
+	private final CheckboxSetting cacheEspTagGroups = new CheckboxSetting(
+		"Cache ESP tag grouping",
+		"Reuses ItemESP groups while their items, positions, and radius are unchanged. Counts, interpolation, and screen projection still update every frame.",
+		true);
+	private final CheckboxSetting reuseEspItemModels = new CheckboxSetting(
+		"Reuse ESP item models",
+		"Resolves identical non-animated ItemESP icons once per GUI frame. Keeps every icon, count, position, and shadow. Animated models use the normal path.",
+		true);
+	private final CheckboxSetting reuseEspCameraTransforms =
+		new CheckboxSetting("Reuse ESP camera transforms",
+			"Builds ItemESP's projection matrix and camera direction once per GUI frame. Uses the same projection math and keeps smooth movement and all tag positions.",
+			true);
+	private final SettingGroup renderingOptimizations =
+		new SettingGroup("ESP rendering optimizations",
+			WText.literal(
+				"Reduces repeated work while preserving the existing visuals."),
+			false, true).addChildren(reuseEspBuffers, cacheEspTagGroups,
+				reuseEspItemModels, reuseEspCameraTransforms);
+	private final CheckboxSetting disableEspLabels = new CheckboxSetting(
+		"Disable ESP labels",
+		"Hides Wurst world-space text and ItemESP tags while keeping ESP geometry and other HUD overlays.",
+		false);
+	private final CheckboxSetting simpleEspText = new CheckboxSetting(
+		"Simple ESP text",
+		"Removes world-label outlines and text shadows, including ItemESP tag shadows, to reduce glyph rendering.",
+		false);
+	private final CheckboxSetting hideEspItemIcons = new CheckboxSetting(
+		"Hide ESP item icons",
+		"Replaces ItemESP's item-model icons with item names and counts. Useful in piles of dropped items.",
+		false);
+	private final CheckboxSetting declutterItemTags = new CheckboxSetting(
+		"Declutter item tags",
+		"Skips overlapping ItemESP tags. Nearby tags take priority; boxes and tracers stay visible.",
+		false);
+	private final CheckboxSetting itemTagLimitEnabled = new CheckboxSetting(
+		"Enable item tag limit",
+		"Caps visible ItemESP tags per frame, prioritizing nearby items. Does not limit ESP boxes.",
+		false);
+	private final SliderSetting itemTagLimit = new SliderSetting(
+		"Item tag limit", "Maximum visible ItemESP tags when enabled.", 64, 1,
+		1024, 1, ValueDisplay.INTEGER);
+	private final CheckboxSetting espLabelRangeEnabled = new CheckboxSetting(
+		"Enable ESP label range",
+		"Limits Wurst world-space labels and ItemESP tags by camera distance, independently of box/tracer range.",
+		false);
+	private final SliderSetting espLabelRange =
+		new SliderSetting("ESP label range",
+			"Maximum camera distance for ESP labels when enabled.", 32, 1, 256,
+			1, ValueDisplay.INTEGER.withSuffix(" blocks"));
+	private final CheckboxSetting disableEspFills = new CheckboxSetting(
+		"Disable ESP fills",
+		"Skips filled Wurst world-overlay geometry, including cached ESP meshes. Outlines and tracers stay visible; fill-only overlays disappear.",
+		false);
+	private final CheckboxSetting batchEspMeshes = new CheckboxSetting(
+		"Batch cached ESP meshes",
+		"In Legacy mode, submits cached ESP meshes together in one render pass per frame. Keeps mesh colors and shapes. Compare FPS on your GPU.",
+		false);
+	private final SettingGroup performanceSettings = new SettingGroup(
+		"ESP visual tradeoffs",
+		WText.literal(
+			"Optional rendering tradeoffs. Settings apply immediately without enabling GlobalToggle."),
+		false, true).addChildren(hideWurstHud, disableEspLabels, simpleEspText,
+			hideEspItemIcons, declutterItemTags, itemTagLimitEnabled,
+			itemTagLimit, espLabelRangeEnabled, espLabelRange, disableEspFills,
+			batchEspMeshes);
 	private final CheckboxSetting disableAllTracers = new CheckboxSetting(
 		"Disable all tracers",
 		"Globally hides tracer lines from all hacks without changing each hack's own settings.",
@@ -171,6 +244,12 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 		addSetting(offscreenTracers);
 		addSetting(viewCullFilters);
 		addSetting(espTextBackground);
+		addSetting(renderingOptimizations);
+		for(var setting : renderingOptimizations.getChildren())
+			addSetting(setting);
+		addSetting(performanceSettings);
+		for(var setting : performanceSettings.getChildren())
+			addSetting(setting);
 		addSetting(disableAllTracers);
 		addSetting(nearestTracerOnly);
 		addSetting(tracerFilters);
@@ -435,6 +514,73 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 	public boolean isEspTextBackgroundEnabled()
 	{
 		return espTextBackground.isChecked();
+	}
+	
+	public boolean shouldHideWurstHud()
+	{
+		return hideWurstHud.isChecked();
+	}
+	
+	public boolean shouldReuseEspBuffers()
+	{
+		return reuseEspBuffers.isChecked();
+	}
+	
+	public boolean shouldCacheEspTagGroups()
+	{
+		return cacheEspTagGroups.isChecked();
+	}
+	
+	public boolean shouldReuseEspItemModels()
+	{
+		return reuseEspItemModels.isChecked();
+	}
+	
+	public boolean shouldReuseEspCameraTransforms()
+	{
+		return reuseEspCameraTransforms.isChecked();
+	}
+	
+	public boolean shouldDisableEspLabels()
+	{
+		return disableEspLabels.isChecked();
+	}
+	
+	public boolean useSimpleEspText()
+	{
+		return simpleEspText.isChecked();
+	}
+	
+	public boolean shouldHideEspItemIcons()
+	{
+		return hideEspItemIcons.isChecked();
+	}
+	
+	public boolean shouldDeclutterItemTags()
+	{
+		return declutterItemTags.isChecked();
+	}
+	
+	public int getEffectiveItemTagLimit()
+	{
+		return itemTagLimitEnabled.isChecked()
+			? Math.max(1, Math.min(1024, itemTagLimit.getValueI())) : 0;
+	}
+	
+	public double getEffectiveEspLabelRange()
+	{
+		return espLabelRangeEnabled.isChecked()
+			? Math.max(1, Math.min(256, espLabelRange.getValue())) : 0;
+	}
+	
+	public boolean shouldDisableEspFills()
+	{
+		return disableEspFills.isChecked();
+	}
+	
+	public boolean shouldBatchEspMeshes()
+	{
+		return batchEspMeshes.isChecked();
 	}
 	
 	public boolean isWithinGlobalEspRange(Vec3 point)

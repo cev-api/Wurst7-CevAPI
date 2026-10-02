@@ -29,9 +29,9 @@ import net.wurstclient.render.esp.EspViewCulling;
  * <p>
  * Safe to continue using after {@link #endBatch()} /
  * {@link #endBatch(RenderType)}
- * &mdash; the internal {@link StagedVertexBuffer} is re-created automatically
- * so that stale {@link BufferBuilder} instances with a null native pointer
- * cannot be returned.
+ * &mdash; completed draw builders are discarded. Ordinary sources recreate
+ * their internal buffer; pooled ESP sources retain staging resources and
+ * recycle GPU buffers behind completion fences at the end of the frame.
  */
 public final class WurstBufferSource
 {
@@ -39,7 +39,18 @@ public final class WurstBufferSource
 	private final List<StagedVertexBuffer.Draw> draws = new ArrayList<>();
 	private final List<RenderType> drawTypes = new ArrayList<>();
 	private boolean closed;
+	private final boolean reusable;
 	private final List<VertexConsumer> consumers = new ArrayList<>();
+	
+	public WurstBufferSource()
+	{
+		this(false);
+	}
+	
+	public WurstBufferSource(boolean reusable)
+	{
+		this.reusable = reusable;
+	}
 	
 	private static StagedVertexBuffer newStagedBuffer()
 	{
@@ -65,6 +76,8 @@ public final class WurstBufferSource
 	
 	public VertexConsumer getBuffer(RenderType renderType)
 	{
+		if(net.wurstclient.render.esp.EspRenderPolicy.skipFill(renderType))
+			return net.wurstclient.render.esp.DiscardingVertexConsumer.INSTANCE;
 		ensureOpen();
 		
 		if(!drawTypes.isEmpty() && drawTypes.getLast() == renderType
@@ -94,10 +107,14 @@ public final class WurstBufferSource
 	
 	public void uploadAndDraw()
 	{
+		boolean completed = false;
 		try
 		{
 			if(draws.isEmpty())
+			{
+				completed = true;
 				return;
+			}
 			
 			for(VertexConsumer consumer : consumers)
 				if(consumer instanceof CullingVertexConsumer culling)
@@ -119,15 +136,32 @@ public final class WurstBufferSource
 			}
 			
 			stagedBuffer.endDraw();
+			completed = true;
 			
 		}finally
 		{
 			draws.clear();
 			drawTypes.clear();
 			consumers.clear();
-			stagedBuffer.close();
-			closed = true;
+			if(!reusable || !completed)
+			{
+				stagedBuffer.close();
+				closed = true;
+			}
 		}
+	}
+	
+	/** Recycles GPU buffers only behind Minecraft's own completion fences. */
+	public void endFrame()
+	{
+		if(closed)
+			return;
+		if(!draws.isEmpty())
+		{
+			close();
+			return;
+		}
+		stagedBuffer.endFrame();
 	}
 	
 	public void endBatch(RenderType renderType)

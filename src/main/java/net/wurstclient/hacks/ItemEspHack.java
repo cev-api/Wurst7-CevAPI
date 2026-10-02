@@ -11,7 +11,7 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashSet;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import net.minecraft.client.gui.Font;
@@ -44,6 +44,11 @@ import net.wurstclient.events.GUIRenderListener;
 import net.wurstclient.events.RenderListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
+import net.wurstclient.render.esp.ItemTagClusterer;
+import net.wurstclient.render.esp.EspItemIconRenderer;
+import net.wurstclient.render.esp.EspScreenProjector;
+import net.wurstclient.render.esp.ItemTagClusterer.Cluster;
+import net.wurstclient.render.esp.ScreenTagLayout;
 import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.settings.EspBoxSizeSetting;
 import net.wurstclient.settings.EspStyleSetting;
@@ -177,6 +182,11 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 			SliderSetting.ValueDisplay.DECIMAL.withSuffix(" blocks"));
 	
 	private final ArrayList<ItemEntity> items = new ArrayList<>();
+	private final ScreenTagLayout tagLayout = new ScreenTagLayout();
+	private final EspItemIconRenderer tagIcons = new EspItemIconRenderer();
+	private final EspScreenProjector tagProjection = new EspScreenProjector();
+	private final ItemTagClusterer.Cache<ItemEntity, Item> tagGroups =
+		new ItemTagClusterer.Cache<>();
 	private final ArrayList<ExperienceOrb> xpOrbs = new ArrayList<>();
 	private final ArrayList<Entity> boats = new ArrayList<>();
 	// Above-ground filter
@@ -244,6 +254,8 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 	@Override
 	protected void onDisable()
 	{
+		tagGroups.clear();
+		tagIcons.clear();
 		EVENTS.remove(UpdateListener.class, this);
 		EVENTS.remove(CameraTransformViewBobbingListener.class, this);
 		EVENTS.remove(RenderListener.class, this);
@@ -256,17 +268,23 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 	@Override
 	public void onRenderGUI(GuiGraphicsExtractor context, float partialTicks)
 	{
-		if(!itemTags.isChecked() || MC.level == null || MC.player == null)
+		tagIcons.clear();
+		var global = WURST.getHax().globalToggleHack;
+		if(!itemTags.isChecked() || MC.level == null || MC.player == null
+			|| global.shouldDisableEspLabels())
 			return;
 		
 		double maxDistSq =
 			itemTagMaxDistance.getValue() * itemTagMaxDistance.getValue();
 		double aggregateDistSq = itemTagAggregateDistance.getValue()
 			* itemTagAggregateDistance.getValue();
-		double aggregateRadiusSq = itemTagAggregateRadius.getValue()
-			* itemTagAggregateRadius.getValue();
-		Font font = MC.font;
+		double labelRange = global.getEffectiveEspLabelRange();
+		Vec3 camera = RenderUtils.getCameraPos();
+		boolean reuseProjection = global.shouldReuseEspCameraTransforms();
+		if(reuseProjection)
+			tagProjection.reset(MC.gameRenderer.mainCamera());
 		ArrayList<ItemEntity> farItems = new ArrayList<>();
+		ArrayList<Cluster<ItemEntity>> tags = new ArrayList<>();
 		
 		for(ItemEntity entity : items)
 		{
@@ -276,73 +294,45 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 			if(onlyAboveGround.isChecked()
 				&& entity.getY() < aboveGroundY.getValue())
 				continue;
-			if(entity.distanceToSqr(MC.player) > maxDistSq)
+			double distanceSq = entity.distanceToSqr(MC.player);
+			if(distanceSq > maxDistSq)
 				continue;
-			if(entity.distanceToSqr(MC.player) > aggregateDistSq)
-			{
+			Vec3 worldPos = itemLabelPosition(entity, partialTicks);
+			if(labelRange > 0
+				&& worldPos.distanceToSqr(camera) > labelRange * labelRange)
+				continue;
+			if(distanceSq > aggregateDistSq)
 				farItems.add(entity);
-				continue;
-			}
-			
-			Vec3 worldPos = EntityUtils.getLerpedPos(entity, partialTicks)
-				.add(0, entity.getBbHeight() + 0.35, 0);
-			if(isBehindCamera(worldPos))
-				continue;
-			Vec3 projected = MC.gameRenderer.projectPointToScreen(worldPos);
-			if(projected.z <= -1 || projected.z >= 1)
-				continue;
-			if(projected.x <= -1 || projected.x >= 1 || projected.y <= -1
-				|| projected.y >= 1)
-				continue;
-			
-			float x = (float)((projected.x + 1) * 0.5 * context.guiWidth());
-			float y =
-				(float)((1 - (projected.y + 1) * 0.5) * context.guiHeight());
-			drawItemTag(context, font, stack, stack.getCount(), x, y);
+			else
+				tags.add(new Cluster<>(entity, stack.getCount(), worldPos));
 		}
 		
-		if(farItems.isEmpty())
-			return;
+		double radius = Math.max(.01, itemTagAggregateRadius.getValue());
+		var groups = global.shouldCacheEspTagGroups()
+			? tagGroups.groups(farItems, entity -> entity.getItem().getItem(),
+				Entity::position, radius)
+			: ItemTagClusterer.groups(farItems,
+				entity -> entity.getItem().getItem(), Entity::position, radius);
+		tags.addAll(ItemTagClusterer.evaluate(groups,
+			entity -> itemLabelPosition(entity, partialTicks),
+			entity -> entity.getItem().getCount()));
+		int limit = global.getEffectiveItemTagLimit();
+		boolean declutter = global.shouldDeclutterItemTags();
+		tagLayout.reset(limit, declutter);
+		if(limit > 0 || declutter)
+			tags.sort(Comparator
+				.comparingDouble(tag -> tag.position().distanceToSqr(camera)));
 		
-		HashSet<ItemEntity> visited = new HashSet<>();
-		for(ItemEntity seed : farItems)
+		for(Cluster<ItemEntity> tag : tags)
 		{
-			if(!visited.add(seed))
+			if(tagLayout.isFull())
+				break;
+			Vec3 worldPos = tag.position();
+			if(reuseProjection ? tagProjection.isBehindCamera(worldPos)
+				: isBehindCamera(worldPos))
 				continue;
-			
-			ItemStack seedStack = seed.getItem();
-			if(seedStack == null || seedStack.isEmpty())
-				continue;
-			
-			int totalCount = seedStack.getCount();
-			int clusterSize = 1;
-			Vec3 center = EntityUtils.getLerpedPos(seed, partialTicks).add(0,
-				seed.getBbHeight() + 0.35, 0);
-			
-			for(ItemEntity other : farItems)
-			{
-				if(visited.contains(other) || other == seed)
-					continue;
-				ItemStack otherStack = other.getItem();
-				if(otherStack == null || otherStack.isEmpty())
-					continue;
-				if(otherStack.getItem() != seedStack.getItem())
-					continue;
-				if(seed.distanceToSqr(other) > aggregateRadiusSq)
-					continue;
-				
-				visited.add(other);
-				totalCount += otherStack.getCount();
-				clusterSize++;
-				center =
-					center.add(EntityUtils.getLerpedPos(other, partialTicks)
-						.add(0, other.getBbHeight() + 0.35, 0));
-			}
-			
-			Vec3 worldPos = center.scale(1.0 / clusterSize);
-			if(isBehindCamera(worldPos))
-				continue;
-			Vec3 projected = MC.gameRenderer.projectPointToScreen(worldPos);
+			Vec3 projected = reuseProjection ? tagProjection.project(worldPos)
+				: MC.gameRenderer.projectPointToScreen(worldPos);
 			if(projected.z <= -1 || projected.z >= 1)
 				continue;
 			if(projected.x <= -1 || projected.x >= 1 || projected.y <= -1
@@ -352,31 +342,59 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 			float x = (float)((projected.x + 1) * 0.5 * context.guiWidth());
 			float y =
 				(float)((1 - (projected.y + 1) * 0.5) * context.guiHeight());
-			drawItemTag(context, font, seedStack, totalCount, x, y);
+			drawItemTag(context, MC.font, tag.seed().getItem(), tag.count(), x,
+				y);
 		}
+	}
+	
+	private Vec3 itemLabelPosition(ItemEntity entity, float partialTicks)
+	{
+		return EntityUtils.getLerpedPos(entity, partialTicks).add(0,
+			entity.getBbHeight() + 0.35, 0);
 	}
 	
 	private void drawItemTag(GuiGraphicsExtractor context, Font font,
 		ItemStack stack, int displayCount, float centerX, float centerY)
 	{
+		var global = WURST.getHax().globalToggleHack;
+		boolean icons = !global.shouldHideEspItemIcons();
 		float scale = itemTagScale.getValueF();
 		String count = displayCount > 1 ? String.valueOf(displayCount) : "";
-		int textWidth = count.isEmpty() ? 0 : font.width(count);
-		float width = (18 + (textWidth > 0 ? textWidth + 3 : 0)) * scale;
-		float height = 18 * scale;
+		String text = icons ? count
+			: font.plainSubstrByWidth(stack.getHoverName().getString(), 160)
+				+ (count.isEmpty() ? "" : " x" + count);
+		int textWidth = text.isEmpty() ? 0 : font.width(text);
+		float width =
+			(icons ? 18 + (textWidth > 0 ? textWidth + 3 : 0) : textWidth + 2)
+				* scale;
+		float height = (icons ? 18 : font.lineHeight + 2) * scale;
 		float x = centerX - width / 2F;
 		float y = centerY - height / 2F;
+		if(!tagLayout.reserve(x - 2, y - 2, x + width + 2, y + height + 2))
+			return;
 		
 		RenderUtils.fill2D(context, x - 2, y - 2, x + width + 2, y + height + 2,
 			0x90000000);
 		
 		context.pose().pushMatrix();
-		context.pose().translate(x + 1 * scale, y + 1 * scale);
-		context.pose().scale(scale, scale);
-		context.item(stack, 0, 0);
-		if(!count.isEmpty())
-			context.text(font, count, 19, 5, 0xFFFFFFFF, true);
-		context.pose().popMatrix();
+		try
+		{
+			context.pose().translate(x + scale, y + scale);
+			context.pose().scale(scale, scale);
+			if(icons)
+			{
+				if(global.shouldReuseEspItemModels())
+					tagIcons.draw(context, stack, 0, 0);
+				else
+					context.item(stack, 0, 0);
+			}
+			if(!text.isEmpty())
+				context.text(font, text, icons ? 19 : 0, icons ? 5 : 0,
+					0xFFFFFFFF, !global.useSimpleEspText());
+		}finally
+		{
+			context.pose().popMatrix();
+		}
 	}
 	
 	private boolean isBehindCamera(Vec3 worldPos)
