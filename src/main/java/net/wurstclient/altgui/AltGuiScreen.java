@@ -11,10 +11,13 @@ import com.mojang.blaze3d.platform.InputConstants;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 
@@ -84,8 +87,14 @@ public final class AltGuiScreen extends Screen
 	private static boolean LAST_ENABLED_CATEGORY_SELECTED;
 	private static boolean LAST_STYLE_CATEGORY_SELECTED;
 	private static int LAST_MODULE_SCROLL;
+	private static int LAST_SETTINGS_SCROLL;
+	private static String LAST_SELECTED_FEATURE = "";
 	private static final HashSet<String> LAST_EXPANDED_FEATURES =
 		new HashSet<>();
+	private static final HashSet<SettingGroup> LAST_EXPANDED_GROUPS =
+		new HashSet<>();
+	private static final Map<String, ViewState> LAST_VIEW_STATES =
+		new HashMap<>();
 	private static final Set<String> HIDDEN_OTHER_FEATURES =
 		Set.of("CleanUp", "LastServer", "Reconnect", "ServerFinder",
 			"WikiDataExport", "WurstCapes");
@@ -143,6 +152,7 @@ public final class AltGuiScreen extends Screen
 	private final HashSet<SettingGroup> expandedGroups = new HashSet<>();
 	private String hoverTooltip = "";
 	private int pendingScrollRestore = -1;
+	private boolean searchVisibleInLayout;
 	
 	private SliderDrag draggingSlider;
 	private final AltGuiFontManager fontManager =
@@ -188,6 +198,7 @@ public final class AltGuiScreen extends Screen
 			searchBox.setFocused(true);
 			searchBox.setVisible(true);
 		}
+		applyLiveLayout();
 	}
 	
 	private void applyOpenBehavior()
@@ -203,8 +214,8 @@ public final class AltGuiScreen extends Screen
 				categoryScroll = 0;
 				pendingScrollRestore = -1;
 				expandedFeatures.clear();
-				if(cfg().isKeepHackSettingsOpenEnabled())
-					expandedFeatures.addAll(LAST_EXPANDED_FEATURES);
+				expandedFeatures.addAll(LAST_EXPANDED_FEATURES);
+				expandedGroups.addAll(LAST_EXPANDED_GROUPS);
 			}
 			case LAST_POSITION ->
 			{
@@ -214,9 +225,10 @@ public final class AltGuiScreen extends Screen
 				moduleScroll = 0;
 				categoryScroll = 0;
 				pendingScrollRestore = Math.max(0, LAST_MODULE_SCROLL);
+				settingsScroll = Math.max(0, LAST_SETTINGS_SCROLL);
 				expandedFeatures.clear();
-				if(cfg().isKeepHackSettingsOpenEnabled())
-					expandedFeatures.addAll(LAST_EXPANDED_FEATURES);
+				expandedFeatures.addAll(LAST_EXPANDED_FEATURES);
+				expandedGroups.addAll(LAST_EXPANDED_GROUPS);
 			}
 			case FAVORITES ->
 			{
@@ -227,10 +239,13 @@ public final class AltGuiScreen extends Screen
 				categoryScroll = 0;
 				pendingScrollRestore = -1;
 				expandedFeatures.clear();
-				if(cfg().isKeepHackSettingsOpenEnabled())
-					expandedFeatures.addAll(LAST_EXPANDED_FEATURES);
+				expandedFeatures.addAll(LAST_EXPANDED_FEATURES);
+				expandedGroups.addAll(LAST_EXPANDED_GROUPS);
 			}
 		}
+		selectedFeature =
+			cfg().getOpenBehavior() == AltGuiHack.OpenBehavior.LAST_POSITION
+				? findHackByName(LAST_SELECTED_FEATURE) : null;
 		
 		if(!enabledCategorySelected && !styleCategorySelected)
 		{
@@ -239,11 +254,40 @@ public final class AltGuiScreen extends Screen
 				&& !categories.isEmpty())
 				selectedCategory = categories.get(0);
 		}
+		restoreCurrentViewState();
 	}
 	
 	private AltGuiHack cfg()
 	{
 		return WurstClient.INSTANCE.getHax().altGuiHack;
+	}
+	
+	private String getViewKey()
+	{
+		if(styleCategorySelected)
+			return "style";
+		if(enabledCategorySelected)
+			return "enabled";
+		return selectedCategory.toLowerCase(Locale.ROOT);
+	}
+	
+	private void rememberCurrentViewState()
+	{
+		if(selectedFeature != null)
+			LAST_VIEW_STATES.put(getViewKey(),
+				new ViewState(selectedFeature.getName(), settingsScroll));
+	}
+	
+	private void restoreCurrentViewState()
+	{
+		ViewState state = LAST_VIEW_STATES.get(getViewKey());
+		if(state == null)
+			return;
+		selectedFeature = getDisplayedEntries().stream()
+			.map(DisplayEntry::feature)
+			.filter(feature -> feature.getName().equals(state.featureName()))
+			.findFirst().orElse(null);
+		settingsScroll = state.settingsScroll();
 	}
 	
 	private int getCategoryRowHeight()
@@ -253,6 +297,8 @@ public final class AltGuiScreen extends Screen
 	
 	private int getCategoryRowGap()
 	{
+		if(cfg().isCategoryRowBordersEnabled())
+			return 0;
 		return Math.max(2, Math.round(getCategoryRowHeight() * 0.25F));
 	}
 	
@@ -265,8 +311,7 @@ public final class AltGuiScreen extends Screen
 	{
 		if(isTopTabsLayout())
 			return panelX + 8;
-		
-		return panelX + 6;
+		return cfg().isCategoryRowBordersEnabled() ? panelX + 4 : panelX + 6;
 	}
 	
 	private int getCategoryAreaX2()
@@ -274,7 +319,8 @@ public final class AltGuiScreen extends Screen
 		if(isTopTabsLayout())
 			return panelX + panelW - 8;
 		
-		return panelX + categoryW - 8;
+		return cfg().isCategoryRowBordersEnabled() ? moduleX + 1
+			: panelX + categoryW - 8;
 	}
 	
 	private int getCategoryAreaY1()
@@ -282,7 +328,13 @@ public final class AltGuiScreen extends Screen
 		if(isTopTabsLayout())
 			return panelY + 34;
 		
-		return panelY + getSearchHeight() + 30;
+		// Keep the first category row clear of the two-line sidebar title.
+		return panelY + getSearchLayoutHeight() + 40;
+	}
+	
+	private int getSearchLayoutHeight()
+	{
+		return shouldRenderSearchBox() ? getSearchHeight() : 0;
 	}
 	
 	private int getCategoryAreaY2()
@@ -295,13 +347,15 @@ public final class AltGuiScreen extends Screen
 	
 	private int getTopTabGap()
 	{
+		if(cfg().isCategoryRowBordersEnabled())
+			return 0;
 		return Math.max(2, Math.round(getCategoryRowGap() * 0.75F));
 	}
 	
 	private int getSearchBoxX()
 	{
 		if(isTopTabsLayout())
-			return getCategoryAreaX2() - getSearchBoxWidth() - 4;
+			return panelX + (panelW - getSearchBoxWidth()) / 2;
 		
 		return moduleX + 14;
 	}
@@ -401,10 +455,11 @@ public final class AltGuiScreen extends Screen
 		{
 			contentX = panelX + categoryW + 8;
 			contentW = panelW - categoryW - 16;
-			moduleY = panelY + searchHeight + 22;
-			moduleH = panelH - searchHeight - 28;
+			moduleY = shouldRenderSearchBox() ? panelY + searchHeight + 22
+				: panelY + 6;
+			moduleH = panelY + panelH - 6 - moduleY;
 		}
-		int paneGap = 8;
+		int paneGap = 2;
 		moduleX = contentX;
 		moduleW = Math.max(100, (contentW - paneGap) * 42 / 100);
 		settingsX = moduleX + moduleW + paneGap;
@@ -421,7 +476,10 @@ public final class AltGuiScreen extends Screen
 	{
 		if(searchBox != null)
 		{
+			boolean wasVisible = searchVisibleInLayout;
 			searchText = searchBox.getValue();
+			if(wasVisible != shouldRenderSearchBox())
+				applyLiveLayout();
 			searchBox.setVisible(shouldRenderSearchBox());
 		}
 	}
@@ -430,6 +488,7 @@ public final class AltGuiScreen extends Screen
 	{
 		cfg().enforceNoClipLayout();
 		rebuildLayout();
+		searchVisibleInLayout = shouldRenderSearchBox();
 		if(searchBox != null)
 		{
 			searchBox.setX(getSearchBoxX());
@@ -491,7 +550,12 @@ public final class AltGuiScreen extends Screen
 		}
 		
 		if(searchBox != null && searchBox.charTyped(event))
+		{
+			searchText = searchBox.getValue();
+			if(searchVisibleInLayout != shouldRenderSearchBox())
+				applyLiveLayout();
 			return true;
+		}
 		
 		return super.charTyped(event);
 	}
@@ -516,6 +580,8 @@ public final class AltGuiScreen extends Screen
 		searchText = searchBox.getValue();
 		moduleScroll = 0;
 		searchSuppressedCodepoint = codepoint;
+		if(searchVisibleInLayout != shouldRenderSearchBox())
+			applyLiveLayout();
 		return true;
 	}
 	
@@ -559,8 +625,13 @@ public final class AltGuiScreen extends Screen
 		double mouseY = context.y();
 		int button = context.button();
 		
+		boolean wasSearchVisible = searchVisibleInLayout;
 		if(super.mouseClicked(context, doubleClick))
+		{
+			if(wasSearchVisible != shouldRenderSearchBox())
+				applyLiveLayout();
 			return true;
+		}
 		
 		if(handleCategoryClick(mouseX, mouseY))
 			return true;
@@ -647,16 +718,11 @@ public final class AltGuiScreen extends Screen
 		
 		context.fill(0, 0, width, height, bg);
 		context.fill(panelX, panelY, panelX + panelW, panelY + panelH, panel);
-		if(!isTopTabsLayout())
-			context.fill(panelX + categoryW, panelY, panelX + categoryW + 1,
-				panelY + panelH, withAlpha(cfg().getPanelLightColor(), 0.8F));
-		context.fill(settingsX - 4, moduleY, settingsX - 3, moduleY + moduleH,
-			withAlpha(cfg().getPanelLightColor(), 0.8F));
-		
 		renderHeader(context);
 		renderCategories(context, mouseX, mouseY);
 		renderModules(context, mouseX, mouseY);
 		renderSelectedFeatureSettings(context, mouseX, mouseY);
+		renderSectionBorders(context);
 		
 		if(shouldRenderSearchBox())
 		{
@@ -664,6 +730,59 @@ public final class AltGuiScreen extends Screen
 		}
 		
 		renderTooltip(context);
+	}
+	
+	private void renderSectionBorders(GuiGraphicsExtractor context)
+	{
+		if(!cfg().isSectionBordersEnabled())
+			return;
+		
+		float borderThickness = cfg().getSectionBorderThickness();
+		int border = cfg().getSectionBorderColor();
+		if(isTopTabsLayout())
+			drawThickRectBorder(context, getCategoryAreaX1() - 2,
+				getCategoryAreaY1() - 2, getCategoryAreaX2() + 2,
+				getCategoryAreaY2() + 2, border, borderThickness);
+		else
+		{
+			drawPaneBorder(context, panelX + 4, panelY + 6, moduleX,
+				panelY + panelH - 6, border, true, false, borderThickness);
+			drawVerticalStroke(context, moduleX, panelY + 6, moduleY + 1,
+				borderThickness, border);
+		}
+		drawPaneBorder(context, moduleX, moduleY, moduleX + moduleW,
+			moduleY + moduleH, border, true, false, borderThickness);
+		drawPaneBorder(context, settingsX, moduleY, settingsX + settingsW,
+			moduleY + moduleH, border, false, true, borderThickness);
+		if(shouldRenderSearchBox() && searchBox != null)
+		{
+			int x1 = isTopTabsLayout() ? getSearchBoxX() - 4 : moduleX + 6;
+			int x2 =
+				isTopTabsLayout() ? getSearchBoxX() + getSearchBoxWidth() + 4
+					: moduleX + moduleW - 6;
+			int y1 = getSearchBoxY() - 3;
+			int y2 = getSearchBoxY() + getSearchHeight() + 3;
+			context.fill(x1, y1, x2, y2,
+				withAlpha(cfg().getPanelLightColor(), cfg().getUiOpacity()));
+			drawThickRectBorder(context, x1, y1, x2, y2, border,
+				borderThickness);
+		}
+		int dividerX =
+			moduleX + moduleW + (settingsX - (moduleX + moduleW)) / 2;
+		drawVerticalStroke(context, dividerX, moduleY, moduleY + moduleH,
+			borderThickness, border);
+	}
+	
+	private void drawPaneBorder(GuiGraphicsExtractor context, int x1, int y1,
+		int x2, int y2, int color, boolean left, boolean right, float thickness)
+	{
+		drawHorizontalStroke(context, x1, y1, x2, thickness, color);
+		drawHorizontalStroke(context, x1, y2 - thickness, x2, thickness, color);
+		if(left)
+			drawVerticalStroke(context, x1, y1, y2, thickness, color);
+		if(right)
+			drawVerticalStroke(context, x2 - thickness, y1, y2, thickness,
+				color);
 	}
 	
 	private void renderSearchBoxText(GuiGraphicsExtractor context)
@@ -713,8 +832,12 @@ public final class AltGuiScreen extends Screen
 		
 		drawStringScaled(context, font, "Wurst7 CevAPI", panelX + 12,
 			panelY + 10, accent, true);
-		drawStringScaled(context, font, "Alt GUI", panelX + 12, panelY + 22,
-			muted, false);
+		int altGuiX = isTopTabsLayout()
+			? panelX + 12 + scaledFontWidth(font, "Wurst7 CevAPI") + 8
+			: panelX + 12;
+		int altGuiY = isTopTabsLayout() ? panelY + 10 : panelY + 22;
+		drawStringScaled(context, font, "Alt GUI", altGuiX, altGuiY, muted,
+			false);
 		
 		if(shouldRenderSearchBox())
 		{
@@ -743,7 +866,7 @@ public final class AltGuiScreen extends Screen
 		context.fill(panelX, boxY1, panelX + panelW, boxY2,
 			withAlpha(cfg().getPanelLightColor(), cfg().getTooltipOpacity()));
 		drawStringScaled(context, font, text, panelX + 8, boxY1 + 3,
-			cfg().getMutedTextColor(), false);
+			cfg().getDescriptionColor(), false);
 	}
 	
 	private void renderCategories(GuiGraphicsExtractor context, int mouseX,
@@ -827,6 +950,24 @@ public final class AltGuiScreen extends Screen
 			styleTextY, styleCategorySelected ? cfg().getTextColor()
 				: cfg().getMutedTextColor(),
 			false);
+		if(cfg().isCategoryRowBordersEnabled())
+		{
+			int border = cfg().getSectionBorderColor();
+			float thickness = cfg().getCategoryRowBorderThickness();
+			int rowsTop = areaY1 - categoryScroll;
+			int rowsBottom = rowsTop + rows * rowH;
+			drawHorizontalStroke(context, areaX1, rowsTop, areaX2, thickness,
+				border);
+			drawHorizontalStroke(context, areaX1, rowsBottom - thickness,
+				areaX2, thickness, border);
+			drawVerticalStroke(context, areaX1, rowsTop, rowsBottom, thickness,
+				border);
+			drawVerticalStroke(context, areaX2 - thickness, rowsTop, rowsBottom,
+				thickness, border);
+			for(int i = 1; i < rows; i++)
+				drawHorizontalStroke(context, areaX1, rowsTop + i * rowH,
+					areaX2, thickness, border);
+		}
 		context.disableScissor();
 		
 		if(maxCategoryScroll > 0)
@@ -867,6 +1008,16 @@ public final class AltGuiScreen extends Screen
 				isInside(mouseX, mouseY, tab.x1(), areaY1, tab.x2(), areaY2),
 				tab.x1(), areaY1, tab.x2(), areaY2, accentFill, accentHover);
 		}
+		if(cfg().isCategoryRowBordersEnabled())
+		{
+			float thickness = cfg().getCategoryRowBorderThickness();
+			int border = cfg().getSectionBorderColor();
+			drawPaneBorder(context, areaX1, areaY1, areaX2, areaY2, border,
+				true, true, thickness);
+			for(int i = 1; i < tabs.size(); i++)
+				drawVerticalStroke(context, tabs.get(i).x1(), areaY1, areaY2,
+					thickness, border);
+		}
 	}
 	
 	private List<TopCategoryTab> getTopCategoryTabs(Font font)
@@ -888,7 +1039,8 @@ public final class AltGuiScreen extends Screen
 		int[] widths = new int[tabCount];
 		int availableW = Math.max(1, areaW - Math.max(0, tabCount - 1) * gap);
 		
-		if(cfg().isAutoSizeTopTabsEnabled())
+		if(cfg().isAutoSizeTopTabsEnabled()
+			&& !cfg().isCategoryRowBordersEnabled())
 		{
 			int minW = 24;
 			int sum = 0;
@@ -1008,17 +1160,18 @@ public final class AltGuiScreen extends Screen
 		int mouseY)
 	{
 		Font font = minecraft.font;
-		int contentY = moduleY - moduleScroll;
-		int viewTop = moduleY;
-		int viewBottom = moduleY + moduleH;
+		int contentPadding = scaleRightSettingHeight(8);
+		int contentY = moduleY + contentPadding - moduleScroll;
+		int viewTop = moduleY + contentPadding;
+		int viewBottom = moduleY + moduleH - contentPadding;
 		int rowH = cfg().getRowHeight();
 		int clipX1 = moduleX + 8;
-		int clipY1 = moduleY;
+		int clipY1 = viewTop;
 		int clipX2 = moduleX + moduleW - 8;
-		int clipY2 = moduleY + moduleH;
+		int clipY2 = viewBottom;
 		int contentBottomX = moduleX + moduleW - 12;
 		int totalContentHeight = 0;
-		int bottomPadding = 6;
+		int bottomPadding = contentPadding;
 		context.enableScissor(clipX1, clipY1, clipX2, clipY2);
 		
 		List<DisplayEntry> entries = getDisplayedEntries();
@@ -1047,25 +1200,26 @@ public final class AltGuiScreen extends Screen
 				if(hovered)
 					hoverTooltip = feature.getDescription();
 				int bgColor = feature.isEnabled()
-					? withAlpha(cfg().getEnabledColor(), 0.28F)
-					: hovered ? withAlpha(cfg().getAccentColor(), 0.2F)
-						: withAlpha(cfg().getPanelLightColor(), 0.55F);
-				if(!feature.isEnabled() && !hovered && !expanded)
-					bgColor = withAlpha(cfg().getPanelLightColor(), 0.55F);
-				if(selected && !hovered)
-					bgColor = withAlpha(cfg().getAccentColor(),
-						feature.isEnabled() ? 0.33F : 0.24F);
+					? withAlpha(cfg().getEnabledHackRowColor(), 0.42F)
+					: withAlpha(cfg().isHackRowStripingEnabled()
+						&& (entryIndex & 1) == 1
+							? cfg().getAlternateHackRowColor()
+							: cfg().getHackRowColor(),
+						0.72F);
+				boolean highlightEnabled = cfg().isHackRowHighlightEnabled();
+				if(hovered && highlightEnabled)
+					bgColor =
+						withAlpha(cfg().getHackRowHighlightColor(), 0.42F);
+				if(selected && !hovered && highlightEnabled)
+					bgColor =
+						withAlpha(cfg().getHackRowHighlightColor(), 0.58F);
 				context.fill(moduleX + 8, rowTop, contentBottomX, rowBottom,
 					bgColor);
-				if(selected)
-				{
-					context.fill(moduleX + 8, rowTop, moduleX + 10, rowBottom,
-						withAlpha(cfg().getAccentColor(), 0.96F));
-					context.fill(moduleX + 8, rowTop, contentBottomX,
-						rowTop + 1, withAlpha(cfg().getAccentColor(), 0.62F));
-					context.fill(moduleX + 8, rowBottom - 1, contentBottomX,
-						rowBottom, withAlpha(cfg().getAccentColor(), 0.45F));
-				}
+				if(selected && highlightEnabled)
+					drawThickRectBorder(context, moduleX + 8, rowTop,
+						contentBottomX, rowBottom,
+						withAlpha(cfg().getHackRowHighlightColor(), 0.9F),
+						cfg().getHackHighlightThickness());
 				int nameX = moduleX + 14;
 				int rowTextY = centeredTextY(font, rowTop, rowBottom);
 				if((settingsOpen || cfg().isHackExpandIconsEnabled())
@@ -1096,21 +1250,31 @@ public final class AltGuiScreen extends Screen
 				
 				if(featureHasStatePill(feature))
 				{
-					String stateLabel = feature.isEnabled() ? "ON" : "OFF";
-					int pillW = 44;
-					int toggleX2 = contentBottomX - 6;
-					int toggleX1 = toggleX2 - pillW;
-					int pillPad = getPillPadding(font, rowBottom - rowTop);
-					int pillY1 = rowTop + pillPad;
-					int pillY2 = rowBottom - pillPad;
-					context.fill(toggleX1, pillY1, toggleX2, pillY2,
-						feature.isEnabled()
-							? withAlpha(cfg().getEnabledColor(), 0.9F)
-							: withAlpha(cfg().getDisabledColor(), 0.92F));
-					drawCenteredStringScaledInBox(context, font, stateLabel,
-						toggleX1, pillY1, toggleX2, pillY2,
-						cfg().getTextColor());
+					int toggleX2 = contentBottomX;
+					if(cfg().isSwitchHackTogglesEnabled())
+					{
+						int switchH = Math.min(14, rowBottom - rowTop - 2);
+						drawSwitch(context, toggleX2 - 44,
+							(rowTop + rowBottom - switchH) / 2, toggleX2,
+							(rowTop + rowBottom + switchH) / 2,
+							feature.isEnabled());
+					}else
+					{
+						context.fill(toggleX2 - 44, rowTop, toggleX2, rowBottom,
+							feature.isEnabled()
+								? withAlpha(cfg().getEnabledColor(), 0.9F)
+								: withAlpha(cfg().getDisabledColor(), 0.92F));
+						drawCenteredStringScaled(context, font,
+							feature.isEnabled() ? "ON" : "OFF", toggleX2 - 22,
+							centeredTextY(font, rowTop, rowBottom) + 1,
+							cfg().getTextColor());
+					}
 				}
+				if(cfg().isHackRowBordersEnabled())
+					drawThickRectBorder(context, moduleX + 8, rowTop,
+						contentBottomX, rowBottom,
+						cfg().getSectionBorderColor(),
+						cfg().getHackRowBorderThickness());
 			}
 			
 			contentY += rowH;
@@ -1121,7 +1285,8 @@ public final class AltGuiScreen extends Screen
 		context.disableScissor();
 		
 		totalContentHeight += bottomPadding;
-		maxModuleScroll = Math.max(0, totalContentHeight - moduleH + 2);
+		maxModuleScroll =
+			Math.max(0, totalContentHeight - (viewBottom - viewTop));
 		if(pendingScrollRestore >= 0)
 		{
 			moduleScroll = pendingScrollRestore;
@@ -1142,8 +1307,8 @@ public final class AltGuiScreen extends Screen
 			selectedFeature =
 				entries.isEmpty() ? null : entries.get(0).feature();
 		
-		int x1 = settingsX + 8;
-		int x2 = settingsX + settingsW - 8;
+		int x1 = settingsX + 3;
+		int x2 = settingsX + settingsW - 3;
 		maxSettingsScroll = 0;
 		context.fill(x1, moduleY, x2, moduleY + moduleH,
 			withAlpha(cfg().getPanelColor(), 0.72F));
@@ -1163,14 +1328,17 @@ public final class AltGuiScreen extends Screen
 		
 		List<SettingRow> rows = getSettingRows(selectedFeature);
 		int contentHeight = rows.stream().mapToInt(SettingRow::height).sum();
-		maxSettingsScroll = Math.max(0, contentHeight - (moduleH - 34));
+		int bottomPadding = scaleRightSettingHeight(8);
+		maxSettingsScroll =
+			Math.max(0, contentHeight - (moduleH - 34 - bottomPadding));
 		clampScroll();
 		int y = moduleY + 34 - settingsScroll;
-		context.enableScissor(x1, moduleY + 30, x2, moduleY + moduleH);
+		context.enableScissor(x1, moduleY + 30, x2,
+			moduleY + moduleH - bottomPadding);
 		for(SettingRow row : rows)
 		{
 			int y2 = y + row.height();
-			if(y2 >= moduleY + 22 && y <= moduleY + moduleH)
+			if(y2 >= moduleY + 22 && y <= moduleY + moduleH - bottomPadding)
 				renderSettingRow(context, font, mouseX, mouseY, row, y, y2);
 			y = y2;
 		}
@@ -1183,9 +1351,10 @@ public final class AltGuiScreen extends Screen
 	{
 		int x1 = settingsX + settingsW - 11;
 		int x2 = x1 + 3;
-		context.fill(x1, moduleY + 30, x2, moduleY + moduleH,
+		int bottomPadding = scaleRightSettingHeight(8);
+		context.fill(x1, moduleY + 30, x2, moduleY + moduleH - bottomPadding,
 			withAlpha(cfg().getPanelLightColor(), 0.65F));
-		int trackH = moduleH - 30;
+		int trackH = moduleH - 30 - bottomPadding;
 		int knobH = Math.max(20,
 			(int)(trackH * (trackH / (double)(trackH + maxSettingsScroll))));
 		int knobY = moduleY + 30 + (int)((trackH - knobH)
@@ -1197,14 +1366,17 @@ public final class AltGuiScreen extends Screen
 	{
 		int x1 = moduleX + moduleW - 11;
 		int x2 = x1 + 3;
-		context.fill(x1, moduleY, x2, moduleY + moduleH,
+		int contentPadding = scaleRightSettingHeight(8);
+		int trackY1 = moduleY + contentPadding;
+		int trackH = moduleH - contentPadding * 2;
+		context.fill(x1, trackY1, x2, trackY1 + trackH,
 			withAlpha(cfg().getPanelLightColor(), 0.65F));
 		
 		double progress =
 			maxModuleScroll == 0 ? 0 : moduleScroll / (double)maxModuleScroll;
 		int knobH = Math.max(20,
-			(int)(moduleH * (moduleH / (double)(moduleH + maxModuleScroll))));
-		int knobY = moduleY + (int)((moduleH - knobH) * progress);
+			(int)(trackH * (trackH / (double)(trackH + maxModuleScroll))));
+		int knobY = trackY1 + (int)((trackH - knobH) * progress);
 		context.fill(x1, knobY, x2, knobY + knobH, cfg().getAccentColor());
 	}
 	
@@ -1219,8 +1391,12 @@ public final class AltGuiScreen extends Screen
 			boolean hovered = isInside(mouseX, mouseY, rowX1, y1, rowX2, y2);
 			
 			context.fill(rowX1, y1, rowX2, y2,
-				hovered ? withAlpha(cfg().getAccentColor(), 0.28F)
-					: withAlpha(cfg().getPanelLightColor(), 0.72F));
+				hovered ? withAlpha(cfg().getSettingRowHighlightColor(), 0.48F)
+					: withAlpha(cfg().getSettingRowColor(), 0.78F));
+			if(hovered)
+				drawThickRectBorder(context, rowX1, y1, rowX2, y2,
+					withAlpha(cfg().getSettingRowHighlightColor(), 0.9F),
+					cfg().getSettingHighlightThickness());
 			context.fill(rowX1, y1, rowX1 + scaleRightSettingWidth(3), y2,
 				withAlpha(cfg().getAccentColor(), 0.95F));
 			
@@ -1241,7 +1417,7 @@ public final class AltGuiScreen extends Screen
 				cfg().getTextColor(), false);
 			
 			context.fill(valueX1, valueY1, valueX2, valueY2,
-				withAlpha(cfg().getPanelColor(), 0.92F));
+				withAlpha(cfg().getSettingValueBackgroundColor(), 0.92F));
 			drawMarqueeStringScaledInBox(context, font, value, valueX1, valueY1,
 				valueX2, valueY2, cfg().getTextColor(),
 				scaleRightSettingWidth(6));
@@ -1259,17 +1435,27 @@ public final class AltGuiScreen extends Screen
 		if(hovered && row.setting().getDescription() != null
 			&& !row.setting().getDescription().isBlank())
 			hoverTooltip = row.setting().getDescription();
-		boolean oddStripe = ((y1 / Math.max(1, row.height())) & 1) == 0;
-		int rowColor = hovered ? withAlpha(cfg().getAccentColor(), 0.28F)
-			: oddStripe ? withAlpha(cfg().getPanelLightColor(), 0.78F)
-				: withAlpha(cfg().getPanelLightColor(), 0.62F);
+		boolean oddStripe = cfg().isSettingRowStripingEnabled()
+			&& ((y1 / Math.max(1, row.height())) & 1) == 0;
+		int rowColor =
+			hovered ? withAlpha(cfg().getSettingRowHighlightColor(), 0.48F)
+				: oddStripe
+					? withAlpha(cfg().getAlternateSettingRowColor(), 0.78F)
+					: withAlpha(cfg().getSettingRowColor(), 0.78F);
 		context.fill(rowX1, y1, rowX2, y2, rowColor);
-		if(cfg().isSettingRowDividersEnabled())
+		if(hovered)
+			drawThickRectBorder(context, rowX1, y1, rowX2, y2,
+				withAlpha(cfg().getSettingRowHighlightColor(), 0.9F),
+				cfg().getSettingHighlightThickness());
+		if(cfg().isSettingRowDividersEnabled()
+			&& cfg().getSettingDividerThickness() > 0)
 		{
-			context.fill(rowX1, y1, rowX2, y1 + 1,
-				withAlpha(cfg().getTextColor(), 0.12F));
-			context.fill(rowX1, y2 - 1, rowX2, y2,
-				withAlpha(cfg().getTextColor(), 0.06F));
+			float thickness = cfg().getSettingDividerThickness();
+			drawHorizontalStroke(context, rowX1, y1, rowX2, thickness,
+				withAlpha(cfg().getSettingRowHighlightColor(), 0.35F));
+			drawHorizontalStroke(context, rowX1, y2 - (int)Math.ceil(thickness),
+				rowX2, thickness,
+				withAlpha(cfg().getSettingRowHighlightColor(), 0.22F));
 		}
 		
 		for(int i = 0; i < depth; i++)
@@ -1346,7 +1532,25 @@ public final class AltGuiScreen extends Screen
 				inlineTextField.extractRenderState(context, mouseX, mouseY, 0);
 				return;
 			}
-			if(row.setting() instanceof ColorSetting color
+			if(row.setting() instanceof CheckboxSetting checkbox)
+			{
+				if(cfg().isSwitchSettingTogglesEnabled())
+				{
+					int switchH = Math.min(16, valueY2 - valueY1);
+					drawSwitch(context, valueX1, (y1 + y2 - switchH) / 2,
+						valueX2, (y1 + y2 + switchH) / 2, checkbox.isChecked());
+				}else
+				{
+					context.fill(valueX1, valueY1, valueX2, valueY2,
+						checkbox.isChecked()
+							? withAlpha(cfg().getEnabledColor(), 0.9F)
+							: withAlpha(cfg().getDisabledColor(), 0.92F));
+					drawCenteredStringScaledInBox(context, font,
+						checkbox.isChecked() ? "ON" : "OFF", valueX1,
+						valueY1 + 1, valueX2, valueY2 + 1,
+						cfg().getTextColor());
+				}
+			}else if(row.setting() instanceof ColorSetting color
 				&& cfg().isFillColorValuesEnabled())
 			{
 				context.fill(valueX1, valueY1, valueX2, valueY2,
@@ -1355,7 +1559,7 @@ public final class AltGuiScreen extends Screen
 			}else if(row.setting() instanceof SliderSetting slider)
 			{
 				context.fill(valueX1, valueY1, valueX2, valueY2,
-					withAlpha(cfg().getPanelLightColor(), 0.9F));
+					withAlpha(cfg().getSettingValueBackgroundColor(), 0.9F));
 				int innerX1 = valueX1 + scaleRightSettingWidth(2);
 				int innerX2 = valueX2 - scaleRightSettingWidth(2);
 				int innerY1 = valueY1 + scaleRightSettingHeight(1);
@@ -1373,14 +1577,15 @@ public final class AltGuiScreen extends Screen
 				context.fill(valueX1, valueY1, valueX2, valueY2,
 					getValueBadgeColor(row.setting(), valueText));
 			}
-			drawMarqueeStringScaledInBox(context, font, valueText, valueX1,
-				valueY1, valueX2, valueY2, valueTextColor, valuePad);
+			if(!(row.setting() instanceof CheckboxSetting))
+				drawMarqueeStringScaledInBox(context, font, valueText, valueX1,
+					valueY1, valueX2, valueY2, valueTextColor, valuePad);
 			
 			if(row.setting() instanceof ColorSetting color
 				&& !cfg().isFillColorValuesEnabled())
 			{
-				drawRectBorder(context, valueX1, valueY1, valueX2, valueY2,
-					color.getColorI());
+				drawThickRectBorder(context, valueX1, valueY1, valueX2, valueY2,
+					color.getColorI(), cfg().getSectionBorderThickness());
 			}
 		}
 	}
@@ -1431,12 +1636,16 @@ public final class AltGuiScreen extends Screen
 			cfg().getFontScaleSetting(), y, mouseX, mouseY);
 		y = renderUiEnum(context, font, "Category layout",
 			cfg().getCategoryLayoutSetting(), y, mouseX, mouseY);
+		y = renderUiEnum(context, font, "Hack click mode",
+			cfg().getHackClickModeSetting(), y, mouseX, mouseY);
 		y = renderUiToggle(context, font, "Type badges",
 			cfg().getTypeBadgesSetting(), y, mouseX, mouseY);
 		y = renderUiToggle(context, font, "Fill color values",
 			cfg().getFillColorValuesSetting(), y, mouseX, mouseY);
 		y = renderUiToggle(context, font, "Setting row dividers",
 			cfg().getSettingRowDividersSetting(), y, mouseX, mouseY);
+		y = renderUiToggle(context, font, "Section borders",
+			cfg().getSectionBordersSetting(), y, mouseX, mouseY);
 		y = renderUiToggle(context, font, "Hack expand icons",
 			cfg().getHackExpandIconsSetting(), y, mouseX, mouseY);
 		y = renderUiToggle(context, font, "Auto-size top tabs",
@@ -1461,6 +1670,8 @@ public final class AltGuiScreen extends Screen
 			cfg().getEnabledColorSetting(), y, mouseX, mouseY);
 		y = renderUiColor(context, font, "Disabled",
 			cfg().getDisabledColorSetting(), y, mouseX, mouseY);
+		y = renderUiColor(context, font, "Section border",
+			cfg().getSectionBorderColorSetting(), y, mouseX, mouseY);
 		
 		int btnY1 = uiMenuY + uiMenuH - 18;
 		int btnY2 = uiMenuY + uiMenuH - 4;
@@ -1480,21 +1691,29 @@ public final class AltGuiScreen extends Screen
 			scaleRightSettingHeight(14));
 		int x1 = uiMenuX + 8;
 		int x2 = uiMenuX + uiMenuW - 8;
-		int trackX1 = uiMenuX + scaleRightSettingWidth(144);
-		int trackX2 = uiMenuX + uiMenuW - 12;
+		int valueW = Math.min(scaleRightSettingWidth(82), (x2 - x1) / 3);
+		int valueX1 = x2 - valueW;
+		int trackX1 = x1 + scaleRightSettingWidth(4);
+		int trackX2 = valueX1 - scaleRightSettingWidth(6);
 		boolean hovered = isInside(mouseX, mouseY, x1, y, x2, y + rowH);
 		context.fill(x1, y, x2, y + rowH,
 			hovered ? withAlpha(cfg().getAccentColor(), 0.14F)
 				: withAlpha(cfg().getPanelLightColor(), 0.58F));
-		drawStringScaled(context, font, label + ": " + slider.getValueString(),
-			x1 + scaleRightSettingWidth(4), y + scaleRightSettingHeight(3),
+		String shownLabel = trimToWidth(font, label,
+			Math.max(1, trackX1 - x1 - scaleRightSettingWidth(8)));
+		drawStringScaled(context, font, shownLabel,
+			x1 + scaleRightSettingWidth(4), centeredTextY(font, y, y + rowH),
 			cfg().getMutedTextColor(), false);
-		context.fill(trackX1, y + scaleRightSettingHeight(4), trackX2,
-			y + scaleRightSettingHeight(10),
-			withAlpha(cfg().getPanelLightColor(), 0.9F));
+		context.fill(valueX1, y + 1, x2, y + rowH - 1,
+			withAlpha(cfg().getPanelColor(), 0.8F));
+		int trackY1 = y + rowH - scaleRightSettingHeight(3);
+		context.fill(trackX1, trackY1, trackX2, trackY1 + 1,
+			withAlpha(cfg().getPanelColor(), 0.95F));
 		int fill = (int)((trackX2 - trackX1) * slider.getPercentage());
-		context.fill(trackX1, y + scaleRightSettingHeight(4), trackX1 + fill,
-			y + scaleRightSettingHeight(10), cfg().getAccentColor());
+		context.fill(trackX1, trackY1, trackX1 + fill, trackY1 + 1,
+			cfg().getAccentColor());
+		drawCenteredStringScaledInBox(context, font, slider.getValueString(),
+			valueX1, y + 1, x2, y + rowH - 1, cfg().getTextColor());
 		return y + rowH + scaleRightSettingHeight(2);
 	}
 	
@@ -1512,17 +1731,40 @@ public final class AltGuiScreen extends Screen
 		drawStringScaled(context, font, label, x1 + scaleRightSettingWidth(4),
 			y + scaleRightSettingHeight(3), cfg().getMutedTextColor(), false);
 		
-		String state = setting.isChecked() ? "ON" : "OFF";
-		int pillW = scaleRightSettingWidth(36);
-		int pillX2 = x2 - scaleRightSettingWidth(4);
-		int pillX1 = pillX2 - pillW;
-		context.fill(pillX1, y + scaleRightSettingHeight(2), pillX2,
-			y + rowH - scaleRightSettingHeight(2),
-			setting.isChecked() ? withAlpha(cfg().getEnabledColor(), 0.86F)
-				: withAlpha(cfg().getDisabledColor(), 0.9F));
-		drawCenteredStringScaled(context, font, state, (pillX1 + pillX2) / 2,
-			y + scaleRightSettingHeight(3), cfg().getTextColor());
+		int switchX2 = x2 - 1;
+		if(cfg().isSwitchSettingTogglesEnabled())
+		{
+			int switchH = Math.min(16, rowH - 2);
+			drawSwitch(context, x1 + 1, (y + rowH - switchH) / 2, switchX2,
+				(y + rowH + switchH) / 2, setting.isChecked());
+		}else
+		{
+			int pillY1 = y + 1;
+			int pillY2 = y + rowH - 1;
+			context.fill(switchX2 - 44, pillY1, switchX2, pillY2,
+				setting.isChecked() ? withAlpha(cfg().getEnabledColor(), 0.9F)
+					: withAlpha(cfg().getDisabledColor(), 0.92F));
+			drawCenteredStringScaledInBox(context, font,
+				setting.isChecked() ? "ON" : "OFF", switchX2 - 44, pillY1 + 1,
+				switchX2, pillY2 + 1, cfg().getTextColor());
+		}
 		return y + rowH + scaleRightSettingHeight(2);
+	}
+	
+	private void drawSwitch(GuiGraphicsExtractor context, int x1, int y1,
+		int x2, int y2, boolean checked)
+	{
+		int width = Math.max(4, x2 - x1);
+		int height = Math.max(4, y2 - y1);
+		context.fill(x1, y1, x2, y2,
+			checked ? withAlpha(cfg().getEnabledColor(), 0.92F)
+				: withAlpha(cfg().getDisabledColor(), 0.92F));
+		int inset = Math.max(1, Math.min(width, height) / 6);
+		int knobSize = Math.max(2, height - inset * 2);
+		int knobX = checked ? x2 - inset - knobSize : x1 + inset;
+		int knobY = (y1 + y2 - knobSize) / 2;
+		context.fill(knobX, knobY, knobX + knobSize, knobY + knobSize,
+			cfg().getTextColor());
 	}
 	
 	private int renderUiEnum(GuiGraphicsExtractor context, Font font,
@@ -1604,11 +1846,15 @@ public final class AltGuiScreen extends Screen
 			button);
 		y = handleUiEnumClick(cfg().getCategoryLayoutSetting(), mouseX, mouseY,
 			y, button);
+		y = handleUiEnumClick(cfg().getHackClickModeSetting(), mouseX, mouseY,
+			y, button);
 		y = handleUiToggleClick(cfg().getTypeBadgesSetting(), mouseX, mouseY,
 			y);
 		y = handleUiToggleClick(cfg().getFillColorValuesSetting(), mouseX,
 			mouseY, y);
 		y = handleUiToggleClick(cfg().getSettingRowDividersSetting(), mouseX,
+			mouseY, y);
+		y = handleUiToggleClick(cfg().getSectionBordersSetting(), mouseX,
 			mouseY, y);
 		y = handleUiToggleClick(cfg().getHackExpandIconsSetting(), mouseX,
 			mouseY, y);
@@ -1631,6 +1877,8 @@ public final class AltGuiScreen extends Screen
 			y);
 		y = handleUiColorClick(cfg().getDisabledColorSetting(), mouseX, mouseY,
 			y);
+		y = handleUiColorClick(cfg().getSectionBorderColorSetting(), mouseX,
+			mouseY, y);
 		
 		int btnY1 = uiMenuY + uiMenuH - 18;
 		int btnY2 = uiMenuY + uiMenuH - 4;
@@ -1653,8 +1901,10 @@ public final class AltGuiScreen extends Screen
 			scaleRightSettingHeight(14));
 		int x1 = uiMenuX + 8;
 		int x2 = uiMenuX + uiMenuW - 8;
-		int trackX1 = uiMenuX + scaleRightSettingWidth(144);
-		int trackX2 = uiMenuX + uiMenuW - 12;
+		int valueW = Math.min(scaleRightSettingWidth(82), (x2 - x1) / 3);
+		int valueX1 = x2 - valueW;
+		int trackX1 = x1 + scaleRightSettingWidth(4);
+		int trackX2 = valueX1 - scaleRightSettingWidth(6);
 		if(isInside(mouseX, mouseY, x1, y, x2, y + rowH))
 		{
 			if(button == InputConstants.MOUSE_BUTTON_RIGHT)
@@ -1746,6 +1996,7 @@ public final class AltGuiScreen extends Screen
 		
 		if(!isInsideCategoryArea(mouseX, mouseY))
 			return false;
+		rememberCurrentViewState();
 		
 		if(isInside(mouseX, mouseY, areaX1, y, areaX2, y + rowH))
 		{
@@ -1753,6 +2004,7 @@ public final class AltGuiScreen extends Screen
 			enabledCategorySelected = true;
 			styleCategorySelected = false;
 			moduleScroll = 0;
+			restoreCurrentViewState();
 			return true;
 		}
 		y += rowH + rowGap;
@@ -1766,6 +2018,7 @@ public final class AltGuiScreen extends Screen
 				enabledCategorySelected = false;
 				styleCategorySelected = false;
 				moduleScroll = 0;
+				restoreCurrentViewState();
 				return true;
 			}
 			y += rowH + rowGap;
@@ -1777,6 +2030,7 @@ public final class AltGuiScreen extends Screen
 			enabledCategorySelected = false;
 			styleCategorySelected = true;
 			moduleScroll = 0;
+			restoreCurrentViewState();
 			return true;
 		}
 		
@@ -1787,6 +2041,7 @@ public final class AltGuiScreen extends Screen
 	{
 		if(!isInsideCategoryArea(mouseX, mouseY))
 			return false;
+		rememberCurrentViewState();
 		
 		int areaY1 = getCategoryAreaY1();
 		int areaY2 = getCategoryAreaY2();
@@ -1816,6 +2071,7 @@ public final class AltGuiScreen extends Screen
 				}
 			}
 			moduleScroll = 0;
+			restoreCurrentViewState();
 			return true;
 		}
 		
@@ -1843,7 +2099,7 @@ public final class AltGuiScreen extends Screen
 			|| mouseY < moduleY || mouseY > moduleY + moduleH)
 			return false;
 		
-		int contentY = moduleY - moduleScroll;
+		int contentY = moduleY + scaleRightSettingHeight(8) - moduleScroll;
 		int rowH = cfg().getRowHeight();
 		List<DisplayEntry> entries = getDisplayedEntries();
 		
@@ -1857,37 +2113,34 @@ public final class AltGuiScreen extends Screen
 			{
 				selectedFeature = feature;
 				settingsScroll = 0;
+				rememberCurrentViewState();
 				if(button == InputConstants.MOUSE_BUTTON_RIGHT)
 					toggleExpandedFeature(feature);
 				else if(button == InputConstants.MOUSE_BUTTON_MIDDLE
 					&& feature instanceof Hack hack)
 					hack.setFavorite(!hack.isFavorite());
-				else if(button == InputConstants.MOUSE_BUTTON_LEFT)
+				else if(button == InputConstants.MOUSE_BUTTON_LEFT
+					&& isManagerShortcut(feature))
+					toggleFeature(feature);
+				else if(button == InputConstants.MOUSE_BUTTON_LEFT && cfg()
+					.getHackClickMode() == AltGuiHack.HackClickMode.OPEN_SETTINGS
+					&& featureHasStatePill(feature)
+					&& isInsideHackToggle(mouseX, rowTop, rowBottom))
 				{
-					TooManyHaxHack tooManyHax =
-						WurstClient.INSTANCE.getHax().tooManyHaxHack;
-					if(feature != tooManyHax
-						&& tooManyHax.shouldBlockStarting(feature))
-					{
-						ChatUtils.error(
-							feature.getName() + " is blocked by TooManyHax.");
-						return true;
-					}
-					
+					toggleFeature(feature);
+				}else if(button == InputConstants.MOUSE_BUTTON_LEFT && cfg()
+					.getHackClickMode() == AltGuiHack.HackClickMode.OPEN_SETTINGS)
+				{
+					expandedFeatures.add(feature.getName());
+				}else if(button == InputConstants.MOUSE_BUTTON_LEFT)
+				{
 					if(isMenuOnlyFeature(feature))
 					{
 						toggleExpandedFeature(feature);
 						return true;
 					}
 					
-					feature.doPrimaryAction();
-					if(feature instanceof Hack hack)
-					{
-						if(hack.isEnabled())
-							removeRecentlyDisabled(hack.getName());
-						else
-							addRecentlyDisabled(hack.getName());
-					}
+					toggleFeature(feature);
 				}
 				return true;
 			}
@@ -1897,6 +2150,33 @@ public final class AltGuiScreen extends Screen
 		return false;
 	}
 	
+	private boolean isInsideHackToggle(double mouseX, int rowTop, int rowBottom)
+	{
+		int contentBottomX = moduleX + moduleW - 12;
+		int toggleX2 = contentBottomX;
+		return isInside(mouseX, (rowTop + rowBottom) / 2D, toggleX2 - 44,
+			rowTop, toggleX2, rowBottom);
+	}
+	
+	private void toggleFeature(Feature feature)
+	{
+		TooManyHaxHack tooManyHax =
+			WurstClient.INSTANCE.getHax().tooManyHaxHack;
+		if(feature != tooManyHax && tooManyHax.shouldBlockStarting(feature))
+		{
+			ChatUtils.error(feature.getName() + " is blocked by TooManyHax.");
+			return;
+		}
+		feature.doPrimaryAction();
+		if(feature instanceof Hack hack)
+		{
+			if(hack.isEnabled())
+				removeRecentlyDisabled(hack.getName());
+			else
+				addRecentlyDisabled(hack.getName());
+		}
+	}
+	
 	private boolean handleSelectedFeatureSettingsClick(double mouseX,
 		double mouseY, int button)
 	{
@@ -1904,8 +2184,8 @@ public final class AltGuiScreen extends Screen
 			moduleY, settingsX + settingsW, moduleY + moduleH))
 			return false;
 		
-		int x1 = settingsX + 8;
-		int x2 = settingsX + settingsW - 8;
+		int x1 = settingsX + 3;
+		int x2 = settingsX + settingsW - 3;
 		if(mouseY < moduleY + 34)
 			return true;
 		int y = moduleY + 34 - settingsScroll;
@@ -2252,6 +2532,8 @@ public final class AltGuiScreen extends Screen
 			expandedFeatures.remove(key);
 		else
 			expandedFeatures.add(key);
+		LAST_EXPANDED_FEATURES.clear();
+		LAST_EXPANDED_FEATURES.addAll(expandedFeatures);
 	}
 	
 	private void toggleGroup(SettingGroup group)
@@ -2260,6 +2542,8 @@ public final class AltGuiScreen extends Screen
 			expandedGroups.remove(group);
 		else
 			expandedGroups.add(group);
+		LAST_EXPANDED_GROUPS.clear();
+		LAST_EXPANDED_GROUPS.addAll(expandedGroups);
 	}
 	
 	private Set<PossibleKeybind> getPossibleKeybindsForFeature(Feature feature)
@@ -2678,8 +2962,18 @@ public final class AltGuiScreen extends Screen
 	private List<SettingRow> getSettingRows(Feature feature)
 	{
 		ArrayList<SettingRow> rows = new ArrayList<>();
+		Set<Setting> nestedSettings =
+			java.util.Collections.newSetFromMap(new IdentityHashMap<>());
 		for(Setting setting : feature.getSettings().values())
+			if(setting instanceof SettingGroup group)
+				collectNestedSettings(group, nestedSettings);
+			
+		for(Setting setting : feature.getSettings().values())
+		{
+			if(nestedSettings.contains(setting))
+				continue;
 			appendSettingRows(rows, feature, setting, 0, false);
+		}
 		
 		if(featureSupportsKeybinds(feature))
 		{
@@ -2691,6 +2985,17 @@ public final class AltGuiScreen extends Screen
 		return rows;
 	}
 	
+	private void collectNestedSettings(SettingGroup group, Set<Setting> nested)
+	{
+		for(Setting child : group.getChildren())
+		{
+			if(!nested.add(child))
+				continue;
+			if(child instanceof SettingGroup childGroup)
+				collectNestedSettings(childGroup, nested);
+		}
+	}
+	
 	private void appendSettingRows(List<SettingRow> rows, Feature owner,
 		Setting setting, int depth, boolean insideGroup)
 	{
@@ -2698,13 +3003,10 @@ public final class AltGuiScreen extends Screen
 			&& !setting.isVisibleInGui())
 			return;
 		
-		int h =
-			setting instanceof SpacerSetting
-				? Math.max(4,
-					Math.round(cfg().getRowHeight()
-						* getRightSettingsHeightScale() / 2F))
-				: Math.max(cfg().getMinimumRowHeight(), Math.round(
-					cfg().getRowHeight() * getRightSettingsHeightScale()));
+		int h = setting instanceof SpacerSetting
+			? Math.max(6, scaleRightSettingHeight(8))
+			: Math.max(cfg().getMinimumRowHeight(), Math
+				.round(cfg().getRowHeight() * getRightSettingsHeightScale()));
 		rows.add(new SettingRow(owner, setting, depth, h, false));
 		
 		if(setting instanceof SettingGroup group)
@@ -2832,7 +3134,7 @@ public final class AltGuiScreen extends Screen
 		if(setting instanceof ButtonSetting)
 			return withAlpha(cfg().getAccentColor(), 0.56F);
 		
-		return withAlpha(cfg().getPanelColor(), 0.9F);
+		return withAlpha(cfg().getSettingValueBackgroundColor(), 0.9F);
 	}
 	
 	private String trimToWidth(Font font, String text, int maxWidth)
@@ -2970,6 +3272,13 @@ public final class AltGuiScreen extends Screen
 			|| name.equalsIgnoreCase("XPGUI"));
 	}
 	
+	private boolean isManagerShortcut(Feature feature)
+	{
+		String name = feature.getName();
+		return name != null && (name.equalsIgnoreCase("Keybinds")
+			|| name.equalsIgnoreCase("Presets"));
+	}
+	
 	private boolean isHiddenByTooManyHax(Feature feature)
 	{
 		TooManyHaxHack tooManyHax =
@@ -3006,7 +3315,7 @@ public final class AltGuiScreen extends Screen
 	private boolean isInside(double mouseX, double mouseY, int x1, int y1,
 		int x2, int y2)
 	{
-		return mouseX >= x1 && mouseX <= x2 && mouseY >= y1 && mouseY <= y2;
+		return mouseX >= x1 && mouseX < x2 && mouseY >= y1 && mouseY < y2;
 	}
 	
 	private static int withAlpha(int color, float alpha)
@@ -3024,13 +3333,73 @@ public final class AltGuiScreen extends Screen
 		return luminance > 0.55 ? 0xFF000000 : 0xFFFFFFFF;
 	}
 	
-	private void drawRectBorder(GuiGraphicsExtractor context, int x1, int y1,
-		int x2, int y2, int color)
+	private void drawThickRectBorder(GuiGraphicsExtractor context, int x1,
+		int y1, int x2, int y2, int color, float thickness)
 	{
-		context.fill(x1, y1, x2, y1 + 1, color);
-		context.fill(x1, y2 - 1, x2, y2, color);
-		context.fill(x1, y1, x1 + 1, y2, color);
-		context.fill(x2 - 1, y1, x2, y2, color);
+		if(thickness <= 0.0F)
+			return;
+		int maxThickness = Math.max(1, Math.min(x2 - x1, y2 - y1) / 2);
+		float actualThickness = Math.min(thickness, maxThickness);
+		int stroke = (int)actualThickness;
+		for(int i = 0; i < stroke; i++)
+		{
+			context.fill(x1 + i, y1 + i, x2 - i, y1 + i + 1, color);
+			context.fill(x1 + i, y2 - i - 1, x2 - i, y2 - i, color);
+			context.fill(x1 + i, y1 + i, x1 + i + 1, y2 - i, color);
+			context.fill(x2 - i - 1, y1 + i, x2 - i, y2 - i, color);
+		}
+		float fractional = actualThickness - stroke;
+		if(fractional > 0)
+		{
+			int innerX1 = x1 + stroke;
+			int innerY1 = y1 + stroke;
+			int innerX2 = x2 - stroke;
+			int innerY2 = y2 - stroke;
+			drawFractionalRect(context, innerX1, innerY1, innerX2 - innerX1,
+				fractional, color);
+			drawFractionalRect(context, innerX1, innerY2 - fractional,
+				innerX2 - innerX1, fractional, color);
+			drawFractionalRect(context, innerX1, innerY1, fractional,
+				innerY2 - innerY1, color);
+			drawFractionalRect(context, innerX2 - fractional, innerY1,
+				fractional, innerY2 - innerY1, color);
+		}
+	}
+	
+	private void drawHorizontalStroke(GuiGraphicsExtractor context, int x1,
+		float y, int x2, float thickness, int color)
+	{
+		int fullPixels = (int)thickness;
+		for(int i = 0; i < fullPixels; i++)
+			drawFractionalRect(context, x1, y + i, x2 - x1, 1, color);
+		float fractional = thickness - fullPixels;
+		if(fractional > 0)
+			drawFractionalRect(context, x1, y + fullPixels, x2 - x1, fractional,
+				color);
+	}
+	
+	private void drawVerticalStroke(GuiGraphicsExtractor context, float x,
+		int y1, int y2, float thickness, int color)
+	{
+		int fullPixels = (int)thickness;
+		for(int i = 0; i < fullPixels; i++)
+			drawFractionalRect(context, x + i, y1, 1, y2 - y1, color);
+		float fractional = thickness - fullPixels;
+		if(fractional > 0)
+			drawFractionalRect(context, x + fullPixels, y1, fractional, y2 - y1,
+				color);
+	}
+	
+	private void drawFractionalRect(GuiGraphicsExtractor context, float x,
+		float y, float rectW, float rectH, int color)
+	{
+		if(rectW <= 0 || rectH <= 0)
+			return;
+		context.pose().pushMatrix();
+		context.pose().translate(x, y);
+		context.pose().scale(rectW, rectH);
+		context.fill(0, 0, 1, 1, color);
+		context.pose().popMatrix();
 	}
 	
 	private int scaledFontWidth(Font font, String text)
@@ -3125,7 +3494,7 @@ public final class AltGuiScreen extends Screen
 		int innerW = innerX2 - innerX1;
 		int textW = Math.max(1, scaledFontWidth(font, text));
 		int textH = Math.max(1, scaledFontHeight(font));
-		int y = Math.round((y1 + y2) * 0.5F - textH * 0.5F);
+		int y = centeredTextY(font, y1, y2);
 		
 		if(textW <= innerW)
 		{
@@ -3158,12 +3527,18 @@ public final class AltGuiScreen extends Screen
 	@Override
 	public void removed()
 	{
+		rememberCurrentViewState();
 		LAST_SELECTED_CATEGORY = selectedCategory;
 		LAST_ENABLED_CATEGORY_SELECTED = enabledCategorySelected;
 		LAST_STYLE_CATEGORY_SELECTED = styleCategorySelected;
 		LAST_MODULE_SCROLL = Math.max(0, moduleScroll);
+		LAST_SETTINGS_SCROLL = Math.max(0, settingsScroll);
+		LAST_SELECTED_FEATURE =
+			selectedFeature == null ? "" : selectedFeature.getName();
 		LAST_EXPANDED_FEATURES.clear();
 		LAST_EXPANDED_FEATURES.addAll(expandedFeatures);
+		LAST_EXPANDED_GROUPS.clear();
+		LAST_EXPANDED_GROUPS.addAll(expandedGroups);
 		super.removed();
 	}
 	
@@ -3174,6 +3549,9 @@ public final class AltGuiScreen extends Screen
 	}
 	
 	private record DisplayEntry(Feature feature, boolean recentDisabled)
+	{}
+	
+	private record ViewState(String featureName, int settingsScroll)
 	{}
 	
 	private record SettingRow(Feature owner, Setting setting, int depth,

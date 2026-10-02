@@ -20,8 +20,10 @@ import net.wurstclient.settings.ButtonSetting;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.settings.EnumSetting;
+import net.wurstclient.settings.Setting;
 import net.wurstclient.settings.SettingGroup;
 import net.wurstclient.settings.SliderSetting;
+import net.wurstclient.settings.SpacerSetting;
 import net.wurstclient.settings.StringDropdownSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
 import net.wurstclient.util.text.WText;
@@ -43,16 +45,36 @@ public final class AltGuiHack extends Hack
 	private final ColorSetting mutedTextColor =
 		new ColorSetting("Muted text", new Color(0x97A2B5));
 	private final ColorSetting accentColor =
-		new ColorSetting("Accent", new Color(0x2E9AFE));
+		new ColorSetting("Accent", new Color(0x8100DD));
 	private final ColorSetting enabledColor =
-		new ColorSetting("Enabled", new Color(0x23D18B));
+		new ColorSetting("Enabled", new Color(0xEA00FF));
 	private final ColorSetting disabledColor =
 		new ColorSetting("Disabled", new Color(0x5F6C82));
+	private final ColorSetting sectionBorderColor =
+		new ColorSetting("Section border", new Color(0x242D3C));
+	private final ColorSetting hackRowColor =
+		new ColorSetting("Hack row background", new Color(0x1B212C));
+	private final ColorSetting enabledHackRowColor =
+		new ColorSetting("Enabled hack row background", new Color(0x8D238E));
+	private final ColorSetting alternateHackRowColor =
+		new ColorSetting("Alternate hack row background", new Color(0x202733));
+	private final ColorSetting hackRowHighlightColor =
+		new ColorSetting("Hack row highlight color", new Color(0x992EFE));
+	private final ColorSetting settingRowColor =
+		new ColorSetting("Setting row background", new Color(0x1B212C));
+	private final ColorSetting alternateSettingRowColor = new ColorSetting(
+		"Alternate setting row background", new Color(0x242B36));
+	private final ColorSetting settingRowHighlightColor =
+		new ColorSetting("Setting row highlight", new Color(0x9E2EFE));
+	private final ColorSetting settingValueBackgroundColor =
+		new ColorSetting("Setting value background", new Color(0x151A22));
+	private final ColorSetting descriptionColor =
+		new ColorSetting("Alt text", new Color(0x97A2B5));
 	
 	private final SliderSetting uiOpacity = new SliderSetting("UI opacity",
 		0.84, 0.25, 1, 0.01, ValueDisplay.PERCENTAGE);
 	private final SliderSetting backgroundOpacity = new SliderSetting(
-		"Background opacity", 0.0, 0, 1, 0.01, ValueDisplay.PERCENTAGE);
+		"Background opacity", 0.4, 0, 1, 0.01, ValueDisplay.PERCENTAGE);
 	private final SliderSetting tooltipOpacity = new SliderSetting(
 		"Tooltip opacity", 1.0, 0.1, 1, 0.01, ValueDisplay.PERCENTAGE);
 	private final SliderSetting settingsWidth = new SliderSetting(
@@ -60,13 +82,13 @@ public final class AltGuiHack extends Hack
 	private final SliderSetting settingsHeight = new SliderSetting(
 		"Settings height", 0.7, 0.05, 1.0, 0.01, ValueDisplay.DECIMAL);
 	private final SliderSetting widthPercent = new SliderSetting("Window width",
-		0.5, 0.5, 1, 0.01, ValueDisplay.PERCENTAGE);
+		0.87, 0.5, 1, 0.01, ValueDisplay.PERCENTAGE);
 	private final SliderSetting heightPercent = new SliderSetting(
-		"Window height", 0.83, 0.5, 1, 0.01, ValueDisplay.PERCENTAGE);
+		"Window height", 0.75, 0.5, 1, 0.01, ValueDisplay.PERCENTAGE);
 	private final SliderSetting categoryHeight = new SliderSetting(
-		"Category height", 13, 8, 32, 1, ValueDisplay.INTEGER);
+		"Category height", 24, 8, 32, 1, ValueDisplay.INTEGER);
 	private final SliderSetting categoryWidth = new SliderSetting(
-		"Category width", 91, 40, 240, 1, ValueDisplay.INTEGER);
+		"Category width", 105, 40, 240, 1, ValueDisplay.INTEGER);
 	private final SliderSetting rowHeight =
 		new SliderSetting("Row height", 13, 8, 30, 1, ValueDisplay.INTEGER);
 	private final SliderSetting fontScale = new SliderSetting("Font scale", 1.0,
@@ -95,7 +117,42 @@ public final class AltGuiHack extends Hack
 		true);
 	private final CheckboxSetting settingRowDividers = new CheckboxSetting(
 		"Setting row dividers",
-		"Show horizontal divider lines between expanded setting rows.", true);
+		"Show horizontal divider lines between expanded setting rows.", false);
+	private final CheckboxSetting settingRowStriping =
+		new CheckboxSetting("Setting row striping",
+			"Alternate the background color of settings rows.", true);
+	private final CheckboxSetting switchSettingToggles =
+		new CheckboxSetting("Switch-style setting toggles",
+			"Use switches instead of the original ON/OFF buttons for settings.",
+			false);
+	private final CheckboxSetting switchHackToggles =
+		new CheckboxSetting("Switch-style hack toggles",
+			"Use switches instead of ON/OFF buttons in the hack list.", false);
+	private final SliderSetting settingHighlightThickness = new SliderSetting(
+		"Setting highlight thickness", 0.8, 0, 4, 0.1, ValueDisplay.DECIMAL);
+	private final SliderSetting settingDividerThickness = new SliderSetting(
+		"Setting divider thickness", 0.1, 0, 4, 0.1, ValueDisplay.DECIMAL);
+	private final SliderSetting hackRowBorderThickness = new SliderSetting(
+		"Hack row border thickness", 0.4, 0, 4, 0.1, ValueDisplay.DECIMAL);
+	private final SliderSetting hackHighlightThickness = new SliderSetting(
+		"Hack highlight thickness", 1, 0, 4, 0.1, ValueDisplay.DECIMAL);
+	private final SliderSetting categoryRowBorderThickness = new SliderSetting(
+		"Category border thickness", 0.9, 0, 4, 0.1, ValueDisplay.DECIMAL);
+	private final SliderSetting sectionBorderThickness = new SliderSetting(
+		"Section border thickness", 1, 0, 4, 0.1, ValueDisplay.DECIMAL);
+	private final CheckboxSetting hackRowStriping =
+		new CheckboxSetting("Hack row striping",
+			"Alternate the background color of hack rows.", true);
+	private final CheckboxSetting hackRowBorders = new CheckboxSetting(
+		"Hack row borders", "Draw a border around each hack row.", true);
+	private final CheckboxSetting categoryRowBorders =
+		new CheckboxSetting("Category row borders",
+			"Draw a border around each category row.", true);
+	private final CheckboxSetting hackRowHighlight =
+		new CheckboxSetting("Hack row highlight",
+			"Highlight the hovered or selected hack row.", true);
+	private final CheckboxSetting sectionBorders = new CheckboxSetting(
+		"Section borders", "Show borders around the AltGUI panes.", true);
 	private final CheckboxSetting hackExpandIcons = new CheckboxSetting(
 		"Hack expand icons",
 		"Show triangle icons before hacks to indicate collapsed/expanded settings.",
@@ -109,7 +166,7 @@ public final class AltGuiHack extends Hack
 			"Hide the search bar until you start typing a query.", true);
 	private final CheckboxSetting searchSettings = new CheckboxSetting(
 		"Search settings/toggles",
-		"Include setting names and values in AltGUI search results.", false);
+		"Include setting names and values in AltGUI search results.", true);
 	private final CheckboxSetting keepHackSettingsOpen = new CheckboxSetting(
 		"Keep hack settings open",
 		"Keep expanded hack settings open when AltGUI is closed and reopened.",
@@ -118,7 +175,42 @@ public final class AltGuiHack extends Hack
 		"On open", OpenBehavior.values(), OpenBehavior.LAST_POSITION);
 	private final EnumSetting<CategoryLayout> categoryLayout =
 		new EnumSetting<>("Category layout", CategoryLayout.values(),
-			CategoryLayout.TOP_TABS);
+			CategoryLayout.SIDEBAR);
+	private final EnumSetting<HackClickMode> hackClickMode = new EnumSetting<>(
+		"Hack click mode", HackClickMode.values(), HackClickMode.OPEN_SETTINGS);
+	private final SettingGroup colorsGroup = new SettingGroup("Colors",
+		WText.literal("Backgrounds, highlights, text and borders."), false,
+		false).addChildren(bgColor, panelColor, panelLightColor, textColor,
+			mutedTextColor, descriptionColor, accentColor, enabledColor,
+			disabledColor, sectionBorderColor, hackRowColor,
+			enabledHackRowColor, alternateHackRowColor, hackRowHighlightColor,
+			settingRowColor, alternateSettingRowColor, settingRowHighlightColor,
+			settingValueBackgroundColor);
+	private final SettingGroup layoutGroup = new SettingGroup("Layout & font",
+		WText.literal("Window size, columns, spacing and typography."), false,
+		false).addChildren(uiOpacity, backgroundOpacity, tooltipOpacity,
+			settingsWidth, settingsHeight, widthPercent, heightPercent,
+			categoryHeight, categoryWidth, rowHeight, categoryLayout,
+			fontGroup);
+	private final SettingGroup hackListGroup = new SettingGroup("Hack list",
+		WText.literal("Hack row appearance and click behavior."), false, false)
+			.addChildren(hackRowHighlight, hackRowStriping, hackRowBorders,
+				hackRowBorderThickness, hackHighlightThickness,
+				categoryRowBorders, categoryRowBorderThickness,
+				switchHackToggles, favoriteStars, hackExpandIcons,
+				hackClickMode);
+	private final SettingGroup settingsListGroup =
+		new SettingGroup("Settings list",
+			WText.literal("Setting row backgrounds, values and highlights."),
+			false, false).addChildren(typeBadges, fillColorValues,
+				settingRowDividers, settingDividerThickness, settingRowStriping,
+				settingHighlightThickness, switchSettingToggles, sectionBorders,
+				sectionBorderThickness);
+	private final SettingGroup searchGroup =
+		new SettingGroup("Search & startup",
+			WText.literal("Search behavior and what AltGUI restores on open."),
+			false, false).addChildren(searchOnlyWhileTyping, searchSettings,
+				keepHackSettingsOpen, openBehavior);
 	
 	private float cachedMinScale = Float.NaN;
 	private int cachedMinSmoothing = -1;
@@ -128,42 +220,28 @@ public final class AltGuiHack extends Hack
 	public AltGuiHack()
 	{
 		super("AltGUI");
-		addSetting(bgColor);
-		addSetting(panelColor);
-		addSetting(panelLightColor);
-		addSetting(textColor);
-		addSetting(mutedTextColor);
-		addSetting(accentColor);
-		addSetting(enabledColor);
-		addSetting(disabledColor);
-		addSetting(uiOpacity);
-		addSetting(backgroundOpacity);
-		addSetting(tooltipOpacity);
-		addSetting(settingsWidth);
-		addSetting(settingsHeight);
-		addSetting(widthPercent);
-		addSetting(heightPercent);
-		addSetting(categoryHeight);
-		addSetting(categoryWidth);
-		addSetting(rowHeight);
-		addSetting(fontScale);
-		addSetting(fontSmoothing);
-		addSetting(fontFamily);
-		addSetting(reloadFonts);
-		addSetting(openFontsFolder);
-		addSetting(fontGroup);
-		addSetting(typeBadges);
-		addSetting(favoriteStars);
-		addSetting(fillColorValues);
-		addSetting(settingRowDividers);
-		addSetting(hackExpandIcons);
-		addSetting(autoSizeTopTabs);
-		addSetting(searchOnlyWhileTyping);
-		addSetting(searchSettings);
-		addSetting(keepHackSettingsOpen);
-		addSetting(openBehavior);
-		addSetting(categoryLayout);
+		addGroupedSettings(colorsGroup);
+		addSetting(new SpacerSetting(8));
+		addGroupedSettings(layoutGroup);
+		addSetting(new SpacerSetting(8));
+		addGroupedSettings(hackListGroup);
+		addSetting(new SpacerSetting(8));
+		addGroupedSettings(settingsListGroup);
+		addSetting(new SpacerSetting(8));
+		addGroupedSettings(searchGroup);
 		refreshFontOptions();
+	}
+	
+	private void addGroupedSettings(SettingGroup group)
+	{
+		addSetting(group);
+		for(Setting child : group.getChildren())
+		{
+			if(child instanceof SettingGroup nested)
+				addGroupedSettings(nested);
+			else
+				addSetting(child);
+		}
 	}
 	
 	@Override
@@ -329,6 +407,176 @@ public final class AltGuiHack extends Hack
 		return disabledColor;
 	}
 	
+	public ColorSetting getSectionBorderColorSetting()
+	{
+		return sectionBorderColor;
+	}
+	
+	public int getSectionBorderColor()
+	{
+		return sectionBorderColor.getColorI();
+	}
+	
+	public ColorSetting getHackRowColorSetting()
+	{
+		return hackRowColor;
+	}
+	
+	public ColorSetting getEnabledHackRowColorSetting()
+	{
+		return enabledHackRowColor;
+	}
+	
+	public ColorSetting getAlternateHackRowColorSetting()
+	{
+		return alternateHackRowColor;
+	}
+	
+	public ColorSetting getHackRowHighlightColorSetting()
+	{
+		return hackRowHighlightColor;
+	}
+	
+	public ColorSetting getSettingRowColorSetting()
+	{
+		return settingRowColor;
+	}
+	
+	public ColorSetting getAlternateSettingRowColorSetting()
+	{
+		return alternateSettingRowColor;
+	}
+	
+	public ColorSetting getSettingRowHighlightColorSetting()
+	{
+		return settingRowHighlightColor;
+	}
+	
+	public ColorSetting getSettingValueBackgroundColorSetting()
+	{
+		return settingValueBackgroundColor;
+	}
+	
+	public int getHackRowColor()
+	{
+		return hackRowColor.getColorI();
+	}
+	
+	public int getEnabledHackRowColor()
+	{
+		return enabledHackRowColor.getColorI();
+	}
+	
+	public int getAlternateHackRowColor()
+	{
+		return alternateHackRowColor.getColorI();
+	}
+	
+	public int getHackRowHighlightColor()
+	{
+		return hackRowHighlightColor.getColorI();
+	}
+	
+	public int getSettingRowColor()
+	{
+		return settingRowColor.getColorI();
+	}
+	
+	public int getAlternateSettingRowColor()
+	{
+		return alternateSettingRowColor.getColorI();
+	}
+	
+	public int getSettingRowHighlightColor()
+	{
+		return settingRowHighlightColor.getColorI();
+	}
+	
+	public int getSettingValueBackgroundColor()
+	{
+		return settingValueBackgroundColor.getColorI();
+	}
+	
+	public ColorSetting getDescriptionColorSetting()
+	{
+		return descriptionColor;
+	}
+	
+	public int getDescriptionColor()
+	{
+		return descriptionColor.getColorI();
+	}
+	
+	public float getSettingHighlightThickness()
+	{
+		return (float)settingHighlightThickness.getValue();
+	}
+	
+	public float getSettingDividerThickness()
+	{
+		return (float)settingDividerThickness.getValue();
+	}
+	
+	public float getHackRowBorderThickness()
+	{
+		return (float)hackRowBorderThickness.getValue();
+	}
+	
+	public float getHackHighlightThickness()
+	{
+		return (float)hackHighlightThickness.getValue();
+	}
+	
+	public SliderSetting getHackHighlightThicknessSetting()
+	{
+		return hackHighlightThickness;
+	}
+	
+	public float getCategoryRowBorderThickness()
+	{
+		return (float)categoryRowBorderThickness.getValue();
+	}
+	
+	public float getSectionBorderThickness()
+	{
+		return (float)sectionBorderThickness.getValue();
+	}
+	
+	public SliderSetting getHackRowBorderThicknessSetting()
+	{
+		return hackRowBorderThickness;
+	}
+	
+	public SliderSetting getCategoryRowBorderThicknessSetting()
+	{
+		return categoryRowBorderThickness;
+	}
+	
+	public SliderSetting getSectionBorderThicknessSetting()
+	{
+		return sectionBorderThickness;
+	}
+	
+	public boolean isHackRowHighlightEnabled()
+	{
+		return hackRowHighlight.isChecked();
+	}
+	
+	public boolean isHackRowStripingEnabled()
+	{
+		return hackRowStriping.isChecked();
+	}
+	
+	public boolean isHackRowBordersEnabled()
+	{
+		return hackRowBorders.isChecked();
+	}
+	
+	public boolean isCategoryRowBordersEnabled()
+	{
+		return categoryRowBorders.isChecked();
+	}
+	
 	public SliderSetting getUiOpacitySetting()
 	{
 		return uiOpacity;
@@ -430,6 +678,21 @@ public final class AltGuiHack extends Hack
 		return settingRowDividers;
 	}
 	
+	public SliderSetting getSettingDividerThicknessSetting()
+	{
+		return settingDividerThickness;
+	}
+	
+	public CheckboxSetting getSettingRowStripingSetting()
+	{
+		return settingRowStriping;
+	}
+	
+	public CheckboxSetting getSectionBordersSetting()
+	{
+		return sectionBorders;
+	}
+	
 	public CheckboxSetting getHackExpandIconsSetting()
 	{
 		return hackExpandIcons;
@@ -475,6 +738,26 @@ public final class AltGuiHack extends Hack
 		return settingRowDividers.isChecked();
 	}
 	
+	public boolean isSettingRowStripingEnabled()
+	{
+		return settingRowStriping.isChecked();
+	}
+	
+	public boolean isSwitchSettingTogglesEnabled()
+	{
+		return switchSettingToggles.isChecked();
+	}
+	
+	public boolean isSwitchHackTogglesEnabled()
+	{
+		return switchHackToggles.isChecked();
+	}
+	
+	public boolean isSectionBordersEnabled()
+	{
+		return sectionBorders.isChecked();
+	}
+	
 	public boolean isHackExpandIconsEnabled()
 	{
 		return hackExpandIcons.isChecked();
@@ -508,6 +791,16 @@ public final class AltGuiHack extends Hack
 	public CategoryLayout getCategoryLayout()
 	{
 		return categoryLayout.getSelected();
+	}
+	
+	public EnumSetting<HackClickMode> getHackClickModeSetting()
+	{
+		return hackClickMode;
+	}
+	
+	public HackClickMode getHackClickMode()
+	{
+		return hackClickMode.getSelected();
 	}
 	
 	public int getMinimumRowHeight()
@@ -580,6 +873,19 @@ public final class AltGuiHack extends Hack
 		accentColor.setColor(accentColor.getDefaultColor());
 		enabledColor.setColor(enabledColor.getDefaultColor());
 		disabledColor.setColor(disabledColor.getDefaultColor());
+		sectionBorderColor.setColor(sectionBorderColor.getDefaultColor());
+		hackRowColor.setColor(hackRowColor.getDefaultColor());
+		enabledHackRowColor.setColor(enabledHackRowColor.getDefaultColor());
+		alternateHackRowColor.setColor(alternateHackRowColor.getDefaultColor());
+		hackRowHighlightColor.setColor(hackRowHighlightColor.getDefaultColor());
+		settingRowColor.setColor(settingRowColor.getDefaultColor());
+		alternateSettingRowColor
+			.setColor(alternateSettingRowColor.getDefaultColor());
+		settingRowHighlightColor
+			.setColor(settingRowHighlightColor.getDefaultColor());
+		settingValueBackgroundColor
+			.setColor(settingValueBackgroundColor.getDefaultColor());
+		descriptionColor.setColor(descriptionColor.getDefaultColor());
 		uiOpacity.setValue(uiOpacity.getDefaultValue());
 		backgroundOpacity.setValue(backgroundOpacity.getDefaultValue());
 		tooltipOpacity.setValue(tooltipOpacity.getDefaultValue());
@@ -600,11 +906,33 @@ public final class AltGuiHack extends Hack
 		favoriteStars.setChecked(favoriteStars.isCheckedByDefault());
 		fillColorValues.setChecked(fillColorValues.isCheckedByDefault());
 		settingRowDividers.setChecked(settingRowDividers.isCheckedByDefault());
+		settingDividerThickness
+			.setValue(settingDividerThickness.getDefaultValue());
+		hackRowBorderThickness
+			.setValue(hackRowBorderThickness.getDefaultValue());
+		hackHighlightThickness
+			.setValue(hackHighlightThickness.getDefaultValue());
+		categoryRowBorderThickness
+			.setValue(categoryRowBorderThickness.getDefaultValue());
+		sectionBorderThickness
+			.setValue(sectionBorderThickness.getDefaultValue());
+		settingRowStriping.setChecked(settingRowStriping.isCheckedByDefault());
+		switchSettingToggles
+			.setChecked(switchSettingToggles.isCheckedByDefault());
+		switchHackToggles.setChecked(switchHackToggles.isCheckedByDefault());
+		settingHighlightThickness
+			.setValue(settingHighlightThickness.getDefaultValue());
+		hackRowHighlight.setChecked(hackRowHighlight.isCheckedByDefault());
+		hackRowStriping.setChecked(hackRowStriping.isCheckedByDefault());
+		hackRowBorders.setChecked(hackRowBorders.isCheckedByDefault());
+		categoryRowBorders.setChecked(categoryRowBorders.isCheckedByDefault());
+		sectionBorders.setChecked(sectionBorders.isCheckedByDefault());
 		hackExpandIcons.setChecked(hackExpandIcons.isCheckedByDefault());
 		autoSizeTopTabs.setChecked(autoSizeTopTabs.isCheckedByDefault());
 		searchOnlyWhileTyping
 			.setChecked(searchOnlyWhileTyping.isCheckedByDefault());
 		categoryLayout.setSelected(categoryLayout.getDefaultSelected());
+		hackClickMode.setSelected(hackClickMode.getDefaultSelected());
 	}
 	
 	public enum FontSmoothing
@@ -662,6 +990,25 @@ public final class AltGuiHack extends Hack
 		private final String label;
 		
 		CategoryLayout(String label)
+		{
+			this.label = label;
+		}
+		
+		@Override
+		public String toString()
+		{
+			return label;
+		}
+	}
+	
+	public enum HackClickMode
+	{
+		TOGGLE("Toggle hacks"),
+		OPEN_SETTINGS("Click opens settings");
+		
+		private final String label;
+		
+		HackClickMode(String label)
 		{
 			this.label = label;
 		}
