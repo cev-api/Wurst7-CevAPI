@@ -7,8 +7,10 @@
  */
 package net.wurstclient.util.chunk;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Objects;
@@ -29,6 +31,11 @@ import net.wurstclient.util.chunk.ChunkSearcher.Result;
 public final class ChunkVertexBufferCoordinator extends AbstractChunkCoordinator
 {
 	private final HashMap<ChunkPos, EasyVertexBuffer> buffers = new HashMap<>();
+	private final Set<Entry<ChunkPos, EasyVertexBuffer>> buffersView =
+		Collections.unmodifiableSet(buffers.entrySet());
+	private final HashSet<ChunkPos> chunksToBuild = new HashSet<>();
+	private final ArrayList<ChunkSearcher> pendingBuffers = new ArrayList<>();
+	private boolean pendingOrderChanged;
 	private final Renderer renderer;
 	private final PrimitiveTopology drawMode;
 	private final VertexFormat format;
@@ -56,9 +63,19 @@ public final class ChunkVertexBufferCoordinator extends AbstractChunkCoordinator
 	}
 	
 	@Override
+	protected void onAdd(ChunkSearcher searcher)
+	{
+		super.onAdd(searcher);
+		chunksToBuild.add(searcher.getPos());
+		pendingOrderChanged = true;
+	}
+	
+	@Override
 	protected void onRemove(ChunkSearcher searcher)
 	{
 		super.onRemove(searcher);
+		chunksToBuild.remove(searcher.getPos());
+		pendingOrderChanged = true;
 		@SuppressWarnings("resource")
 		EasyVertexBuffer buffer = buffers.remove(searcher.getPos());
 		if(buffer != null)
@@ -69,6 +86,8 @@ public final class ChunkVertexBufferCoordinator extends AbstractChunkCoordinator
 	protected void onMatchesUpdated(ChunkSearcher searcher)
 	{
 		super.onMatchesUpdated(searcher);
+		if(chunksToBuild.add(searcher.getPos()))
+			pendingOrderChanged = true;
 		@SuppressWarnings("resource")
 		EasyVertexBuffer buffer = buffers.remove(searcher.getPos());
 		if(buffer != null)
@@ -81,26 +100,63 @@ public final class ChunkVertexBufferCoordinator extends AbstractChunkCoordinator
 		super.reset();
 		buffers.values().forEach(EasyVertexBuffer::close);
 		buffers.clear();
+		chunksToBuild.clear();
+		pendingBuffers.clear();
+		pendingOrderChanged = false;
 	}
 	
 	public Set<Entry<ChunkPos, EasyVertexBuffer>> getBuffers()
 	{
-		for(ChunkSearcher searcher : searchers.values())
-			buildBuffer(searcher);
+		if(pendingOrderChanged)
+		{
+			pendingBuffers.clear();
+			// Rebuild only after membership changes, preserving the renderer's
+			// existing callback order without scanning built chunks every
+			// frame.
+			if(!chunksToBuild.isEmpty())
+				for(ChunkSearcher searcher : searchers.values())
+					if(chunksToBuild.contains(searcher.getPos()))
+						pendingBuffers.add(searcher);
+			pendingOrderChanged = false;
+		}
 		
-		return Collections.unmodifiableSet(buffers.entrySet());
+		if(pendingBuffers.isEmpty())
+			return buffersView;
+		
+		try
+		{
+			for(int i = 0; i < pendingBuffers.size(); i++)
+			{
+				ChunkSearcher searcher = pendingBuffers.get(i);
+				if(!searcher.hasResultsReady())
+					continue;
+				
+				buildBuffer(searcher);
+				chunksToBuild.remove(searcher.getPos());
+				pendingBuffers.set(i, null);
+			}
+		}finally
+		{
+			// Compact in one pass instead of shifting the list after every
+			// upload. A failed upload stays pending so the next call retries
+			// it.
+			pendingBuffers.removeIf(Objects::isNull);
+		}
+		
+		return buffersView;
 	}
 	
 	private void buildBuffer(ChunkSearcher searcher)
 	{
-		if(buffers.containsKey(searcher.getPos()))
-			return;
+		ChunkPos chunkPos = searcher.getPos();
+		// A pending search would only build an empty buffer and rebuild it
+		// when results arrive. Capture ready results once before uploading.
+		List<Result> results = searcher.getReadyMatchesList();
+		EasyVertexBuffer vertexBuffer =
+			EasyVertexBuffer.createAndUpload(drawMode, format,
+				buffer -> renderer.buildBuffer(buffer, searcher, results));
 		
-		EasyVertexBuffer vertexBuffer = EasyVertexBuffer
-			.createAndUpload(drawMode, format, buffer -> renderer
-				.buildBuffer(buffer, searcher, searcher.getMatchesList()));
-		
-		buffers.put(searcher.getPos(), vertexBuffer);
+		buffers.put(chunkPos, vertexBuffer);
 	}
 	
 	public static interface Renderer

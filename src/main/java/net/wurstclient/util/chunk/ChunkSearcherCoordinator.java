@@ -7,6 +7,7 @@
  */
 package net.wurstclient.util.chunk;
 
+import java.util.ArrayList;
 import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 import net.minecraft.core.BlockPos;
@@ -47,8 +48,10 @@ public final class ChunkSearcherCoordinator extends AbstractChunkCoordinator
 		if(packet instanceof ClientboundSectionBlocksUpdatePacket deltaUpdate)
 		{
 			ChunkPos chunkPos = deltaUpdate.sectionPos.chunk();
-			deltaUpdate.runUpdates(
-				(pos, state) -> enqueueBlockUpdate(chunkPos, pos, state));
+			ArrayList<ChunkSearcher.BlockUpdate> updates = new ArrayList<>();
+			deltaUpdate.runUpdates((pos, state) -> updates
+				.add(new ChunkSearcher.BlockUpdate(pos.immutable(), state)));
+			enqueueBlockUpdates(chunkPos, updates);
 			return;
 		}
 		
