@@ -11,6 +11,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
@@ -52,15 +55,18 @@ public abstract class AbstractChunkCoordinator implements PacketInputListener
 	public boolean update()
 	{
 		DimensionType dimension = WurstClient.MC.level.dimensionType();
-		HashSet<ChunkPos> chunkUpdates = clearChunksToUpdate();
-		HashMap<ChunkPos, ArrayList<ChunkSearcher.BlockUpdate>> blockUpdates =
-			clearBlockUpdates();
+		Set<ChunkPos> chunkUpdates =
+			chunksToUpdate.isEmpty() ? Set.of() : clearChunksToUpdate();
+		Map<ChunkPos, ArrayList<ChunkSearcher.BlockUpdate>> blockUpdates =
+			pendingBlockUpdates.isEmpty() ? Map.of() : clearBlockUpdates();
 		boolean searchersChanged = false;
 		boolean resultsChanged = false;
 		
 		// remove outdated ChunkSearchers
-		for(ChunkSearcher searcher : new ArrayList<>(searchers.values()))
+		for(Iterator<ChunkSearcher> iterator =
+			searchers.values().iterator(); iterator.hasNext();)
 		{
+			ChunkSearcher searcher = iterator.next();
 			boolean remove = false;
 			ChunkPos searcherPos = searcher.getPos();
 			
@@ -78,7 +84,7 @@ public abstract class AbstractChunkCoordinator implements PacketInputListener
 			
 			if(remove)
 			{
-				searchers.remove(searcherPos);
+				iterator.remove();
 				readyChunks.remove(searcherPos);
 				searcher.cancel();
 				onRemove(searcher);
@@ -97,6 +103,7 @@ public abstract class AbstractChunkCoordinator implements PacketInputListener
 			ChunkSearcher searcher = new ChunkSearcher(query, chunk, dimension);
 			searchers.put(chunkPos, searcher);
 			readyChunks.remove(chunkPos);
+			onAdd(searcher);
 			searcher.start();
 			searchersChanged = true;
 		}
@@ -118,17 +125,25 @@ public abstract class AbstractChunkCoordinator implements PacketInputListener
 		}
 		
 		// detect newly completed searchers
-		for(ChunkSearcher searcher : searchers.values())
-			if(searcher.hasResultsReady() && readyChunks.add(searcher.getPos()))
-			{
-				onMatchesUpdated(searcher);
-				resultsChanged = true;
-			}
-		
+		if(readyChunks.size() < searchers.size())
+			for(ChunkSearcher searcher : searchers.values())
+				if(!readyChunks.contains(searcher.getPos())
+					&& searcher.hasResultsReady())
+				{
+					readyChunks.add(searcher.getPos());
+					onMatchesUpdated(searcher);
+					resultsChanged = true;
+				}
+			
 		if(resultsChanged)
 			matchesVersion.incrementAndGet();
 		
 		return searchersChanged;
+	}
+	
+	protected void onAdd(ChunkSearcher searcher)
+	{
+		// Overridden where needed
 	}
 	
 	protected void onRemove(ChunkSearcher searcher)
@@ -138,7 +153,7 @@ public abstract class AbstractChunkCoordinator implements PacketInputListener
 	
 	public void reset()
 	{
-		for(ChunkSearcher searcher : new ArrayList<>(searchers.values()))
+		for(ChunkSearcher searcher : searchers.values())
 		{
 			searcher.cancel();
 			onRemove(searcher);
@@ -153,7 +168,11 @@ public abstract class AbstractChunkCoordinator implements PacketInputListener
 	
 	public boolean isDone()
 	{
-		return searchers.values().stream().allMatch(ChunkSearcher::isDone);
+		for(ChunkSearcher searcher : searchers.values())
+			if(!searcher.isDone())
+				return false;
+			
+		return true;
 	}
 	
 	public void setQuery(BiPredicate<BlockPos, BlockState> query)
@@ -205,8 +224,29 @@ public abstract class AbstractChunkCoordinator implements PacketInputListener
 		PendingBlockUpdate pending;
 		
 		while((pending = pendingBlockUpdates.poll()) != null)
-			updates.computeIfAbsent(pending.chunkPos(), k -> new ArrayList<>())
-				.add(pending.update());
+		{
+			ArrayList<ChunkSearcher.BlockUpdate> chunkUpdates =
+				updates.get(pending.chunkPos());
+			if(chunkUpdates == null)
+			{
+				// Packet batches already transferred their list ownership.
+				// Reuse the first batch instead of copying it into another
+				// list.
+				if(pending
+					.updates() instanceof ArrayList<ChunkSearcher.BlockUpdate> batch)
+				{
+					updates.put(pending.chunkPos(), batch);
+					continue;
+				}
+				chunkUpdates = new ArrayList<>();
+				updates.put(pending.chunkPos(), chunkUpdates);
+			}
+			if(pending.update() != null)
+				chunkUpdates.add(pending.update());
+			else
+				for(ChunkSearcher.BlockUpdate update : pending.updates())
+					chunkUpdates.add(update);
+		}
 		
 		return updates;
 	}
@@ -218,7 +258,27 @@ public abstract class AbstractChunkCoordinator implements PacketInputListener
 			new ChunkSearcher.BlockUpdate(blockPos.immutable(), state)));
 	}
 	
+	/**
+	 * Transfers ownership of the updates to the queue. The caller must not
+	 * modify the list after enqueueing it. Updates retain their order within
+	 * each batch and batches are drained in queue order.
+	 */
+	protected void enqueueBlockUpdates(ChunkPos chunkPos,
+		List<ChunkSearcher.BlockUpdate> updates)
+	{
+		if(!updates.isEmpty())
+			pendingBlockUpdates
+				.add(new PendingBlockUpdate(chunkPos, null, updates));
+	}
+	
 	protected record PendingBlockUpdate(ChunkPos chunkPos,
-		ChunkSearcher.BlockUpdate update)
-	{}
+		ChunkSearcher.BlockUpdate update,
+		List<ChunkSearcher.BlockUpdate> updates)
+	{
+		protected PendingBlockUpdate(ChunkPos chunkPos,
+			ChunkSearcher.BlockUpdate update)
+		{
+			this(chunkPos, update, null);
+		}
+	}
 }

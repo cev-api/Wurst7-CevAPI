@@ -9,12 +9,14 @@ package net.wurstclient.util.chunk;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 import org.slf4j.Logger;
 import com.mojang.logging.LogUtils;
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
 import net.minecraft.world.level.ChunkPos;
@@ -38,14 +40,24 @@ public final class ChunkSearcher
 		MinPriorityThreadFactory.newFixedThreadPool();
 	private static volatile int backgroundThreadPriority =
 		MinPriorityThreadFactory.getConfiguredThreadPriority();
+	// Index setup pays off for large batches; delay it to skip early removals.
+	private static final int MIN_INDEXED_UPDATES = 64;
+	private static final int MIN_INDEXED_RESULTS = 256;
+	private static final int INDEX_WARMUP_UPDATES = 16;
+	private static final int MIN_REMAINING_INDEXED_UPDATES = 32;
+	private static final int INDEX_SCAN_WORK_FACTOR = 8;
 	
 	private final BiPredicate<BlockPos, BlockState> query;
 	private final ChunkAccess chunk;
 	private final DimensionType dimension;
 	
 	private CompletableFuture<ArrayList<Result>> future;
-	private boolean interrupted;
+	private volatile boolean interrupted;
 	private volatile ArrayList<Result> results;
+	// Guarded by this; old snapshots remain immutable after updates.
+	private List<Result> resultsSnapshot;
+	// Guarded by this; detects changes made by reentrant query callbacks.
+	private long resultsRevision;
 	private ArrayList<BlockUpdate> pendingUpdates;
 	
 	public ChunkSearcher(BiPredicate<BlockPos, BlockState> query,
@@ -106,7 +118,12 @@ public final class ChunkSearcher
 		BlockPos.MutableBlockPos mutablePos = new BlockPos.MutableBlockPos();
 		
 		for(int x = minX; x <= maxX; x++)
+		{
+			int localX = x & 15;
 			for(int y = minY; y <= maxY; y++)
+			{
+				PalettedContainer<BlockState> section = snapshot.getSection(y);
+				int localY = y & 15;
 				for(int z = minZ; z <= maxZ; z++)
 				{
 					if(interrupted)
@@ -116,7 +133,8 @@ public final class ChunkSearcher
 					BlockState state;
 					try
 					{
-						state = snapshot.getBlockState(mutablePos);
+						state = section == null ? Blocks.AIR.defaultBlockState()
+							: section.get(localX, localY, z & 15);
 						
 					}catch(MissingPaletteEntryException e)
 					{
@@ -134,7 +152,9 @@ public final class ChunkSearcher
 					
 					results.add(new Result(mutablePos.immutable(), state));
 				}
-			
+			}
+		}
+		
 		return results;
 	}
 	
@@ -171,12 +191,7 @@ public final class ChunkSearcher
 		if(results == null)
 			return Stream.empty();
 		
-		ArrayList<Result> snapshot;
-		synchronized(this)
-		{
-			snapshot = new ArrayList<>(results);
-		}
-		return snapshot.stream();
+		return getResultsSnapshot().stream();
 	}
 	
 	public List<Result> getMatchesList()
@@ -188,10 +203,7 @@ public final class ChunkSearcher
 		if(results == null)
 			return List.of();
 		
-		synchronized(this)
-		{
-			return Collections.unmodifiableList(new ArrayList<>(results));
-		}
+		return getResultsSnapshot();
 	}
 	
 	public Stream<Result> getReadyMatches()
@@ -199,12 +211,7 @@ public final class ChunkSearcher
 		if(!hasResultsReady())
 			return Stream.empty();
 		
-		ArrayList<Result> snapshot;
-		synchronized(this)
-		{
-			snapshot = new ArrayList<>(results);
-		}
-		return snapshot.stream();
+		return getResultsSnapshot().stream();
 	}
 	
 	public List<Result> getReadyMatchesList()
@@ -212,10 +219,15 @@ public final class ChunkSearcher
 		if(!hasResultsReady())
 			return List.of();
 		
-		synchronized(this)
-		{
-			return Collections.unmodifiableList(new ArrayList<>(results));
-		}
+		return getResultsSnapshot();
+	}
+	
+	private synchronized List<Result> getResultsSnapshot()
+	{
+		if(resultsSnapshot == null)
+			resultsSnapshot =
+				Collections.unmodifiableList(new ArrayList<>(results));
+		return resultsSnapshot;
 	}
 	
 	public boolean isDone()
@@ -293,35 +305,125 @@ public final class ChunkSearcher
 	private boolean applyUpdates(ArrayList<Result> target,
 		List<BlockUpdate> updates)
 	{
-		boolean changed = false;
+		if(updates.size() < MIN_INDEXED_UPDATES
+			|| target.size() < MIN_INDEXED_RESULTS
+				&& updates.size() < MIN_INDEXED_RESULTS)
+			return applyUpdatesLinear(target, updates.iterator());
 		
-		for(BlockUpdate update : updates)
+		boolean changed = false;
+		boolean canIndex = true;
+		int processed = 0;
+		long linearComparisons = 0;
+		Object2IntOpenHashMap<BlockPos> indices = null;
+		
+		Iterator<BlockUpdate> iterator = updates.iterator();
+		while(iterator.hasNext())
 		{
+			// A cheap initial probe does not justify further index bookkeeping.
+			if(!canIndex || indices == null && processed >= INDEX_WARMUP_UPDATES
+				&& linearComparisons < target.size())
+				return changed | applyUpdatesLinear(target, iterator);
+			
+			BlockUpdate update = iterator.next();
 			BlockPos pos = update.pos();
 			BlockState state = update.state();
+			long revisionBeforeQuery = resultsRevision;
 			boolean matches = query.test(pos, state);
-			int index = indexOf(target, pos);
+			if(canIndex && (resultsRevision != revisionBeforeQuery
+				|| pos == null || pos.getClass() != BlockPos.class))
+			{
+				indices = null;
+				canIndex = false;
+			}
+			// Near-head lookups and early removals should not pay for an index.
+			if(canIndex && indices == null && matches
+				&& linearComparisons >= (long)target.size()
+					* INDEX_SCAN_WORK_FACTOR
+				&& target.size() >= MIN_INDEXED_RESULTS
+				&& processed >= INDEX_WARMUP_UPDATES
+				&& updates.size() - processed >= MIN_REMAINING_INDEXED_UPDATES)
+			{
+				indices = createIndex(target);
+				canIndex = indices != null;
+			}
+			int index =
+				indices == null ? indexOf(target, pos) : indices.getInt(pos);
+			if(canIndex && indices == null)
+			{
+				processed++;
+				linearComparisons += index < 0 ? target.size() : index + 1;
+			}
 			
+			if(!applyUpdate(target, pos, state, matches, index))
+				continue;
+			changed = true;
 			if(matches)
 			{
-				Result newResult = new Result(pos, state);
-				if(index < 0)
-				{
-					target.add(newResult);
-					changed = true;
-				}else if(target.get(index).state() != state)
-				{
-					target.set(index, newResult);
-					changed = true;
-				}
-			}else if(index >= 0)
+				if(index < 0 && indices != null)
+					indices.put(pos, target.size() - 1);
+			}else
 			{
-				target.remove(index);
-				changed = true;
+				// Removal shifts list indices; finish this batch with linear
+				// lookup.
+				indices = null;
+				canIndex = false;
 			}
 		}
 		
 		return changed;
+	}
+	
+	private boolean applyUpdatesLinear(ArrayList<Result> target,
+		Iterator<BlockUpdate> updates)
+	{
+		boolean changed = false;
+		while(updates.hasNext())
+		{
+			BlockUpdate update = updates.next();
+			BlockPos pos = update.pos();
+			BlockState state = update.state();
+			boolean matches = query.test(pos, state);
+			int index = indexOf(target, pos);
+			changed |= applyUpdate(target, pos, state, matches, index);
+		}
+		return changed;
+	}
+	
+	private boolean applyUpdate(ArrayList<Result> target, BlockPos pos,
+		BlockState state, boolean matches, int index)
+	{
+		if(matches)
+		{
+			if(index < 0)
+				target.add(new Result(pos, state));
+			else if(target.get(index).state() != state)
+				target.set(index, new Result(pos, state));
+			else
+				return false;
+		}else if(index >= 0)
+			target.remove(index);
+		else
+			return false;
+		
+		resultsSnapshot = null;
+		resultsRevision++;
+		return true;
+	}
+	
+	private Object2IntOpenHashMap<BlockPos> createIndex(ArrayList<Result> list)
+	{
+		Object2IntOpenHashMap<BlockPos> indices =
+			new Object2IntOpenHashMap<>(list.size());
+		indices.defaultReturnValue(-1);
+		for(int i = 0; i < list.size(); i++)
+		{
+			BlockPos pos = list.get(i).pos();
+			// Mutable or custom positions require the original equality scan.
+			if(pos == null || pos.getClass() != BlockPos.class)
+				return null;
+			indices.putIfAbsent(pos, i);
+		}
+		return indices;
 	}
 	
 	private int indexOf(ArrayList<Result> list, BlockPos pos)
@@ -378,21 +480,12 @@ public final class ChunkSearcher
 				maxZ, minSectionCoord, copies);
 		}
 		
-		BlockState getBlockState(BlockPos pos)
+		PalettedContainer<BlockState> getSection(int y)
 		{
-			int ySection = SectionPos.blockToSectionCoord(pos.getY());
+			int ySection = SectionPos.blockToSectionCoord(y);
 			int sectionIndex = ySection - minSectionCoord;
-			
-			PalettedContainer<BlockState> container = null;
-			
-			if(sectionIndex >= 0 && sectionIndex < sections.length)
-				container = sections[sectionIndex];
-			
-			if(container == null)
-				return Blocks.AIR.defaultBlockState();
-			
-			return container.get(pos.getX() & 15, pos.getY() & 15,
-				pos.getZ() & 15);
+			return sectionIndex >= 0 && sectionIndex < sections.length
+				? sections[sectionIndex] : null;
 		}
 	}
 }

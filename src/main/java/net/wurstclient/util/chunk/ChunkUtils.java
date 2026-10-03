@@ -8,6 +8,7 @@
 package net.wurstclient.util.chunk;
 
 import java.util.Objects;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.SectionPos;
@@ -60,12 +61,28 @@ public enum ChunkUtils
 		return null;
 	}
 	
+	/**
+	 * Lazily returns loaded chunks in the player's render-distance window, in
+	 * x-first encounter order. Unloaded chunks are skipped without creating or
+	 * returning placeholder chunks.
+	 */
 	public static Stream<LevelChunk> getLoadedChunks()
 	{
 		int radius = Math.max(2, MC.options.getEffectiveRenderDistance()) + 3;
-		return ChunkPos.rangeClosed(MC.player.chunkPosition(), radius)
-			.filter(c -> MC.level.hasChunk(c.x, c.z))
-			.map(c -> MC.level.getChunk(c.x, c.z)).filter(Objects::nonNull);
+		int diameter = radius * 2 + 1;
+		
+		ChunkPos center = MC.player.chunkPosition();
+		int minX = center.x - radius;
+		int minZ = center.z - radius;
+		
+		// Keep x-first encounter order without allocating a ChunkPos per
+		// lookup.
+		// getChunkNow returns null for unloaded chunks instead of a
+		// placeholder.
+		return IntStream.range(0, diameter * diameter)
+			.mapToObj(i -> MC.level.getChunkSource()
+				.getChunkNow(minX + i % diameter, minZ + i / diameter))
+			.filter(Objects::nonNull);
 	}
 	
 	/**
