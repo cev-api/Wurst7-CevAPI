@@ -51,12 +51,14 @@ public final class NukerModeSetting
 		if(includeTunnelMode)
 			description +=
 				"\n\n\u00a7lTunnel\u00a7r mode breaks a 1-block-wide,"
-					+ " 2-block-high tunnel in front of you.\n\n"
+					+ " 2-block-high tunnel along your horizontal aim, including"
+					+ " diagonal angles and sideways cuts.\n\n"
 					+ "\u00a7lHole\u00a7r mode breaks a 1-block-wide vertical"
 					+ " hole above or below you, depending on whether you look"
 					+ " up or down.\n\n\u00a7lDirectional\u00a7r mode uses Tunnel"
 					+ " when looking horizontally, Hole when looking nearly straight"
-					+ " up or down, and follows your view ray when looking diagonally.";
+					+ " up or down, and clears a walkable sloping tunnel when looking"
+					+ " diagonally.";
 		
 		return description;
 	}

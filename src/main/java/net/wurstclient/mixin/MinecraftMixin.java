@@ -82,6 +82,12 @@ public abstract class MinecraftMixin
 		wurstAuthenticationService = yggdrasilAuthenticationService;
 	}
 	
+	@Inject(method = "tick()V", at = @At("HEAD"))
+	private void wurst$tickMiningState(CallbackInfo ci)
+	{
+		net.wurstclient.util.MiningStateCompat.tick();
+	}
+	
 	/**
 	 * Runs just before {@link Minecraft#handleKeybinds()}, bypassing
 	 * the <code>gui.overlay() == null && screen == null</code> check in
@@ -233,6 +239,14 @@ public abstract class MinecraftMixin
 	private void onClose(CallbackInfo ci)
 	{
 		GlobalEspManager.getInstance().cleanup();
+	}
+	
+	@Inject(at = @At("HEAD"),
+		method = "disconnect(Lnet/minecraft/client/gui/screens/Screen;ZZ)V")
+	private void onDisconnect(net.minecraft.client.gui.screens.Screen screen,
+		boolean transferring, boolean keepResourcePacks, CallbackInfo ci)
+	{
+		net.wurstclient.util.MiningStateCompat.reset();
 	}
 	
 	@Override

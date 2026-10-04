@@ -221,12 +221,6 @@ public final class PacketToolsOtf extends OtherFeature
 		EVENTS.add(UpdateListener.class, this);
 	}
 	
-	@Override
-	public String getDisplayName()
-	{
-		return getHackListName();
-	}
-	
 	public String getHackListName()
 	{
 		ArrayList<String> modes = new ArrayList<>(3);

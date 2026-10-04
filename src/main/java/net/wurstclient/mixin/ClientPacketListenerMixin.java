@@ -39,6 +39,7 @@ import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
+import net.minecraft.network.protocol.game.ClientboundBlockChangedAckPacket;
 import net.minecraft.network.protocol.game.ClientboundExplodePacket;
 import net.minecraft.network.protocol.game.ClientboundLevelChunkPacketData;
 import net.minecraft.network.protocol.game.ClientboundLoginPacket;
@@ -51,6 +52,7 @@ import net.minecraft.network.protocol.game.ClientboundMapItemDataPacket;
 import net.minecraft.network.protocol.game.ClientboundOpenSignEditorPacket;
 import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
 import net.minecraft.network.protocol.game.ClientboundSectionBlocksUpdatePacket;
+import net.minecraft.network.protocol.game.ClientboundSetTimePacket;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.player.ProfileKeyPair;
 import net.minecraft.world.phys.Vec3;
@@ -58,6 +60,7 @@ import net.minecraft.world.level.saveddata.maps.MapItemSavedData;
 import net.wurstclient.WurstClient;
 import net.wurstclient.hacks.AutoSignHack;
 import net.wurstclient.util.ChatUtils;
+import net.wurstclient.util.MiningStateCompat;
 
 @Mixin(ClientPacketListener.class)
 public abstract class ClientPacketListenerMixin
@@ -316,12 +319,34 @@ public abstract class ClientPacketListenerMixin
 		WurstClient.INSTANCE.getHax().autoFlyHack.onPathServerCorrection();
 	}
 	
+	@Inject(method = "handleSetTime", at = @At("TAIL"))
+	private void wurst$onMiningServerTime(ClientboundSetTimePacket packet,
+		CallbackInfo ci)
+	{
+		MiningStateCompat.onServerTime((ClientPacketListener)(Object)this,
+			packet.gameTime());
+	}
+	
+	@Inject(
+		method = "handleBlockChangedAck(Lnet/minecraft/network/protocol/game/ClientboundBlockChangedAckPacket;)V",
+		at = @At("TAIL"))
+	private void wurst$onMiningAck(ClientboundBlockChangedAckPacket packet,
+		CallbackInfo ci)
+	{
+		MiningStateCompat.onAcknowledgement((ClientPacketListener)(Object)this,
+			packet.sequence());
+	}
+	
 	@Inject(
 		method = "handleBlockUpdate(Lnet/minecraft/network/protocol/game/ClientboundBlockUpdatePacket;)V",
 		at = @At("TAIL"))
 	private void onOnBlockUpdate(ClientboundBlockUpdatePacket packet,
 		CallbackInfo ci)
 	{
+		MiningStateCompat.onBlockUpdate((ClientPacketListener)(Object)this,
+			packet.getPos(), packet.getBlockState());
+		WurstClient.INSTANCE.getHax().newChunksHack
+			.afterUpdateBlock(packet.getPos());
 		WurstClient.INSTANCE.getHax().newerNewChunksHack
 			.afterUpdateBlock(packet.getPos());
 		WurstClient.INSTANCE.getHax().autoFlyHack
@@ -335,6 +360,8 @@ public abstract class ClientPacketListenerMixin
 		ClientboundSectionBlocksUpdatePacket packet, CallbackInfo ci)
 	{
 		packet.runUpdates((pos, state) -> {
+			MiningStateCompat.onBlockUpdate((ClientPacketListener)(Object)this,
+				pos, state);
 			WurstClient.INSTANCE.getHax().autoFlyHack.onPathBlockUpdate(pos,
 				state);
 			WurstClient.INSTANCE.getHax().newerNewChunksHack
