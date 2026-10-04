@@ -12,6 +12,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import net.minecraft.client.Minecraft;
@@ -20,6 +21,8 @@ import net.minecraft.client.multiplayer.MultiPlayerGameMode;
 import net.minecraft.client.multiplayer.prediction.PredictiveAction;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.protocol.Packet;
+import net.wurstclient.util.MiningStateCompat;
 import net.minecraft.core.Direction;
 import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
 import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket.Action;
@@ -53,6 +56,9 @@ public abstract class MultiPlayerGameModeMixin implements IMultiPlayerGameMode
 	@Shadow
 	@Final
 	private Minecraft minecraft;
+	
+	@Shadow
+	private BlockPos destroyBlockPos;
 	
 	private boolean antiDropBypassingPlacement;
 	
@@ -338,9 +344,31 @@ public abstract class MultiPlayerGameModeMixin implements IMultiPlayerGameMode
 	public void sendPlayerActionC2SPacket(Action action, BlockPos blockPos,
 		Direction direction)
 	{
-		startPrediction(minecraft.level,
-			i -> new ServerboundPlayerActionPacket(action, blockPos, direction,
-				i));
+		sendPlayerActionC2SPacketWithSequence(action, blockPos, direction);
+	}
+	
+	@Override
+	public int sendPlayerActionC2SPacketWithSequence(Action action,
+		BlockPos blockPos, Direction direction)
+	{
+		ensureHasSentCarriedItem();
+		if(action == Action.STOP_DESTROY_BLOCK
+			&& !MiningStateCompat.canSendAcceleratedStop(blockPos))
+			return -1;
+		int[] allocated = {-1};
+		startPrediction(minecraft.level, i -> {
+			allocated[0] = i;
+			return new ServerboundPlayerActionPacket(action, blockPos,
+				direction, i);
+		});
+		return allocated[0];
+	}
+	
+	@Override
+	public BlockPos getMiningTarget()
+	{
+		return ((MultiPlayerGameMode)(Object)this).isDestroying()
+			? destroyBlockPos : null;
 	}
 	
 	@Override
@@ -392,6 +420,20 @@ public abstract class MultiPlayerGameModeMixin implements IMultiPlayerGameMode
 		antiDropBypassingPlacement = false;
 		antiDrop.setTemporarilyBypass(false);
 	}
+	
+	@ModifyArg(method = "startPrediction",
+		at = @At(value = "INVOKE",
+			target = "Lnet/minecraft/client/multiplayer/ClientPacketListener;send(Lnet/minecraft/network/protocol/Packet;)V"),
+		index = 0)
+	private Packet<?> wurst$recordActualMiningStart(Packet<?> packet)
+	{
+		MiningStateCompat.onPredictedAction(packet);
+		return packet;
+	}
+	
+	@Shadow
+	private void ensureHasSentCarriedItem()
+	{}
 	
 	@Shadow
 	private void startPrediction(ClientLevel world,

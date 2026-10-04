@@ -8,13 +8,13 @@
 package net.wurstclient.util;
 
 import java.util.Comparator;
+import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Vec3i;
-import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
 import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket.Action;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
@@ -168,8 +168,16 @@ public enum BlockBreaker
 	
 	public static void breakBlocksWithPacketSpam(Iterable<BlockPos> blocks)
 	{
+		breakBlocksWithPacketSpam(blocks, pos -> true, pos -> {});
+	}
+	
+	public static void breakBlocksWithPacketSpam(Iterable<BlockPos> blocks,
+		Predicate<BlockPos> canAttempt, Consumer<BlockPos> onAttempt)
+	{
+		if(MiningStateCompat.controlsMining())
+			return;
+		
 		Vec3 eyesPos = RotationUtils.getEyesPos();
-		ClientPacketListener netHandler = MC.player.connection;
 		DuraSwapHack duraSwap = WURST.getHax().duraSwapHack;
 		
 		duraSwap.onBeforePacketBreak(blocks);
@@ -178,6 +186,9 @@ public enum BlockBreaker
 		{
 			for(BlockPos pos : blocks)
 			{
+				if(!canAttempt.test(pos))
+					continue;
+				
 				Vec3 posVec = Vec3.atCenterOf(pos);
 				double distanceSqPosVec = eyesPos.distanceToSqr(posVec);
 				
@@ -191,10 +202,13 @@ public enum BlockBreaker
 						continue;
 					
 					// break block
-					netHandler.send(new ServerboundPlayerActionPacket(
-						Action.START_DESTROY_BLOCK, pos, side));
-					netHandler.send(new ServerboundPlayerActionPacket(
-						Action.STOP_DESTROY_BLOCK, pos, side));
+					WurstClient.IMC.getInteractionManager()
+						.sendPlayerActionC2SPacket(Action.START_DESTROY_BLOCK,
+							pos, side);
+					WurstClient.IMC.getInteractionManager()
+						.sendPlayerActionC2SPacket(Action.STOP_DESTROY_BLOCK,
+							pos, side);
+					onAttempt.accept(pos);
 					
 					break;
 				}

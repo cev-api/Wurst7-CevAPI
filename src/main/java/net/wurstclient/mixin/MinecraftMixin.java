@@ -83,6 +83,12 @@ public abstract class MinecraftMixin
 		wurstDiscoveryService = discoveryService;
 	}
 	
+	@Inject(method = "tick()V", at = @At("HEAD"))
+	private void wurst$tickMiningState(CallbackInfo ci)
+	{
+		net.wurstclient.util.MiningStateCompat.tick();
+	}
+	
 	/**
 	 * Runs just before {@link Minecraft#handleKeybinds()}, bypassing
 	 * the <code>gui.overlay() == null && gui.screen() == null</code> check in
@@ -241,6 +247,7 @@ public abstract class MinecraftMixin
 	private void onDisconnect(net.minecraft.client.gui.screens.Screen screen,
 		boolean transferring, boolean keepResourcePacks, CallbackInfo ci)
 	{
+		net.wurstclient.util.MiningStateCompat.reset();
 		net.wurstclient.util.RenderUtils.cleanupEspBuffers();
 	}
 	

@@ -164,9 +164,9 @@ public final class AltGuiHack extends Hack
 	private final CheckboxSetting searchOnlyWhileTyping =
 		new CheckboxSetting("Show search while typing",
 			"Hide the search bar until you start typing a query.", true);
-	private final CheckboxSetting searchSettings = new CheckboxSetting(
-		"Search settings/toggles",
-		"Include setting names and values in AltGUI search results.", true);
+	private final CheckboxSetting searchSettings =
+		new CheckboxSetting("Search settings/toggles",
+			"Include setting names and values in AltGUI search results.", true);
 	private final CheckboxSetting keepHackSettingsOpen = new CheckboxSetting(
 		"Keep hack settings open",
 		"Keep expanded hack settings open when AltGUI is closed and reopened.",
