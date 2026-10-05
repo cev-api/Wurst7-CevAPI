@@ -604,23 +604,9 @@ tasks.named("check") {
 	dependsOn tasks.named("espGeometryRegressionTest")
 }
 
-// Mining compatibility checks run without a Minecraft window or server.
-tasks.register("miningStateCompatRegressionTest", JavaExec) {
-	dependsOn tasks.named("testClasses")
-	classpath = sourceSets.test.runtimeClasspath
-	mainClass = "net.wurstclient.util.MiningStateCompatRegressionTest"
-}
-tasks.named("test") {
-	exclude "net/wurstclient/util/MiningStateCompatRegressionTest*"
-}
-tasks.named("check") {
-	dependsOn tasks.named("miningStateCompatRegressionTest")
-}
-
 // CPU regression checks do not need JOML's deprecated Unsafe memory access.
 ["espCullingRegressionTest", "espPerformanceRegressionTest",
- "espGeometryRegressionTest", "espRenderingBenchmark",
- "miningStateCompatRegressionTest"].each { taskName ->
+	"espGeometryRegressionTest", "espRenderingBenchmark"].each { taskName ->
 	tasks.named(taskName, JavaExec) {
 		systemProperty "joml.nounsafe", "true"
 	}

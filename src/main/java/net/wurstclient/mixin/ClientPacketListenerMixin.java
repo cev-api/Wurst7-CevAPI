@@ -36,7 +36,7 @@ import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
 import net.minecraft.network.protocol.game.ClientboundBlockChangedAckPacket;
 import net.minecraft.network.protocol.game.ClientboundExplodePacket;
-import net.minecraft.network.protocol.game.ClientboundLevelChunkPacketData;
+import net.minecraft.network.protocol.game.ClientboundLevelChunkWithLightPacket;
 import net.minecraft.network.protocol.game.ClientboundLoginPacket;
 import net.minecraft.network.protocol.game.ClientboundCommandSuggestionsPacket;
 import net.minecraft.network.protocol.game.ClientboundSystemChatPacket;
@@ -285,13 +285,16 @@ public abstract class ClientPacketListenerMixin
 	}
 	
 	@Inject(
-		method = "updateLevelChunk(IILnet/minecraft/network/protocol/game/ClientboundLevelChunkPacketData;)V",
-		at = @At("TAIL"))
-	private void onLoadChunk(int x, int z,
-		ClientboundLevelChunkPacketData chunkData, CallbackInfo ci)
+		method = "handleLevelChunkWithLight(Lnet/minecraft/network/protocol/game/ClientboundLevelChunkWithLightPacket;)V",
+		at = @At("RETURN"))
+	private void onLoadChunk(ClientboundLevelChunkWithLightPacket packet,
+		CallbackInfo ci)
 	{
-		WurstClient.INSTANCE.getHax().newChunksHack.afterLoadChunk(x, z);
-		WurstClient.INSTANCE.getHax().newerNewChunksHack.afterLoadChunk(x, z);
+		int x = packet.x();
+		int z = packet.z();
+		WurstClient.INSTANCE.getHax().newChunksHack.onChunkDataPacket(x, z);
+		WurstClient.INSTANCE.getHax().newerNewChunksHack.onChunkDataPacket(x,
+			z);
 		if(minecraft.level != null)
 			WurstClient.INSTANCE.getHax().autoFlyHack
 				.onPathChunkLoaded(minecraft.level.getChunk(x, z));
