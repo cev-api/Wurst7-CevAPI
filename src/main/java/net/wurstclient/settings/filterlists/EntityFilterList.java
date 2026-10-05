@@ -56,7 +56,6 @@ public class EntityFilterList
 	public static EntityFilterList genericMeleeCombat()
 	{
 		return new EntityFilterList(FilterPlayersSetting.genericCombat(false),
-			FilterNpcsSetting.genericCombat(true),
 			FilterCreativeSetting.genericCombat(false),
 			FilterSleepingSetting.genericCombat(false),
 			FilterFlyingSetting.genericCombat(0),
@@ -91,7 +90,6 @@ public class EntityFilterList
 	public static EntityFilterList genericRangedCombat()
 	{
 		return new EntityFilterList(FilterPlayersSetting.genericCombat(false),
-			FilterNpcsSetting.genericCombat(true),
 			FilterCreativeSetting.genericCombat(false),
 			FilterSleepingSetting.genericCombat(false),
 			FilterFlyingSetting.genericCombat(0),
