@@ -11,16 +11,17 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.stream.IntStream;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
+import net.wurstclient.WurstClient;
+import net.wurstclient.events.HandleBlockBreakingListener;
 import net.wurstclient.events.LeftClickListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.DontSaveState;
@@ -31,14 +32,16 @@ import net.wurstclient.settings.AttackSwingSetting;
 import net.wurstclient.settings.AttackSwingSetting.AttackSwing;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
-import net.wurstclient.util.BlockBreaker;
 import net.wurstclient.util.BlockUtils;
 import net.wurstclient.util.ChatUtils;
+import net.wurstclient.util.MiningStateCompat;
+import net.wurstclient.util.MiningTunnel;
 import net.wurstclient.util.RotationUtils;
 
 @SearchTags({"speed nuker", "FastNuker", "fast nuker"})
 @DontSaveState
-public final class SpeedNukerHack extends Hack implements UpdateListener
+public final class SpeedNukerHack extends Hack
+	implements UpdateListener, LeftClickListener, HandleBlockBreakingListener
 {
 	private final SliderSetting range =
 		new SliderSetting("Range", 5, 1, 6, 0.05, ValueDisplay.DECIMAL);
@@ -67,6 +70,13 @@ public final class SpeedNukerHack extends Hack implements UpdateListener
 			+ " it is enabled.",
 		false);
 	
+	private final CheckboxSetting countdown =
+		new CheckboxSetting("26.3 Countdown",
+			"Shows the colored obsidian readiness countdown in the HackList."
+				+ " Turns green and shows OK when ready with your current tool"
+				+ " and mining conditions.",
+			true);
+	
 	private final Set<Integer> preservedToolSlots = new HashSet<>();
 	
 	// Remember whether AutoTool was enabled before this hack enabled it
@@ -82,6 +92,7 @@ public final class SpeedNukerHack extends Hack implements UpdateListener
 		addSetting(onlyOnLeftClick);
 		addSetting(preserveTools);
 		addSetting(attackSwing);
+		addSetting(countdown);
 	}
 	
 	@Override
@@ -91,8 +102,22 @@ public final class SpeedNukerHack extends Hack implements UpdateListener
 	}
 	
 	@Override
+	public String getStatusText()
+	{
+		return countdown.isChecked()
+			? MiningStateCompat.getMiningReadiness().text() : null;
+	}
+	
+	@Override
+	public int getStatusTextColor()
+	{
+		return MiningStateCompat.getMiningReadiness().color();
+	}
+	
+	@Override
 	protected void onEnable()
 	{
+		MiningStateCompat.reset();
 		WURST.getHax().autoMineHack.setEnabled(false);
 		WURST.getHax().excavatorHack.setEnabled(false);
 		WURST.getHax().nukerHack.setEnabled(false);
@@ -109,6 +134,8 @@ public final class SpeedNukerHack extends Hack implements UpdateListener
 		}
 		
 		EVENTS.add(LeftClickListener.class, commonSettings);
+		EVENTS.add(LeftClickListener.class, this);
+		EVENTS.add(HandleBlockBreakingListener.class, this);
 		EVENTS.add(UpdateListener.class, this);
 	}
 	
@@ -116,8 +143,12 @@ public final class SpeedNukerHack extends Hack implements UpdateListener
 	protected void onDisable()
 	{
 		EVENTS.remove(LeftClickListener.class, commonSettings);
+		EVENTS.remove(LeftClickListener.class, this);
+		EVENTS.remove(HandleBlockBreakingListener.class, this);
 		EVENTS.remove(UpdateListener.class, this);
 		
+		MiningStateCompat.releaseTarget();
+		MiningStateCompat.reset();
 		commonSettings.reset();
 		preservedToolSlots.clear();
 		
@@ -131,16 +162,24 @@ public final class SpeedNukerHack extends Hack implements UpdateListener
 	@Override
 	public void onUpdate()
 	{
+		if(!isEnabled())
+			return;
 		// Yield before, during, and immediately after AutoEat's hand/inventory
 		// interaction. The next update automatically resumes SpeedNuker.
 		if(WURST.getHax().autoEatHack.shouldPauseOtherActions())
 			return;
 		
 		if(commonSettings.isIdModeWithAir())
+		{
+			MiningStateCompat.releaseTarget();
 			return;
+		}
 		
 		if(onlyOnLeftClick.isChecked() && !MC.options.keyAttack.isDown())
+		{
+			MiningStateCompat.releaseTarget();
 			return;
+		}
 		
 		boolean antiBreakEnabled = WURST.getHax().antiBreakHack.isEnabled();
 		if(antiBreakEnabled && WURST.getHax().antiBreakHack
@@ -170,18 +209,19 @@ public final class SpeedNukerHack extends Hack implements UpdateListener
 		float pitch = MC.player.getXRot();
 		if(commonSettings.isTunnelMode() || directional && Math.abs(pitch) < 15)
 		{
-			Direction direction = MC.player.getDirection();
-			BlockPos start =
-				BlockPos.containing(MC.player.position()).relative(direction);
-			BlockPos end = start.relative(direction, blockRange - 1).above();
-			stream = BlockUtils.getAllInBoxStream(start, end);
+			double yaw = Math.toRadians(MC.player.getYRot());
+			stream = MiningTunnel
+				.blocks(MC.player.position(),
+					new Vec3(-Math.sin(yaw), 0, Math.cos(yaw)), blockRange)
+				.stream();
 		}else if(commonSettings.isHoleMode()
 			|| directional && Math.abs(pitch) > 75)
 		{
 			stream = getHoleStream(blockRange);
 		}else if(directional)
 		{
-			stream = getViewRayStream(eyesVec, range.getValue());
+			stream = MiningTunnel.blocks(MC.player.position(),
+				MC.player.getViewVector(1.0F), range.getValue()).stream();
 		}else
 		{
 			stream = BlockUtils.getAllInBoxStream(eyesBlock, blockRange);
@@ -199,11 +239,46 @@ public final class SpeedNukerHack extends Hack implements UpdateListener
 				Comparator.comparingDouble(pos -> pos.distToCenterSqr(eyesVec)))
 			.collect(Collectors.toCollection(ArrayList::new));
 		
+		MiningStateCompat.retainTargets(blocks);
+		
+		if(!MiningStateCompat.controlsMining() && MC.gameMode.isDestroying())
+		{
+			BlockPos manual =
+				WurstClient.IMC.getInteractionManager().getMiningTarget();
+			if(manual != null && blocks.contains(manual))
+				MiningStateCompat.adoptVanillaTarget(manual);
+			else if(!blocks.isEmpty())
+				// Release only the known obsolete vanilla target. Returning
+				// here
+				// while mouse handling is reserved can otherwise lock out
+				// takeover.
+				MC.gameMode.stopDestroyBlock();
+		}
+		
+		BlockPos owned = MiningStateCompat.getOwnedTarget();
+		if(blocks.isEmpty() && owned != null
+			&& MC.level.getBlockState(owned).isAir())
+			attackOneEntity(eyesVec, rangeSq);
+		if(owned != null)
+		{
+			if(blocks.contains(owned) || MC.level.getBlockState(owned).isAir())
+			{
+				blocks.clear();
+				blocks.add(owned);
+			}else
+				MiningStateCompat.discardTarget(owned);
+		}
+		
 		if(blocks.isEmpty())
 		{
 			attackOneEntity(eyesVec, rangeSq);
 			return;
 		}
+		
+		blocks.removeIf(pos -> !pos.equals(MiningStateCompat.getOwnedTarget())
+			&& !MiningStateCompat.canAttempt(pos));
+		if(blocks.isEmpty())
+			return;
 		
 		if(preserveToolsActive && !preparePreservedTool(blocks))
 			return;
@@ -223,8 +298,46 @@ public final class SpeedNukerHack extends Hack implements UpdateListener
 			}
 		}
 		
-		BlockBreaker.breakBlocksWithPacketSpam(blocks);
+		if(MiningStateCompat.getOwnedTarget() != null)
+			MiningStateCompat.breakTimedBlock(blocks.get(0));
+		else
+			for(BlockPos pos : blocks)
+				MiningStateCompat.breakPipelinedBlock(pos);
 		attackSwing.swing();
+	}
+	
+	@Override
+	public void onLeftClick(LeftClickEvent event)
+	{
+		if(!isEnabled())
+			return;
+		if(MC.hitResult instanceof BlockHitResult
+			&& (MiningStateCompat.controlsMining() || isManagingMouseBlock()))
+			event.cancel();
+	}
+	
+	@Override
+	public void onHandleBlockBreaking(HandleBlockBreakingEvent event)
+	{
+		if(!isEnabled())
+			return;
+		// Vanilla mouse handling would otherwise abort or replace our target.
+		if(MiningStateCompat.controlsMining() || isManagingMouseBlock())
+			event.cancel();
+	}
+	
+	private boolean isManagingMouseBlock()
+	{
+		if(commonSettings.isIdModeWithAir()
+			|| WURST.getHax().autoEatHack.shouldPauseOtherActions()
+			|| onlyOnLeftClick.isChecked() && !MC.options.keyAttack.isDown()
+			|| !(MC.hitResult instanceof BlockHitResult hit))
+			return false;
+		// Reserve a matching click before the next update starts the target.
+		// Entity attacks and manual mining of excluded blocks remain available.
+		return BlockUtils.canBeClicked(hit.getBlockPos())
+			&& !BlockUtils.isUnbreakable(hit.getBlockPos())
+			&& commonSettings.shouldBreakBlock(hit.getBlockPos());
 	}
 	
 	private Stream<BlockPos> getHoleStream(int blockRange)
@@ -247,16 +360,6 @@ public final class SpeedNukerHack extends Hack implements UpdateListener
 		}
 		
 		return Stream.empty();
-	}
-	
-	private Stream<BlockPos> getViewRayStream(Vec3 eyesVec, double distance)
-	{
-		Vec3 direction = MC.player.getViewVector(1.0F);
-		int steps = (int)Math.ceil(distance * 5);
-		return IntStream.rangeClosed(1, steps)
-			.mapToObj(i -> BlockPos.containing(
-				eyesVec.add(direction.scale(Math.min(distance, i * 0.2)))))
-			.distinct();
 	}
 	
 	private boolean preparePreservedTool(ArrayList<BlockPos> blocks)
@@ -316,6 +419,29 @@ public final class SpeedNukerHack extends Hack implements UpdateListener
 				- getPreserveThreshold(selectedItem);
 			if(maxBlocks <= 0)
 				continue;
+				
+			// Reserve durability for submitted blocks whose server-side tool
+			// damage may not have arrived yet. A drain retries an existing
+			// block.
+			if(MiningStateCompat.getOwnedTarget() == null)
+			{
+				if(MiningStateCompat.isPending(blocks.get(0)))
+					maxBlocks = 1; // Retry uses its existing durability
+									// reservation.
+				else
+					maxBlocks -= MiningStateCompat.getPendingCount();
+				if(maxBlocks <= 0)
+				{
+					BlockPos retry =
+						blocks.stream().filter(MiningStateCompat::isPending)
+							.findFirst().orElse(null);
+					if(retry == null)
+						return false;
+					blocks.clear();
+					blocks.add(retry);
+					maxBlocks = 1;
+				}
+			}
 			
 			if(maxBlocks < blocks.size())
 				blocks.subList(maxBlocks, blocks.size()).clear();

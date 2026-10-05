@@ -56,9 +56,9 @@ public final class WurstOptionsOtf extends OtherFeature
 		"Warn before connecting with an account or direct/proxy identity associated with a recorded server ban.",
 		false);
 	private final CheckboxSetting restorePacketSchedulingOnOlderServers =
-		new CheckboxSetting("Restore Packet Scheduling on <26.3 Servers",
-			"Restores pre-26.3 movement packet behavior on older servers detected through ViaFabricPlus. Disable to retain 26.3 scheduling everywhere.",
-			true);
+		new CheckboxSetting("Use Pre-26.3 Packet Scheduling",
+			"Uses the older movement packet schedule. Enable this only for servers that require it. ViaFabricPlus's selected connection version may differ from the actual server version.",
+			false);
 	
 	private final CheckboxSetting ignoreRegistrySyncErrors =
 		new CheckboxSetting("Ignore registry sync errors",

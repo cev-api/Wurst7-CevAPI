@@ -27,6 +27,11 @@ public class EntityRenderDispatcherMixin
 	private <E extends Entity> void onShouldRender(E entity, Frustum frustum,
 		double x, double y, double z, CallbackInfoReturnable<Boolean> cir)
 	{
+		if(WurstClient.INSTANCE.getHax().itemHandlerHack.shouldHideItem(entity))
+		{
+			cir.setReturnValue(false);
+			return;
+		}
 		if(WurstClient.INSTANCE.getHax().renderAdjustHack
 			.shouldHideEntity(entity))
 			cir.setReturnValue(false);

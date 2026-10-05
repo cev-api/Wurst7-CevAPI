@@ -77,6 +77,19 @@ public enum HackPerformanceTracker
 		}
 	}
 	
+	public static void reset()
+	{
+		synchronized(LOCK)
+		{
+			STATS.clear();
+			windowStartNs = System.nanoTime();
+			hasCompletedWindow = false;
+			currentRenderFrames = 0;
+			lastRenderFrames = 0;
+			lastWindowNs = WINDOW_NS;
+		}
+	}
+	
 	public static ListSnapshot getTopRows(int maxRows, SortMode sortMode)
 	{
 		long nowNs = System.nanoTime();
@@ -113,12 +126,15 @@ public enum HackPerformanceTracker
 			double allRenderMs = 0;
 			double allGuiMs = 0;
 			double allTotalMs = 0;
+			int allCallbacks = 0;
 			for(Row row : rows)
 			{
 				allUpdateMs += row.updateMs();
 				allRenderMs += row.renderMs();
 				allGuiMs += row.guiMs();
 				allTotalMs += row.totalMs();
+				allCallbacks +=
+					row.updateCalls() + row.renderCalls() + row.guiCalls();
 			}
 			
 			ArrayList<Row> visibleRows = rows;
@@ -132,7 +148,7 @@ public enum HackPerformanceTracker
 			return new ListSnapshot(visibleRows, hasCompletedWindow,
 				allUpdateMs, allRenderMs, allGuiMs, allTotalMs,
 				allTotalMs - visibleTotalMs, frames,
-				frames * 1_000_000_000D / elapsed);
+				frames * 1_000_000_000D / elapsed, allCallbacks);
 		}
 	}
 	
@@ -204,6 +220,7 @@ public enum HackPerformanceTracker
 		private Row toRow(String name, boolean useLastWindow, int frames)
 		{
 			long[] totals = useLastWindow ? lastTotalNs : currentTotalNs;
+			int[] calls = useLastWindow ? lastCalls : currentCalls;
 			long[] maxes = useLastWindow ? lastMaxNs : currentMaxNs;
 			
 			double updateMs =
@@ -224,7 +241,12 @@ public enum HackPerformanceTracker
 						peakNs[Phase.GUI.ordinal()])));
 			
 			return new Row(name, updateMs, renderMs, guiMs, totalMs,
-				Math.max(windowPeakMs, lifetimePeakMs));
+				Math.max(windowPeakMs, lifetimePeakMs),
+				nanosToMillis(peakNs[Phase.UPDATE.ordinal()]),
+				nanosToMillis(peakNs[Phase.RENDER.ordinal()]),
+				nanosToMillis(peakNs[Phase.GUI.ordinal()]),
+				calls[Phase.UPDATE.ordinal()], calls[Phase.RENDER.ordinal()],
+				calls[Phase.GUI.ordinal()]);
 		}
 		
 		private double nanosToMillis(long ns)
@@ -239,12 +261,14 @@ public enum HackPerformanceTracker
 	}
 	
 	public record Row(String name, double updateMs, double renderMs,
-		double guiMs, double totalMs, double peakMs)
+		double guiMs, double totalMs, double peakMs, double updatePeakMs,
+		double renderPeakMs, double guiPeakMs, int updateCalls, int renderCalls,
+		int guiCalls)
 	{}
 	
 	public record ListSnapshot(ArrayList<Row> rows, boolean usingWindowData,
 		double allUpdateMs, double allRenderMs, double allGuiMs,
 		double allTotalMs, double hiddenRowsTotalMs, int renderedFrames,
-		double renderFramesPerSecond)
+		double renderFramesPerSecond, int totalCallbacks)
 	{}
 }

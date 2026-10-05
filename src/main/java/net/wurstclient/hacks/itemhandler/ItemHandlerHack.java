@@ -112,6 +112,36 @@ public class ItemHandlerHack extends Hack
 		{"_helmet", "_chestplate", "_leggings", "_boots", "_sword", "_axe",
 			"_pickaxe", "_shovel", "_hoe", "_spear"};
 	
+	public enum ListSort
+	{
+		DISTANCE,
+		VALUE,
+		TYPE;
+		
+		@Override
+		public String toString()
+		{
+			String name = name().toLowerCase(Locale.ROOT);
+			return Character.toUpperCase(name.charAt(0)) + name.substring(1);
+		}
+	}
+	
+	private final net.wurstclient.settings.EnumSetting<ListSort> listSort =
+		new net.wurstclient.settings.EnumSetting<>("List sort",
+			"Sort the item list by distance, value, or equipment type.",
+			ListSort.values(), ListSort.DISTANCE);
+	
+	public ListSort getListSort()
+	{
+		return listSort.getSelected();
+	}
+	
+	public void cycleListSort()
+	{
+		listSort.setSelected(ListSort.values()[(getListSort().ordinal() + 1)
+			% ListSort.values().length]);
+	}
+	
 	private final List<GroundItem> trackedItems = new ArrayList<>();
 	private final List<NearbyLabel> trackedLabels = new ArrayList<>();
 	private int signScanCooldown;
@@ -222,6 +252,7 @@ public class ItemHandlerHack extends Hack
 	public ItemHandlerHack()
 	{
 		super("ItemHandler");
+		addSetting(listSort);
 		setCategory(Category.ITEMS);
 		addPossibleKeybind("itemhandler gui",
 			"ItemHandler GUI (open manual pickup screen)");
@@ -259,6 +290,8 @@ public class ItemHandlerHack extends Hack
 	{
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(RenderListener.class, this);
+		endPickFilterSession();
+		prevInventoryCounts.clear();
 		trackedItems.clear();
 		trackedLabels.clear();
 		pickupWhitelist.clear();
@@ -270,6 +303,7 @@ public class ItemHandlerHack extends Hack
 	{
 		EVENTS.remove(UpdateListener.class, this);
 		EVENTS.remove(RenderListener.class, this);
+		prevInventoryCounts.clear();
 		trackedItems.clear();
 		trackedLabels.clear();
 		pickupWhitelist.clear();
@@ -288,6 +322,8 @@ public class ItemHandlerHack extends Hack
 		if(MC.level == null || MC.player == null)
 		{
 			trackedItems.clear();
+			endPickFilterSession();
+			prevInventoryCounts.clear();
 			trackedLabels.clear();
 			pickupWhitelist.clear();
 			pickupQueue.clear();
@@ -299,6 +335,7 @@ public class ItemHandlerHack extends Hack
 		scanNearbyItems();
 		scanNearbySigns();
 		updateRejectedRules();
+		processSelectionInventory();
 		updatePickFilterTimeout();
 		processRejectedPickup();
 		processPickupQueue();
@@ -314,7 +351,8 @@ public class ItemHandlerHack extends Hack
 		if(now - pickFilterStartMs > pickFilterTimeoutMs)
 		{
 			endPickFilterSession();
-			ChatUtils.message("Pick filter: timeout reached, stopping.");
+			ChatUtils.message(
+				"ItemHandler: collection timed out; check inventory space or unreachable targets. Normal visibility restored.");
 		}
 	}
 	
@@ -337,7 +375,10 @@ public class ItemHandlerHack extends Hack
 		java.util.Map<String, Integer> cur = new java.util.HashMap<>();
 		net.minecraft.world.entity.player.Inventory inventory =
 			MC.player.getInventory();
-		int maxSlots = 45;
+		int maxSlots = 36;
+		if(pickFilterActive
+			|| MC.player.containerMenu != MC.player.inventoryMenu)
+			return;
 		for(int slot = 0; slot < maxSlots; slot++)
 		{
 			var stack = inventory.getItem(slot);
@@ -371,42 +412,6 @@ public class ItemHandlerHack extends Hack
 				ChatUtils.message("Untraced " + id + " after pickup.");
 			}
 			
-			// Pick filter: drop any non-target pickups until a desired item
-			// is picked up, then stop the session.
-			if(pickFilterActive)
-			{
-				if(pickFilterIds.contains(id))
-				{
-					endPickFilterSession();
-					continue;
-				}
-				int remainingToDrop = gained;
-				while(remainingToDrop > 0)
-				{
-					int foundSlot = -1;
-					for(int s = 0; s < 45; s++)
-					{
-						var st = inventory.getItem(s);
-						if(st == null || st.isEmpty())
-							continue;
-						String sid =
-							net.minecraft.core.registries.BuiltInRegistries.ITEM
-								.getKey(st.getItem()).toString();
-						if(sid.equals(id))
-						{
-							foundSlot = s;
-							break;
-						}
-					}
-					if(foundSlot < 0)
-						break;
-					int networkSlot = InventoryUtils.toNetworkSlot(foundSlot);
-					IMC.getInteractionManager().windowClick_THROW(networkSlot);
-					remainingToDrop--;
-				}
-				// skip rejected-rules logic for this id
-				continue;
-			}
 			// Total rejected amount for this id (sum across rules that match
 			// player's position)
 			int totalRejected = 0;
@@ -445,7 +450,8 @@ public class ItemHandlerHack extends Hack
 					break;
 				
 				int networkSlot = InventoryUtils.toNetworkSlot(foundSlot);
-				IMC.getInteractionManager().windowClick_THROW(networkSlot);
+				IMC.getInteractionManager().windowClick(0, networkSlot, 0,
+					net.minecraft.world.inventory.ContainerInput.THROW);
 				remainingToDrop--;
 				
 				// update rejected rules amounts (consume rules in insertion
@@ -472,37 +478,238 @@ public class ItemHandlerHack extends Hack
 		prevInventoryCounts.putAll(cur);
 	}
 	
-	// Pick filter session: drop non-target pickups until target is picked.
+	// Targets use UUIDs, never registry IDs: another stack of the same item
+	// and freshly dropped items must not silently become collection targets.
 	private boolean pickFilterActive;
-	private final java.util.Set<String> pickFilterIds =
+	private final java.util.Map<UUID, ItemStack> selectedTargets =
+		new java.util.LinkedHashMap<>();
+	private final java.util.Set<UUID> collectedTargets =
 		new java.util.HashSet<>();
+	private final net.wurstclient.util.SelectedPickupBudget selectionBudget =
+		new net.wurstclient.util.SelectedPickupBudget();
+	private long pickFilterStartMs;
+	private long pickFilterTimeoutMs;
+	private long selectionActionAt;
+	private long selectionWarningAt;
+	private long selectionCompletedAt;
 	
-	public void beginPickFilterSession(java.util.Set<String> desiredIds)
+	private record PickupReceipt(UUID target, int amount, long time)
+	{}
+	
+	private final java.util.Map<UUID, PickupReceipt> selectionReceipts =
+		new java.util.LinkedHashMap<>();
+	private List<ItemStack> lastSelectionInventory = List.of();
+	private ItemStack pendingDiscard;
+	private int pendingDiscardCount;
+	private long discardCheckAt;
+	
+	public boolean isPickFilterActive()
 	{
-		pickFilterIds.clear();
-		if(desiredIds != null)
-			pickFilterIds.addAll(desiredIds);
-		pickFilterActive = !pickFilterIds.isEmpty();
-		if(pickFilterActive)
+		return isEnabled() && pickFilterActive;
+	}
+	
+	public void beginSelectedPickup(Collection<GroundItem> items)
+	{
+		endPickFilterSession();
+		if(MC.player == null || MC.level == null)
+			return;
+		for(GroundItem item : items)
 		{
-			pickFilterStartMs = System.currentTimeMillis();
-			pickFilterTimeoutMs = (long)(rejectExpiry.getValueI() * 1000L);
-			ChatUtils.message(
-				"Pick filter: dropping non-target pickups until target or timeout.");
+			if(item.sourceType() != SourceType.GROUND)
+				continue;
+			ItemEntity entity = getItemEntity(item.entityId());
+			if(entity == null || !entity.getUUID().equals(item.uuid()))
+				continue;
+			if(selectedTargets.putIfAbsent(item.uuid(),
+				item.stack().copy()) == null)
+				pickupQueue.add(item.entityId());
 		}
+		if(selectedTargets.isEmpty())
+		{
+			ChatUtils.message(
+				"ItemHandler: select dropped items to collect; displayed equipment and labels cannot be picked up.");
+			return;
+		}
+		pickFilterActive = true;
+		pickFilterStartMs = System.currentTimeMillis();
+		pickFilterTimeoutMs = rejectExpiry.getValueI() * 1000L;
+		lastSelectionInventory = selectionSnapshot();
+		selectionBudget.start(lastSelectionInventory);
+		ChatUtils.message(
+			"ItemHandler: collecting only selected floor stacks; other drops are temporarily hidden.");
 	}
 	
 	public void endPickFilterSession()
 	{
 		pickFilterActive = false;
-		pickFilterIds.clear();
-		pickFilterStartMs = 0L;
-		pickFilterTimeoutMs = 0L;
+		selectedTargets.clear();
+		collectedTargets.clear();
+		selectionBudget.clear();
+		prevInventoryCounts.clear();
+		selectionReceipts.clear();
+		lastSelectionInventory = List.of();
+		pickupQueue.clear();
+		pickupWhitelist.clear();
+		stopAutoWalk();
+		pickFilterStartMs = 0;
+		pickFilterTimeoutMs = 0;
+		selectionCompletedAt = 0;
+		selectionActionAt = 0;
+		selectionWarningAt = 0;
+		pendingDiscard = null;
 	}
 	
-	// Timeout tracking for pick filter session
-	private long pickFilterStartMs;
-	private long pickFilterTimeoutMs;
+	public boolean shouldHideItem(Entity entity)
+	{
+		return isPickFilterActive() && entity instanceof ItemEntity
+			&& !selectedTargets.containsKey(entity.getUUID());
+	}
+	
+	/** Called on the client thread before vanilla removes the picked entity. */
+	public void onItemPickup(
+		net.minecraft.network.protocol.game.ClientboundTakeItemEntityPacket packet)
+	{
+		if(!isPickFilterActive() || MC.player == null || MC.level == null
+			|| packet.getPlayerId() != MC.player.getId())
+			return;
+		ItemEntity entity = getItemEntity(packet.getItemId());
+		if(entity == null)
+			return;
+		ItemStack wanted = selectedTargets.get(entity.getUUID());
+		if(wanted == null
+			|| !ItemStack.isSameItemSameComponents(wanted, entity.getItem()))
+			return;
+		int received = Math.min(wanted.getCount(), packet.getAmount());
+		selectionReceipts.merge(entity.getUUID(),
+			new PickupReceipt(entity.getUUID(), received,
+				System.currentTimeMillis()),
+			(oldReceipt, newReceipt) -> new PickupReceipt(entity.getUUID(),
+				Math.min(wanted.getCount(),
+					oldReceipt.amount() + newReceipt.amount()),
+				newReceipt.time()));
+	}
+	
+	private List<ItemStack> selectionSnapshot()
+	{
+		List<ItemStack> result = new ArrayList<>();
+		for(int i = 0; i < 41; i++)
+			result.add(MC.player.getInventory().getItem(i).copy());
+		return result;
+	}
+	
+	private void confirmSelectionReceipts(List<ItemStack> current)
+	{
+		// Some servers announce the original entity stack size even when only
+		// part fits. Confirm the actual inventory gain before allowing it or
+		// reporting the selected stack as complete.
+		List<ItemStack> credited = new ArrayList<>();
+		long now = System.currentTimeMillis();
+		for(var it = selectionReceipts.entrySet().iterator(); it.hasNext();)
+		{
+			var entry = it.next();
+			PickupReceipt receipt = entry.getValue();
+			ItemStack wanted = selectedTargets.get(receipt.target());
+			int gained = selectionCount(current, wanted)
+				- selectionCount(lastSelectionInventory, wanted)
+				- selectionCount(credited, wanted);
+			int received = Math.min(Math.max(0, gained),
+				Math.min(receipt.amount(), wanted.getCount()));
+			if(received > 0)
+			{
+				credited.add(wanted.copyWithCount(received));
+				selectionBudget.allow(wanted, received);
+				wanted.shrink(received);
+				if(wanted.isEmpty())
+					collectedTargets.add(receipt.target());
+				it.remove();
+			}else if(now - receipt.time() > 1000)
+				it.remove();
+		}
+	}
+	
+	private int selectionCount(List<ItemStack> inventory, ItemStack wanted)
+	{
+		return inventory.stream()
+			.filter(stack -> ItemStack.isSameItemSameComponents(stack, wanted))
+			.mapToInt(ItemStack::getCount).sum();
+	}
+	
+	private void processSelectionInventory()
+	{
+		if(!pickFilterActive)
+			return;
+		List<ItemStack> current = selectionSnapshot();
+		confirmSelectionReceipts(current);
+		lastSelectionInventory = current;
+		selectionBudget.observeInventory(current);
+		long now = System.currentTimeMillis();
+		if(pendingDiscard != null)
+		{
+			if(now < discardCheckAt)
+				return;
+			int remaining = current
+				.stream().filter(stack -> ItemStack
+					.isSameItemSameComponents(stack, pendingDiscard))
+				.mapToInt(ItemStack::getCount).sum();
+			if(remaining >= pendingDiscardCount)
+				selectionWarn(
+					"discard was not confirmed; the server or another inventory feature may be blocking it.");
+			pendingDiscard = null;
+		}
+		if(now < selectionActionAt)
+			return;
+		for(int i = 0; i < 36; i++)
+		{
+			ItemStack stack = current.get(i);
+			if(stack.isEmpty())
+				continue;
+			int excess = selectionBudget.excess(current, stack);
+			if(excess <= 0)
+				continue;
+			if(MC.player.containerMenu != MC.player.inventoryMenu
+				|| !MC.player.inventoryMenu.getCarried().isEmpty())
+			{
+				selectionWarn(
+					"close the container and clear the cursor to discard unwanted pickups.");
+				return;
+			}
+			// Throw one item when it is merged into an existing stack so
+			// inventory present before selection is never discarded.
+			pendingDiscard = stack.copy();
+			pendingDiscardCount = current.stream()
+				.filter(st -> ItemStack.isSameItemSameComponents(st, stack))
+				.mapToInt(ItemStack::getCount).sum();
+			discardCheckAt = now + 300;
+			IMC.getInteractionManager().windowClick(0,
+				InventoryUtils.toNetworkSlot(i),
+				excess >= stack.getCount() ? 1 : 0,
+				net.minecraft.world.inventory.ContainerInput.THROW);
+			lastSelectionInventory = selectionSnapshot();
+			selectionBudget.rememberInventory(lastSelectionInventory);
+			selectionActionAt = now + 150;
+			return;
+		}
+		if(collectedTargets.size() == selectedTargets.size())
+		{
+			if(selectionCompletedAt == 0)
+				selectionCompletedAt = now;
+			if(now - selectionCompletedAt >= 1000)
+			{
+				endPickFilterSession();
+				ChatUtils.message(
+					"ItemHandler: selected stacks collected; normal visibility restored.");
+			}
+		}
+	}
+	
+	private void selectionWarn(String text)
+	{
+		long now = System.currentTimeMillis();
+		if(now < selectionWarningAt)
+			return;
+		selectionWarningAt = now + 5000;
+		ChatUtils.message("ItemHandler: " + text);
+	}
 	
 	private static final class RejectedRule
 	{
@@ -1125,6 +1332,13 @@ public class ItemHandlerHack extends Hack
 	
 	private void processPickupQueue()
 	{
+		if(pickFilterActive)
+			for(GroundItem item : trackedItems)
+				if(item.sourceType() == SourceType.GROUND
+					&& selectedTargets.containsKey(item.uuid())
+					&& !collectedTargets.contains(item.uuid())
+					&& !pickupQueue.contains(item.entityId()))
+					pickupQueue.add(item.entityId());
 		while(!pickupQueue.isEmpty())
 		{
 			if(MC.player == null || MC.level == null)
@@ -1145,8 +1359,14 @@ public class ItemHandlerHack extends Hack
 			if(distance <= SCAN_RADIUS + 0.2)
 			{
 				whitelist(targetId);
-				pickupQueue.poll();
-				continue;
+				if(distance > 1.0)
+					driveToward(target);
+				else
+					stopAutoWalk();
+				if(!hasPickupSpace(target.getItem()))
+					selectionWarn(
+						"inventory is full; make room for selected items.");
+				return;
 			}
 			
 			driveToward(target);
@@ -1154,6 +1374,20 @@ public class ItemHandlerHack extends Hack
 		}
 		
 		stopAutoWalk();
+	}
+	
+	private boolean hasPickupSpace(ItemStack wanted)
+	{
+		if(MC.player.getInventory().getFreeSlot() >= 0)
+			return true;
+		for(int i = 0; i < 36; i++)
+		{
+			ItemStack stack = MC.player.getInventory().getItem(i);
+			if(ItemStack.isSameItemSameComponents(stack, wanted)
+				&& stack.getCount() < stack.getMaxStackSize())
+				return true;
+		}
+		return false;
 	}
 	
 	private ItemEntity getItemEntity(int id)
@@ -1189,12 +1423,19 @@ public class ItemHandlerHack extends Hack
 	
 	public boolean shouldAllowPickup(ItemEntity entity)
 	{
-		return entity != null && pickupWhitelist.containsKey(entity.getId());
+		return entity != null && (pickFilterActive
+			? selectedTargets.containsKey(entity.getUUID())
+				&& !collectedTargets.contains(entity.getUUID())
+			: pickupWhitelist.containsKey(entity.getId()));
 	}
 	
 	public List<GroundItem> getTrackedItems()
 	{
-		return List.copyOf(trackedItems);
+		return trackedItems.stream()
+			.filter(g -> !isPickFilterActive()
+				|| g.sourceType() != SourceType.GROUND
+				|| selectedTargets.containsKey(g.uuid()))
+			.toList();
 	}
 	
 	public void openScreen()
@@ -1213,6 +1454,13 @@ public class ItemHandlerHack extends Hack
 		
 		for(int entityId : entityIds)
 		{
+			if(pickFilterActive)
+			{
+				ItemEntity entity = getItemEntity(entityId);
+				if(entity == null
+					|| !selectedTargets.containsKey(entity.getUUID()))
+					continue;
+			}
 			if(entityId == 0 || pickupQueue.contains(entityId))
 			{
 				whitelist(entityId);
@@ -1520,15 +1768,15 @@ public class ItemHandlerHack extends Hack
 	@Override
 	public void onRender(PoseStack matrixStack, float partialTicks)
 	{
-		if(tracedItems.isEmpty())
+		if(tracedItems.isEmpty() && !pickFilterActive)
 			return;
 		
 		net.wurstclient.hacks.ItemEspHack esp =
 			net.wurstclient.WurstClient.INSTANCE.getHax().itemEspHack;
 		boolean espEnabled = esp != null && esp.isEnabled();
 		boolean espHasTracerLines = espEnabled && esp.rendersTracerLines();
-		boolean shouldDrawBoxes = !espEnabled;
-		boolean shouldDrawTracers = !espHasTracerLines;
+		boolean shouldDrawBoxes = pickFilterActive || !espEnabled;
+		boolean shouldDrawTracers = pickFilterActive || !espHasTracerLines;
 		if(!shouldDrawBoxes && !shouldDrawTracers)
 			return;
 		
@@ -1540,6 +1788,8 @@ public class ItemHandlerHack extends Hack
 		{
 			String traceId = gi.traceId();
 			boolean traced = traceId != null && isTraced(traceId);
+			if(pickFilterActive && gi.sourceType() == SourceType.GROUND)
+				traced = selectedTargets.containsKey(gi.uuid());
 			if(!traced)
 				continue;
 			Vec3 p = gi.position();

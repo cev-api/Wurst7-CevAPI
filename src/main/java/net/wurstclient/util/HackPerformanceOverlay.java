@@ -56,6 +56,14 @@ public final class HackPerformanceOverlay
 		return INSTANCE;
 	}
 	
+	public void resetStats()
+	{
+		HackPerformanceTracker.reset();
+		graphStart = 0;
+		graphSize = 0;
+		lastGraphSampleMs = 0;
+	}
+	
 	public void render(GuiGraphicsExtractor graphics)
 	{
 		PerformanceOverlayOtf otf = getSettings();
@@ -150,8 +158,10 @@ public final class HackPerformanceOverlay
 		double fps = Math.max(1, snapshot.renderFramesPerSecond());
 		double frameMs = 1000.0 / fps;
 		lines.add("Frame " + formatMs(frameMs) + " | Hack callbacks "
-			+ formatMs(snapshot.allTotalMs()) + "/frame");
-		lines.add("Top hacks: average ms/frame (peak callback ms)");
+			+ formatMs(snapshot.allTotalMs()) + "/frame | "
+			+ snapshot.totalCallbacks() + " calls in "
+			+ snapshot.renderedFrames() + " frames");
+		lines.add("Average/frame; peak callback since reset (U/world/GUI)");
 		lines.add("GPU time and deferred HUD drawing are not measured here.");
 		if(snapshot.hiddenRowsTotalMs() > 0.01)
 			lines.add("Hidden by row limit: "
@@ -162,6 +172,11 @@ public final class HackPerformanceOverlay
 			StringBuilder sb = new StringBuilder(row.name());
 			sb.append(" | ").append(formatMs(row.totalMs()));
 			sb.append(" (peak ").append(formatMs(row.peakMs())).append(")");
+			sb.append(" [peak U/W/G ").append(formatMs(row.updatePeakMs()))
+				.append('/').append(formatMs(row.renderPeakMs())).append('/')
+				.append(formatMs(row.guiPeakMs())).append("; calls ")
+				.append(row.updateCalls()).append('/').append(row.renderCalls())
+				.append('/').append(row.guiCalls()).append(']');
 			
 			if(otf.shouldShowUpdate() || otf.shouldShowRender()
 				|| otf.shouldShowGui())

@@ -15,6 +15,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.chunk.LevelChunk;
+import net.minecraft.world.level.chunk.status.ChunkStatus;
 import net.minecraft.world.level.dimension.DimensionType;
 import net.minecraft.world.level.material.FluidState;
 import net.wurstclient.Category;
@@ -73,6 +74,8 @@ public final class NewChunksHack extends Hack
 	private final Set<ChunkPos> newChunks = ConcurrentHashMap.newKeySet();
 	private final Set<ChunkPos> oldChunks = ConcurrentHashMap.newKeySet();
 	private final Set<ChunkPos> dontCheckAgain = ConcurrentHashMap.newKeySet();
+	private final Set<ChunkPos> pendingChunkPackets =
+		ConcurrentHashMap.newKeySet();
 	
 	private final Set<BlockPos> newChunkReasons = ConcurrentHashMap.newKeySet();
 	private final Set<BlockPos> oldChunkReasons = ConcurrentHashMap.newKeySet();
@@ -111,6 +114,7 @@ public final class NewChunksHack extends Hack
 	
 	private void reset()
 	{
+		pendingChunkPackets.clear();
 		oldChunks.clear();
 		newChunks.clear();
 		dontCheckAgain.clear();
@@ -141,6 +145,7 @@ public final class NewChunksHack extends Hack
 	@Override
 	public void onUpdate()
 	{
+		processPendingChunkPackets();
 		renderer.closeBuffers();
 		
 		Show showSetting = show.getSelected();
@@ -180,6 +185,30 @@ public final class NewChunksHack extends Hack
 		// This has to run on the client thread because chunk/world access is
 		// not thread-safe and can trip Minecraft's threading detector.
 		checkLoadedChunk(chunk);
+	}
+	
+	public void onChunkDataPacket(int x, int z)
+	{
+		if(isEnabled())
+			pendingChunkPackets.add(new ChunkPos(x, z));
+	}
+	
+	private void processPendingChunkPackets()
+	{
+		if(MC.level == null || pendingChunkPackets.isEmpty())
+			return;
+		
+		for(ChunkPos chunkPos : Set.copyOf(pendingChunkPackets))
+		{
+			var chunk = MC.level.getChunkSource().getChunk(chunkPos.x(),
+				chunkPos.z(), ChunkStatus.FULL, false);
+			if(!(chunk instanceof LevelChunk levelChunk)
+				|| levelChunk.isEmpty())
+				continue;
+			
+			checkLoadedChunk(levelChunk);
+			pendingChunkPackets.remove(chunkPos);
+		}
 	}
 	
 	private void checkLoadedChunk(LevelChunk chunk)

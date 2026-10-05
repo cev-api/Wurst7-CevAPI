@@ -36,6 +36,14 @@ public interface IMultiPlayerGameMode
 		ServerboundPlayerActionPacket.Action action, BlockPos blockPos,
 		Direction direction);
 	
+	/** Returns Minecraft's allocated sequence, without owning a counter. */
+	public int sendPlayerActionC2SPacketWithSequence(
+		ServerboundPlayerActionPacket.Action action, BlockPos blockPos,
+		Direction direction);
+	
+	/** The active vanilla target, used for a same-position takeover. */
+	public BlockPos getMiningTarget();
+	
 	public void sendPlayerInteractBlockPacket(InteractionHand hand,
 		BlockHitResult blockHitResult);
 }

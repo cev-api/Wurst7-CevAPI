@@ -83,6 +83,20 @@ public final class PacketFirewallOtf extends OtherFeature
 	private static final long SETBACK_LOOKBACK_MS = 1500;
 	private static final String HACK_PACKAGE_PREFIX = "net.wurstclient.hacks.";
 	
+	private final CheckboxSetting autoEnableAntiCheat = new CheckboxSetting(
+		"Auto enable on anticheat",
+		"Enable PacketFirewall when the server observer identifies a known anticheat and announce it in chat.",
+		false);
+	private String autoEnabledServer;
+	
+	private final net.wurstclient.util.FirewallActivationPauses<Hack> activationPauses =
+		new net.wurstclient.util.FirewallActivationPauses<>(Hack::isEnabled,
+			hack -> {
+				hack.setEnabled(false);
+				ChatUtils.message("[PacketFirewall] Paused " + hack.getName()
+					+ " while PacketFirewall is enabled.");
+			}, hack -> hack.setEnabled(true));
+	
 	private boolean firewallEnabled;
 	
 	private final CheckboxSetting dropInvalidSetting =
@@ -144,6 +158,7 @@ public final class PacketFirewallOtf extends OtherFeature
 		super("PacketFirewall",
 			"description.wurst.other_feature.packet_firewall");
 		
+		addSetting(autoEnableAntiCheat);
 		addSetting(dropInvalidSetting);
 		addSetting(clampPitchSetting);
 		addSetting(wrapYawSetting);
@@ -180,7 +195,9 @@ public final class PacketFirewallOtf extends OtherFeature
 	public void doPrimaryAction()
 	{
 		firewallEnabled = !firewallEnabled;
-		if(!firewallEnabled)
+		if(firewallEnabled)
+			pauseActivationHacks();
+		else
 			restoreSuppressedHacks();
 	}
 	
@@ -292,12 +309,34 @@ public final class PacketFirewallOtf extends OtherFeature
 	@Override
 	public void onUpdate()
 	{
+		if(MC.player == null || MC.level == null)
+			autoEnabledServer = null;
+		else if(autoEnableAntiCheat.isChecked() && WURST.isEnabled())
+		{
+			var observer = WURST.getServerObserver();
+			String server = observer.getServerAddress();
+			String detected = observer.guessAntiCheat(server);
+			if(detected != null && !"Unknown".equalsIgnoreCase(detected)
+				&& !java.util.Objects.equals(server, autoEnabledServer))
+			{
+				autoEnabledServer = server;
+				if(!firewallEnabled)
+				{
+					firewallEnabled = true;
+					pauseActivationHacks();
+					ChatUtils.message(
+						"PacketFirewall: automatically enabled because "
+							+ detected + " was detected.");
+				}
+			}
+		}
 		if(!isFirewallEnabled())
 			restoreSuppressedHacks();
 		
 		if(!isFirewallEnabled())
 			return;
 		
+		pauseActivationHacks();
 		boolean vanillaOnly = isVanillaOnlyPacketsEnabled();
 		if(vanillaOnly)
 			clearPendingMovement("vanilla-only");
@@ -319,6 +358,37 @@ public final class PacketFirewallOtf extends OtherFeature
 		long tick = getClientTick();
 		if(pendingMovement.packet.tick <= tick)
 			sendPendingMovement("dedup-tick");
+	}
+	
+	private List<Hack> activationBlockedHacks()
+	{
+		return List.of(WURST.getHax().untouchableHack,
+			WURST.getHax().fastBreakHack, WURST.getHax().speedNukerHack);
+	}
+	
+	private void pauseActivationHacks()
+	{
+		if(!isFirewallEnabled())
+			return;
+		List<Hack> blocked = activationBlockedHacks();
+		if(blocked.stream().anyMatch(Hack::isEnabled))
+			clearPendingMovement("firewall-activation-pause");
+		activationPauses.pause(blocked);
+	}
+	
+	/** Block starts before onEnable can register listeners or send packets. */
+	public boolean pauseRequestedEnable(Hack hack)
+	{
+		if(!isFirewallEnabled() || !activationBlockedHacks().contains(hack))
+			return false;
+		if(activationPauses.requestEnable(hack))
+		{
+			if(WURST.getHud() != null)
+				WURST.getHud().getHackList().updateState(hack);
+			ChatUtils.message("[PacketFirewall] Paused " + hack.getName()
+				+ " while PacketFirewall is enabled.");
+		}
+		return true;
 	}
 	
 	private void enforceVanillaOnlyFlightState()
@@ -424,8 +494,8 @@ public final class PacketFirewallOtf extends OtherFeature
 	{
 		if(!suppressingRiskyHacks && temporarilyDisabledHacks.isEmpty()
 			&& suppressedReasons.isEmpty() && recentGrimEvidence.isEmpty()
-			&& vanillaOnlyPausedHacks.isEmpty()
-			&& !wasVanillaOnlyPacketsEnabled)
+			&& vanillaOnlyPausedHacks.isEmpty() && !wasVanillaOnlyPacketsEnabled
+			&& activationPauses.isEmpty())
 			return;
 		
 		for(Hack hack : temporarilyDisabledHacks)
@@ -433,6 +503,7 @@ public final class PacketFirewallOtf extends OtherFeature
 				hack.setEnabled(true);
 			
 		temporarilyDisabledHacks.clear();
+		activationPauses.restore();
 		vanillaOnlyPausedHacks.clear();
 		suppressedReasons.clear();
 		recentGrimEvidence.clear();
@@ -460,11 +531,12 @@ public final class PacketFirewallOtf extends OtherFeature
 		clearPendingMovement("vanilla-only-disabled");
 	}
 	
+	/** HUD pause status includes activation pauses in either firewall mode. */
 	public boolean isVanillaOnlyPaused(Hack hack)
 	{
 		return hack != null && isFirewallEnabled()
-			&& isVanillaOnlyPacketsEnabled()
-			&& vanillaOnlyPausedHacks.contains(hack);
+			&& (activationPauses.contains(hack) || isVanillaOnlyPacketsEnabled()
+				&& vanillaOnlyPausedHacks.contains(hack));
 	}
 	
 	public String getVanillaOnlyPauseStatus(Hack hack)
@@ -478,7 +550,8 @@ public final class PacketFirewallOtf extends OtherFeature
 	/** Returns whether this hack was disabled temporarily by the firewall. */
 	public boolean isTemporarilySuppressed(Hack hack)
 	{
-		return hack != null && temporarilyDisabledHacks.contains(hack);
+		return hack != null && (activationPauses.contains(hack)
+			|| temporarilyDisabledHacks.contains(hack));
 	}
 	
 	private boolean isCustomPacketSurface(Packet<?> packet)
@@ -813,7 +886,8 @@ public final class PacketFirewallOtf extends OtherFeature
 		{
 			super("Allowed hacks", WText.literal(
 				"Hacks that PacketFirewall will allow. Built-in allowances are "
-					+ "ticked by default; your changes are saved."));
+					+ "ticked by default; your changes are saved. Untouchable, FastBreak, "
+					+ "and SpeedNuker stay paused while the firewall is enabled."));
 		}
 		
 		@Override

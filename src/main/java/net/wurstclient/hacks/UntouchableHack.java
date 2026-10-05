@@ -283,12 +283,16 @@ public final class UntouchableHack extends Hack
 	@Override
 	public void onReceivedPacket(PacketInputEvent event)
 	{
+		if(!isEnabled())
+			return;
 		inspectPacket(event.getPacket());
 	}
 	
 	@Override
 	public void onHandleInput()
 	{
+		if(!isEnabled())
+			return;
 		if(shouldPauseOnShift())
 			releaseSneakKey();
 	}
@@ -506,6 +510,8 @@ public final class UntouchableHack extends Hack
 	@Override
 	public void onUpdate()
 	{
+		if(!isEnabled())
+			return;
 		if(MC.player == null || MC.level == null || MC.player.isSpectator())
 		{
 			reset();

@@ -21,6 +21,7 @@ import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
 import net.wurstclient.util.BlockUtils;
+import net.wurstclient.util.MiningStateCompat;
 
 @SearchTags({"FastMine", "SpeedMine", "SpeedyGonzales", "fast break",
 	"fast mine", "speed mine", "speedy gonzales", "NoBreakDelay",
@@ -43,6 +44,13 @@ public final class FastBreakHack extends Hack
 			+ " chance slider doesn't help.",
 		false);
 	
+	private final CheckboxSetting countdown =
+		new CheckboxSetting("26.3 Countdown",
+			"Shows the colored obsidian readiness countdown in the HackList."
+				+ " Turns green and shows OK when ready with your current tool"
+				+ " and mining conditions.",
+			true);
+	
 	private final Random random = new Random();
 	private BlockPos lastBlockPos;
 	private boolean fastBreakBlock;
@@ -53,6 +61,7 @@ public final class FastBreakHack extends Hack
 		setCategory(Category.BLOCKS);
 		addSetting(activationChance);
 		addSetting(legitMode);
+		addSetting(countdown);
 	}
 	
 	@Override
@@ -61,6 +70,19 @@ public final class FastBreakHack extends Hack
 		if(legitMode.isChecked())
 			return getName() + "Legit";
 		return getName();
+	}
+	
+	@Override
+	public String getStatusText()
+	{
+		return !countdown.isChecked() || legitMode.isChecked() ? null
+			: MiningStateCompat.getMiningReadiness().text();
+	}
+	
+	@Override
+	public int getStatusTextColor()
+	{
+		return MiningStateCompat.getMiningReadiness().color();
 	}
 	
 	@Override
@@ -81,13 +103,17 @@ public final class FastBreakHack extends Hack
 	@Override
 	public void onUpdate()
 	{
+		if(!isEnabled())
+			return;
 		MC.gameMode.destroyDelay = 0;
 	}
 	
 	@Override
 	public void onBlockBreakingProgress(BlockBreakingProgressEvent event)
 	{
-		if(legitMode.isChecked())
+		if(!isEnabled())
+			return;
+		if(legitMode.isChecked() || MiningStateCompat.controlsMining())
 			return;
 		
 		if(MC.gameMode.destroyProgress >= 1)

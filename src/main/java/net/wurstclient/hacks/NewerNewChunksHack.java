@@ -270,6 +270,8 @@ public final class NewerNewChunksHack extends Hack
 		ConcurrentHashMap.newKeySet();
 	private final Set<ChunkPos> oldGenerationChunks =
 		ConcurrentHashMap.newKeySet();
+	private final Set<ChunkPos> pendingChunkPackets =
+		ConcurrentHashMap.newKeySet();
 	
 	// Region-bucket indices (32x32 chunk tiles) for O(visible) queries
 	private static final int REGION_SHIFT = ChunkOverlayGeometry.REGION_SHIFT;
@@ -513,6 +515,7 @@ public final class NewerNewChunksHack extends Hack
 		resolveWorldKeys();
 		ensureDataFiles();
 		ensureTrackingWorld();
+		processPendingChunkPackets();
 		
 		if(deleteWarningTicks <= 100)
 			deleteWarningTicks++;
@@ -638,6 +641,41 @@ public final class NewerNewChunksHack extends Hack
 		LevelChunk chunk =
 			MC.level.getChunkSource().getChunk(x, z, ChunkStatus.FULL, false);
 		if(chunk == null || chunk.isEmpty())
+			return;
+		checkLoadedChunk(chunk);
+	}
+	
+	public void onChunkDataPacket(int x, int z)
+	{
+		if(isTrackingActive())
+			pendingChunkPackets.add(new ChunkPos(x, z));
+	}
+	
+	private void processPendingChunkPackets()
+	{
+		if(!isTrackingActive() || MC.level == null
+			|| pendingChunkPackets.isEmpty())
+			return;
+		
+		for(ChunkPos chunkPos : Set.copyOf(pendingChunkPackets))
+		{
+			LevelChunk chunk = MC.level.getChunkSource().getChunk(chunkPos.x(),
+				chunkPos.z(), ChunkStatus.FULL, false);
+			if(chunk == null || chunk.isEmpty())
+				continue;
+			
+			checkLoadedChunk(chunk);
+			pendingChunkPackets.remove(chunkPos);
+		}
+	}
+	
+	private void checkLoadedChunk(LevelChunk chunk)
+	{
+		if(!isTrackingActive() || MC.level == null || chunk.isEmpty())
+			return;
+		ensureTrackingWorld();
+		ChunkPos chunkPos = chunk.getPos();
+		if(containsAny(chunkPos))
 			return;
 		
 		if(paletteExploit.isChecked())
@@ -990,6 +1028,7 @@ public final class NewerNewChunksHack extends Hack
 		mapaTrackingActiveLastTick = true;
 		
 		ensureTrackingWorld();
+		processPendingChunkPackets();
 		
 		long tick = MC.level.getGameTime();
 		if(activatedNow || tick != lastMapaRescanTick && tick % 40L == 0L)
@@ -1033,6 +1072,7 @@ public final class NewerNewChunksHack extends Hack
 			return;
 		if(MC.level != trackedLevel)
 		{
+			pendingChunkPackets.clear();
 			if(removeOnLeaveWorldOrChangeDimensions.isChecked())
 				clearChunkData();
 			trackedLevel = MC.level;

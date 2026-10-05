@@ -540,8 +540,10 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 			for(Entity entity : MC.level.entitiesForRendering())
 			{
 				if(entity instanceof ItemEntity ie)
-					items.add(ie);
-				else if(entity instanceof ExperienceOrb xo)
+				{
+					if(!WURST.getHax().itemHandlerHack.shouldHideItem(ie))
+						items.add(ie);
+				}else if(entity instanceof ExperienceOrb xo)
 					xpOrbs.add(xo);
 				else if(isBoatEntity(entity))
 					boats.add(entity);
@@ -557,8 +559,10 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		for(Entity entity : nearest)
 		{
 			if(entity instanceof ItemEntity ie)
-				items.add(ie);
-			else if(entity instanceof ExperienceOrb xo)
+			{
+				if(!WURST.getHax().itemHandlerHack.shouldHideItem(ie))
+					items.add(ie);
+			}else if(entity instanceof ExperienceOrb xo)
 				xpOrbs.add(xo);
 			else if(isBoatEntity(entity))
 				boats.add(entity);
