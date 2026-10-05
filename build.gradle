@@ -624,3 +624,29 @@ tasks.named("test") {
 tasks.named("check") {
     dependsOn tasks.named("lootPolicyRegressionTest")
 }
+
+// Verify PacketFirewall activation pauses without starting Minecraft.
+tasks.register("firewallActivationPausesRegressionTest", JavaExec) {
+    dependsOn tasks.named("testClasses")
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = "net.wurstclient.util.FirewallActivationPausesRegressionTest"
+}
+tasks.named("test") {
+    exclude "net/wurstclient/util/FirewallActivationPausesRegressionTest*"
+}
+tasks.named("check") {
+    dependsOn tasks.named("firewallActivationPausesRegressionTest")
+}
+
+// OfflineSettings protocol and gamerule checks run without a Minecraft client.
+tasks.register("offlineProtocolCompatRegressionTest", JavaExec) {
+    dependsOn tasks.named("testClasses")
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = "net.wurstclient.util.OfflineProtocolCompatRegressionTest"
+}
+tasks.named("test") {
+    exclude "net/wurstclient/util/OfflineProtocolCompatRegressionTest*"
+}
+tasks.named("check") {
+    dependsOn tasks.named("offlineProtocolCompatRegressionTest")
+}

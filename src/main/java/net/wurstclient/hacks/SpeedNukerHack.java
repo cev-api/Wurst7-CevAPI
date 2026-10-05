@@ -162,6 +162,8 @@ public final class SpeedNukerHack extends Hack
 	@Override
 	public void onUpdate()
 	{
+		if(!isEnabled())
+			return;
 		// Yield before, during, and immediately after AutoEat's hand/inventory
 		// interaction. The next update automatically resumes SpeedNuker.
 		if(WURST.getHax().autoEatHack.shouldPauseOtherActions())
@@ -307,6 +309,8 @@ public final class SpeedNukerHack extends Hack
 	@Override
 	public void onLeftClick(LeftClickEvent event)
 	{
+		if(!isEnabled())
+			return;
 		if(MC.hitResult instanceof BlockHitResult
 			&& (MiningStateCompat.controlsMining() || isManagingMouseBlock()))
 			event.cancel();
@@ -315,6 +319,8 @@ public final class SpeedNukerHack extends Hack
 	@Override
 	public void onHandleBlockBreaking(HandleBlockBreakingEvent event)
 	{
+		if(!isEnabled())
+			return;
 		// Vanilla mouse handling would otherwise abort or replace our target.
 		if(MiningStateCompat.controlsMining() || isManagingMouseBlock())
 			event.cancel();
