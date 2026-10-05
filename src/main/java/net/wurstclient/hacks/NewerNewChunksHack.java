@@ -911,7 +911,8 @@ public final class NewerNewChunksHack extends Hack
 					
 					if(isHashMapPalette(blockStates))
 					{
-						int bstatesSize = countDistinctSectionStates(section);
+						int bstatesSize = countDistinctSectionStates(section,
+							blockPaletteLength);
 						if(bstatesSize <= 1)
 							bstatesSize = blockPaletteLength;
 						if(bstatesSize < blockPaletteLength)
@@ -1249,15 +1250,11 @@ public final class NewerNewChunksHack extends Hack
 		for(int x = px - radius; x <= px + radius; x++)
 			for(int z = pz - radius; z <= pz + radius; z++)
 			{
-				if(!MC.level.hasChunk(x, z))
-					continue;
-				
-				LevelChunk chunk = MC.level.getChunkSource().getChunk(x, z,
-					ChunkStatus.FULL, false);
+				LevelChunk chunk = MC.level.getChunkSource().getChunkNow(x, z);
 				if(chunk == null || chunk.isEmpty())
 					continue;
 				
-				afterLoadChunk(x, z);
+				checkLoadedChunk(chunk);
 			}
 	}
 	
@@ -1510,13 +1507,14 @@ public final class NewerNewChunksHack extends Hack
 		BlockPos playerPos, double maxDist)
 	{
 		var boxes = new java.util.ArrayList<AABB>();
+		double maxDistSquared = maxDist * maxDist;
+		double playerX = playerPos.getX();
+		double playerZ = playerPos.getZ();
 		for(ChunkPos chunk : chunks)
 		{
-			double centerX = chunk.getMiddleBlockX();
-			double centerZ = chunk.getMiddleBlockZ();
-			if(playerPos.closerThan(
-				new BlockPos((int)centerX, playerPos.getY(), (int)centerZ),
-				maxDist))
+			double dx = chunk.getMiddleBlockX() - playerX;
+			double dz = chunk.getMiddleBlockZ() - playerZ;
+			if(dx * dx + dz * dz < maxDistSquared)
 			{
 				double minX = chunk.getMinBlockX();
 				double minZ = chunk.getMinBlockZ();
@@ -1918,27 +1916,45 @@ public final class NewerNewChunksHack extends Hack
 	{
 		int minY = Math.max(chunk.getMinY(), getClassificationMinY());
 		int maxY = chunk.getMaxY();
-		BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
-		for(int cx = 0; cx < 16; cx++)
-			for(int y = minY; y <= maxY; y++)
-				for(int cz = 0; cz < 16; cz++)
-				{
-					pos.set(chunk.getPos().getMinBlockX() + cx, y,
-						chunk.getPos().getMinBlockZ() + cz);
-					FluidState fluid = chunk.getFluidState(pos);
-					if(!fluid.isEmpty() && !fluid.isSource())
-						return true;
-				}
+		LevelChunkSection[] sections = chunk.getSections();
+		for(int sectionIndex =
+			0; sectionIndex < sections.length; sectionIndex++)
+		{
+			int sectionMinY = getSectionMinY(chunk, sectionIndex);
+			int localMinY = Math.max(0, minY - sectionMinY);
+			int localMaxY = Math.min(15, maxY - sectionMinY);
+			if(localMinY > localMaxY)
+				continue;
+			LevelChunkSection section = sections[sectionIndex];
+			if(section == null || section.hasOnlyAir())
+				continue;
+			for(int x = 0; x < 16; x++)
+				for(int y = localMinY; y <= localMaxY; y++)
+					for(int z = 0; z < 16; z++)
+					{
+						FluidState fluid =
+							section.getBlockState(x, y, z).getFluidState();
+						if(!fluid.isEmpty() && !fluid.isSource())
+							return true;
+					}
+		}
 		return false;
 	}
 	
-	private int countDistinctSectionStates(LevelChunkSection section)
+	private int countDistinctSectionStates(LevelChunkSection section,
+		int stopAt)
 	{
-		HashSet<BlockState> distinct = new HashSet<>();
+		if(stopAt <= 1)
+			return stopAt;
+		HashSet<BlockState> distinct = new HashSet<>(stopAt);
 		for(int x = 0; x < 16; x++)
 			for(int y = 0; y < 16; y++)
 				for(int z = 0; z < 16; z++)
+				{
 					distinct.add(section.getBlockState(x, y, z));
+					if(distinct.size() >= stopAt)
+						return stopAt;
+				}
 		return distinct.size();
 	}
 	
