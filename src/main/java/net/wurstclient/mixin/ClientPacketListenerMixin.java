@@ -63,6 +63,15 @@ public abstract class ClientPacketListenerMixin
 	extends ClientCommonPacketListenerImpl
 	implements TickablePacketListener, ClientGamePacketListener
 {
+	@Inject(method = "handleTakeItemEntity", at = @At("HEAD"))
+	private void onSelectedItemPickup(
+		net.minecraft.network.protocol.game.ClientboundTakeItemEntityPacket packet,
+		CallbackInfo ci)
+	{
+		if(WurstClient.MC.isSameThread())
+			WurstClient.INSTANCE.getHax().itemHandlerHack.onItemPickup(packet);
+	}
+	
 	@Inject(
 		method = "handleCommandSuggestions(Lnet/minecraft/network/protocol/game/ClientboundCommandSuggestionsPacket;)V",
 		at = @At("TAIL"))

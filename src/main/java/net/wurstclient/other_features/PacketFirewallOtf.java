@@ -83,6 +83,12 @@ public final class PacketFirewallOtf extends OtherFeature
 	private static final long SETBACK_LOOKBACK_MS = 1500;
 	private static final String HACK_PACKAGE_PREFIX = "net.wurstclient.hacks.";
 	
+	private final CheckboxSetting autoEnableAntiCheat = new CheckboxSetting(
+		"Auto enable on anticheat",
+		"Enable PacketFirewall when the server observer identifies a known anticheat and announce it in chat.",
+		false);
+	private String autoEnabledServer;
+	
 	private boolean firewallEnabled;
 	
 	private final CheckboxSetting dropInvalidSetting =
@@ -144,6 +150,7 @@ public final class PacketFirewallOtf extends OtherFeature
 		super("PacketFirewall",
 			"description.wurst.other_feature.packet_firewall");
 		
+		addSetting(autoEnableAntiCheat);
 		addSetting(dropInvalidSetting);
 		addSetting(clampPitchSetting);
 		addSetting(wrapYawSetting);
@@ -292,6 +299,26 @@ public final class PacketFirewallOtf extends OtherFeature
 	@Override
 	public void onUpdate()
 	{
+		if(MC.player == null || MC.level == null)
+			autoEnabledServer = null;
+		else if(autoEnableAntiCheat.isChecked() && WURST.isEnabled())
+		{
+			var observer = WURST.getServerObserver();
+			String server = observer.getServerAddress();
+			String detected = observer.guessAntiCheat(server);
+			if(detected != null && !"Unknown".equalsIgnoreCase(detected)
+				&& !java.util.Objects.equals(server, autoEnabledServer))
+			{
+				autoEnabledServer = server;
+				if(!firewallEnabled)
+				{
+					firewallEnabled = true;
+					ChatUtils.message(
+						"PacketFirewall: automatically enabled because "
+							+ detected + " was detected.");
+				}
+			}
+		}
 		if(!isFirewallEnabled())
 			restoreSuppressedHacks();
 		

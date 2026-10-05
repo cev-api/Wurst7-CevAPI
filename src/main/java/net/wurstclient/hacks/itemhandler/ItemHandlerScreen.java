@@ -47,12 +47,18 @@ public class ItemHandlerScreen extends Screen
 	@Override
 	protected void init()
 	{
-		int top = 40;
+		int top = 56;
 		int listHeight = height - 96;
 		
 		listGui =
 			new ListGui(Minecraft.getInstance(), width, listHeight, top, 36);
 		addWidget(listGui);
+		addRenderableWidget(Button
+			.builder(Component.literal("Sort: " + hack.getListSort()), b -> {
+				hack.cycleListSort();
+				b.setMessage(Component.literal("Sort: " + hack.getListSort()));
+				listGui.reloadFromHack();
+			}).bounds(width / 2 - 80, 30, 160, 20).build());
 		
 		int gap = 10;
 		int wIgnore = 140, wReject = 140, wPick = 140, wTrace = 140,
@@ -105,18 +111,8 @@ public class ItemHandlerScreen extends Screen
 		if(selected.isEmpty())
 			return;
 		
-		java.util.Set<String> desired = new java.util.LinkedHashSet<>();
-		for(ListGui.Entry e : selected)
-		{
-			String id = e.itemId();
-			if(id != null)
-				desired.add(id);
-		}
-		if(desired.isEmpty())
-			return;
-		hack.beginPickFilterSession(desired);
-		ChatUtils
-			.message("Pick filter: drop non-targets until selected is picked.");
+		hack.beginSelectedPickup(
+			selected.stream().flatMap(e -> e.groundItems().stream()).toList());
 		onClose();
 	}
 	
@@ -280,7 +276,8 @@ public class ItemHandlerScreen extends Screen
 				if(!isXp)
 				{
 					String traceId = gi.traceId();
-					String key = baseId;
+					String key =
+						baseId + "|" + gi.stack().getComponents().toString();
 					String label = gi.sourceLabel();
 					if(label != null && !label.isBlank())
 						key = key + "|" + label;
@@ -356,16 +353,34 @@ public class ItemHandlerScreen extends Screen
 				a.isOwnedByMe = label.isOwnedByMe();
 				groups.put(traceId, a);
 			}
-			// Sort: owned-by-me first, then by closest distance
-			groups.values().stream()
-				.sorted(java.util.Comparator
-					.comparingInt((Aggregated a) -> a.isOwnedByMe ? 0 : 1)
-					.thenComparingDouble(Aggregated::closestDistance))
+			// Use the persistent sort mode without changing selection
+			// identities.
+			groups.values().stream().sorted(sortComparator())
 				.map(a -> new Entry(this, a)).forEach(this::addEntry);
 			if(prev != null)
 				restoreState(prev);
 			else
 				ensureSelection();
+		}
+		
+		private java.util.Comparator<Aggregated> sortComparator()
+		{
+			java.util.Comparator<Aggregated> distance = java.util.Comparator
+				.comparingDouble(Aggregated::closestDistance);
+			return switch(hack.getListSort())
+			{
+				case DISTANCE -> distance;
+				case VALUE -> java.util.Comparator
+					.comparingInt(
+						(Aggregated a) -> (hack.isSpecialByItemEsp(a.rep)
+							? 100000000 : 0)
+							+ net.wurstclient.util.LootItemPolicy.value(a.rep))
+					.reversed().thenComparing(distance);
+				case TYPE -> java.util.Comparator.comparing(
+					(Aggregated a) -> net.wurstclient.util.LootItemPolicy
+						.type(a.rep))
+					.thenComparing(distance);
+			};
 		}
 		
 		@Override

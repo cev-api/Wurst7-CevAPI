@@ -611,3 +611,16 @@ tasks.named("check") {
 		systemProperty "joml.nounsafe", "true"
 	}
 }
+
+// Loot decisions and selected-pickup provenance can be checked without a GPU.
+tasks.register("lootPolicyRegressionTest", JavaExec) {
+    dependsOn tasks.named("testClasses")
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = "net.wurstclient.util.LootPolicyRegressionTest"
+}
+tasks.named("test") {
+    exclude "net/wurstclient/util/LootPolicyRegressionTest*"
+}
+tasks.named("check") {
+    dependsOn tasks.named("lootPolicyRegressionTest")
+}
