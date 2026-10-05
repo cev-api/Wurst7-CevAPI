@@ -38,6 +38,16 @@ public enum HackPerformanceTracker
 		GUI
 	}
 	
+	public static void reset()
+	{
+		synchronized(LOCK)
+		{
+			STATS.clear();
+			windowStartNs = System.nanoTime();
+			hasCompletedWindow = false;
+		}
+	}
+	
 	public static boolean shouldProfile()
 	{
 		WurstClient wurst = WurstClient.INSTANCE;

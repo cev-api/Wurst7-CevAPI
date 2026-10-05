@@ -54,6 +54,14 @@ public final class HackPerformanceOverlay
 		return INSTANCE;
 	}
 	
+	public void resetStats()
+	{
+		graphStart = 0;
+		graphSize = 0;
+		lastGraphSampleMs = 0;
+		HackPerformanceTracker.reset();
+	}
+	
 	public void render(GuiGraphics graphics)
 	{
 		PerformanceOverlayOtf otf = getSettings();

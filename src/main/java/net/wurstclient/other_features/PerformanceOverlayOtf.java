@@ -11,6 +11,7 @@ import net.wurstclient.Category;
 
 import net.wurstclient.SearchTags;
 import net.wurstclient.other_feature.OtherFeature;
+import net.wurstclient.settings.ButtonSetting;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.EnumSetting;
 import net.wurstclient.settings.SliderSetting;
@@ -43,6 +44,10 @@ public final class PerformanceOverlayOtf extends OtherFeature
 		0, -2000, 2000, 1, ValueDisplay.INTEGER);
 	private final SliderSetting hudOffsetY = new SliderSetting("HUD Y offset",
 		0, -2000, 2000, 1, ValueDisplay.INTEGER);
+	private final ButtonSetting resetStats = new ButtonSetting(
+		"Reset performance stats",
+		"Clears collected timings and graph history.",
+		net.wurstclient.util.HackPerformanceOverlay.getInstance()::resetStats);
 	
 	public PerformanceOverlayOtf()
 	{
@@ -60,6 +65,7 @@ public final class PerformanceOverlayOtf extends OtherFeature
 		addSetting(backgroundOpacity);
 		addSetting(hudOffsetX);
 		addSetting(hudOffsetY);
+		addSetting(resetStats);
 	}
 	
 	@Override
