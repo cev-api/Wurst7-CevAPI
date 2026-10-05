@@ -621,6 +621,12 @@ public final class MapaHack extends Hack
 		
 		double angle = rotationAngleRad(cfg.rotateWithPlayer,
 			MC.player.getYRot(), cfg.invertRotation);
+		double zoomBlocks =
+			MapRenderService.zoomToBlocksPerPixel(cfg.minimapZoom);
+		double playerX = MC.player.getX();
+		double playerZ = MC.player.getZ();
+		double centerX = cfg.minimapPosX + cfg.minimapSize / 2.0;
+		double centerY = cfg.minimapPosY + cfg.minimapSize / 2.0;
 		float pivotX = cfg.minimapPosX + cfg.minimapSize / 2.0f;
 		float pivotY = cfg.minimapPosY + cfg.minimapSize / 2.0f;
 		context.pose().pushMatrix();
@@ -629,14 +635,18 @@ public final class MapaHack extends Hack
 		
 		for(ChunkPos chunk : chunks)
 		{
-			double[] min = projectPointFixed(cfg, chunk.getMinBlockX(),
-				chunk.getMinBlockZ());
-			double[] max = projectPointFixed(cfg, chunk.getMaxBlockX() + 1,
-				chunk.getMaxBlockZ() + 1);
-			int x1 = (int)Math.floor(Math.min(min[0], max[0]));
-			int y1 = (int)Math.floor(Math.min(min[1], max[1]));
-			int x2 = (int)Math.ceil(Math.max(min[0], max[0]));
-			int y2 = (int)Math.ceil(Math.max(min[1], max[1]));
+			double minX =
+				centerX + ((double)chunk.getMinBlockX() - playerX) / zoomBlocks;
+			double minY =
+				centerY + ((double)chunk.getMinBlockZ() - playerZ) / zoomBlocks;
+			double maxX = centerX
+				+ ((double)(chunk.getMaxBlockX() + 1) - playerX) / zoomBlocks;
+			double maxY = centerY
+				+ ((double)(chunk.getMaxBlockZ() + 1) - playerZ) / zoomBlocks;
+			int x1 = (int)Math.floor(Math.min(minX, maxX));
+			int y1 = (int)Math.floor(Math.min(minY, maxY));
+			int x2 = (int)Math.ceil(Math.max(minX, maxX));
+			int y2 = (int)Math.ceil(Math.max(minY, maxY));
 			context.fill(x1, y1, x2, y2, color);
 		}
 		context.pose().popMatrix();
@@ -656,18 +666,6 @@ public final class MapaHack extends Hack
 		double rz = dx * sin + dz * cos;
 		double px = cfg.minimapPosX + cfg.minimapSize / 2.0 + rx / zoomBlocks;
 		double py = cfg.minimapPosY + cfg.minimapSize / 2.0 + rz / zoomBlocks;
-		return new double[]{px, py};
-	}
-	
-	private double[] projectPointFixed(XMapConfig cfg, double worldX,
-		double worldZ)
-	{
-		double zoomBlocks =
-			MapRenderService.zoomToBlocksPerPixel(cfg.minimapZoom);
-		double dx = worldX - MC.player.getX();
-		double dz = worldZ - MC.player.getZ();
-		double px = cfg.minimapPosX + cfg.minimapSize / 2.0 + dx / zoomBlocks;
-		double py = cfg.minimapPosY + cfg.minimapSize / 2.0 + dz / zoomBlocks;
 		return new double[]{px, py};
 	}
 	
