@@ -103,12 +103,16 @@ public final class FastBreakHack extends Hack
 	@Override
 	public void onUpdate()
 	{
+		if(!isEnabled())
+			return;
 		MC.gameMode.destroyDelay = 0;
 	}
 	
 	@Override
 	public void onBlockBreakingProgress(BlockBreakingProgressEvent event)
 	{
+		if(!isEnabled())
+			return;
 		if(legitMode.isChecked() || MiningStateCompat.controlsMining())
 			return;
 		

@@ -157,6 +157,11 @@ public abstract class Hack extends Feature
 		if(this.enabled == enabled)
 			return;
 		
+		if(enabled && WURST.getOtfs() != null
+			&& WURST.getOtfs().packetFirewallOtf != null
+			&& WURST.getOtfs().packetFirewallOtf.pauseRequestedEnable(this))
+			return;
+		
 		TooManyHaxHack tooManyHax = WURST.getHax().tooManyHaxHack;
 		if(enabled && tooManyHax.shouldBlockStarting(this))
 			return;

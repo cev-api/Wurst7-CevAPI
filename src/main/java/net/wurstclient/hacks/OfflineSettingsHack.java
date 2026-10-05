@@ -63,6 +63,7 @@ import net.wurstclient.settings.TextFieldSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
 import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.LastServerRememberer;
+import net.wurstclient.util.OfflineProtocolCompat;
 import net.wurstclient.util.text.WText;
 
 @SearchTags({"offlinesettings", "offline reconnect", "random name",
@@ -310,16 +311,46 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 	// Disable command feedback / admin logs
 	private final CheckboxSetting disableCommandFeedback =
 		new CheckboxSetting("Disable command feedback",
-			WText.literal(
-				"Temporarily disables sendCommandFeedback gamerule before "
-					+ "sending any OP commands from Wurst."),
-			true);
+			WText.literal("Disable command feedback before OP commands. "
+				+ "Untick to send the enable command to the current server."),
+			true)
+		{
+			private boolean previous = true;
+			
+			@Override
+			public void update()
+			{
+				super.update();
+				boolean disabled = isChecked();
+				if(previous == disabled)
+					return;
+				previous = disabled;
+				sendOpGamerule(true, disabled);
+			}
+		};
+	
 	private final CheckboxSetting disableAdminLogs =
 		new CheckboxSetting("Disable admin logs",
-			WText.literal(
-				"Temporarily disables logAdminCommands gamerule before "
-					+ "sending any OP commands from Wurst."),
-			true);
+			WText.literal("Disable admin logs before OP commands. "
+				+ "Untick to send the enable command to the current server."),
+			true)
+		{
+			private boolean previous = true;
+			
+			@Override
+			public void update()
+			{
+				super.update();
+				boolean disabled = isChecked();
+				if(previous == disabled)
+					return;
+				previous = disabled;
+				sendOpGamerule(false, disabled);
+			}
+		};
+	
+	private final Map<String, Object> serverProtocolTargets =
+		new ConcurrentHashMap<>();
 	
 	private final Map<String, Boolean> crackedServers =
 		new ConcurrentHashMap<>();
@@ -631,6 +662,14 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 	private void startConnection(Minecraft client, Screen prevScreen,
 		ServerData server)
 	{
+		rememberServerProtocol(client);
+		Object target = getServerProtocolTarget(server);
+		if(!OfflineProtocolCompat.preserveServerVersion(server, target))
+		{
+			sendLogoutError(
+				"Could not preserve ViaFabricPlus's server version. Re-select the server version before reconnecting.");
+			return;
+		}
 		ServerAddress address = ServerAddress.parseString(server.ip);
 		Screen previous = resolvePrevScreen(prevScreen, client);
 		ConnectScreen.startConnecting(previous, client, address, server, false,
@@ -784,6 +823,7 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 			client.getUser() != null ? client.getUser().getName() : "";
 		
 		ServerData server = getCurrentOrLastServer();
+		rememberServerProtocol(client);
 		
 		for(PlayerInfo entry : player.connection.getOnlinePlayers())
 		{
@@ -1119,6 +1159,35 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 		return LastServerRememberer.getLastServer();
 	}
 	
+	private void rememberServerProtocol(Minecraft client)
+	{
+		if(client == null || client.getConnection() == null
+			|| client.getCurrentServer() == null)
+			return;
+		ServerData server = client.getCurrentServer();
+		Object target = OfflineProtocolCompat
+			.targetVersion(client.getConnection().getConnection(), server);
+		if(target != null)
+			serverProtocolTargets.put(serverKey(server), target);
+		else
+			serverProtocolTargets.remove(serverKey(server));
+	}
+	
+	private Object getServerProtocolTarget(ServerData server)
+	{
+		Object saved = serverProtocolTargets.get(serverKey(server));
+		return saved != null ? saved
+			: OfflineProtocolCompat.targetVersion(null, server);
+	}
+	
+	private int getServerProtocol(ServerData server)
+	{
+		Integer protocol =
+			OfflineProtocolCompat.protocol(getServerProtocolTarget(server));
+		return protocol != null ? protocol
+			: SharedConstants.getCurrentVersion().protocolVersion();
+	}
+	
 	private String serverKey(ServerData server)
 	{
 		if(server == null || server.ip == null)
@@ -1191,7 +1260,8 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 		triggerLogoutProbe(otherPlayerName.getSelected(), null, false, false);
 	}
 	
-	private void runLogoutProbe(String host, int port, String username)
+	private void runLogoutProbe(String host, int port, String username,
+		int protocol)
 	{
 		try(Socket socket = new Socket())
 		{
@@ -1201,7 +1271,8 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 			DataInputStream input =
 				new DataInputStream(socket.getInputStream());
 			OutputStream output = socket.getOutputStream();
-			byte[] handshakePayload = buildHandshakePayload(host, port);
+			byte[] handshakePayload =
+				OfflineProtocolCompat.loginHandshake(host, port, protocol);
 			byte[] loginPayload = buildLoginPayload(username);
 			sendProbePacket(output, 0x00, handshakePayload);
 			sendProbePacket(output, 0x00, loginPayload);
@@ -1303,10 +1374,12 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 				port, username);
 		sendLogoutMessage(message);
 		
+		rememberServerProtocol(Minecraft.getInstance());
+		final int protocol = getServerProtocol(server);
 		Thread thread = new Thread(() -> {
 			try
 			{
-				runLogoutProbe(host, port, username);
+				runLogoutProbe(host, port, username, protocol);
 			}finally
 			{
 				logoutProbeRunning.set(false);
@@ -1340,18 +1413,6 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 		if(read < dataLength)
 			return Arrays.copyOf(buffer, read);
 		return buffer;
-	}
-	
-	private byte[] buildHandshakePayload(String host, int port)
-	{
-		ByteArrayOutputStream payload = new ByteArrayOutputStream();
-		payload.writeBytes(encodeVarInt(
-			SharedConstants.getCurrentVersion().protocolVersion()));
-		writeString(payload, host);
-		payload.write((port >> 8) & 0xFF);
-		payload.write(port & 0xFF);
-		payload.writeBytes(encodeVarInt(2));
-		return payload.toByteArray();
 	}
 	
 	private byte[] buildLoginPayload(String username)
@@ -1708,42 +1769,24 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 	
 	private void sendOpGamerules()
 	{
-		if(!disableCommandFeedback.isChecked())
-			sendOpGameruleCommandFeedback();
-		if(!disableAdminLogs.isChecked())
-			sendOpGameruleAdminLogs();
+		if(disableCommandFeedback.isChecked())
+			sendOpGamerule(true, true);
+		if(disableAdminLogs.isChecked())
+			sendOpGamerule(false, true);
 	}
 	
-	private void sendOpGameruleCommandFeedback()
+	private void sendOpGamerule(boolean feedback, boolean disabled)
 	{
 		Minecraft client = Minecraft.getInstance();
 		if(client == null || client.getConnection() == null)
 			return;
-		
-		if(isVersionLessThan(1, 21, 1))
-			client.getConnection()
-				.sendCommand("gamerule sendCommandFeedback false");
-		else
-			client.getConnection()
-				.sendCommand("gamerule send_command_feedback false");
-		
-		sendLogoutMessage("Disabled command feedback.");
-	}
-	
-	private void sendOpGameruleAdminLogs()
-	{
-		Minecraft client = Minecraft.getInstance();
-		if(client == null || client.getConnection() == null)
-			return;
-		
-		if(isVersionLessThan(1, 21, 1))
-			client.getConnection()
-				.sendCommand("gamerule logAdminCommands false");
-		else
-			client.getConnection()
-				.sendCommand("gamerule log_admin_commands false");
-		
-		sendLogoutMessage("Disabled admin logs.");
+		rememberServerProtocol(client);
+		client.getConnection()
+			.sendCommand(OfflineProtocolCompat.gameruleCommand(
+				getServerProtocol(getCurrentOrLastServer()), feedback,
+				disabled));
+		sendLogoutMessage("Requested " + (disabled ? "disabling " : "enabling ")
+			+ (feedback ? "command feedback." : "admin logs."));
 	}
 	
 	private void runOpCommand(String command)
@@ -1772,16 +1815,4 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 		sendLogoutMessage("Ran OP command: " + command);
 	}
 	
-	private static boolean isVersionLessThan(int major, int minor, int patch)
-	{
-		try
-		{
-			int protocol =
-				SharedConstants.getCurrentVersion().protocolVersion();
-			return protocol < 768;
-		}catch(Throwable t)
-		{
-			return false;
-		}
-	}
 }
