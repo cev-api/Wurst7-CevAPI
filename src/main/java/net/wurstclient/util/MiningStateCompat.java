@@ -120,6 +120,11 @@ public final class MiningStateCompat
 			return new MiningReadiness(-1, 0);
 		float progress = Blocks.OBSIDIAN.defaultBlockState()
 			.getDestroyProgress(player, level, player.blockPosition());
+		// Vanilla divides mining speed by five while airborne. Creative flight
+		// should not make this server-readiness countdown jump around, so undo
+		// that penalty only while the player is actively flying.
+		if(player.getAbilities().flying)
+			progress *= 5;
 		return MiningReadiness.forProgress(progress, serverAge.lowerBound());
 	}
 	
