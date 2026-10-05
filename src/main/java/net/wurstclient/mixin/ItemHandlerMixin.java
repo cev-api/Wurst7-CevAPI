@@ -25,15 +25,17 @@ public class ItemHandlerMixin
 		cancellable = true)
 	private void onPlayerTouch(Player player, CallbackInfo ci)
 	{
-		ItemHandlerHack hack = WurstClient.INSTANCE.getHax().itemHandlerHack;
-		if(hack == null)
-			return;
-		
-		if(!hack.isEnabled())
-			return;
-		
 		ItemEntity self = (ItemEntity)(Object)this;
-		if(!hack.shouldAllowPickup(self))
+		if(player != WurstClient.MC.player)
+			return;
+		ItemHandlerHack hack = WurstClient.INSTANCE.getHax().itemHandlerHack;
+		if(hack != null && hack.isEnabled())
+		{
+			if(!hack.shouldAllowPickup(self))
+				ci.cancel();
+			return;
+		}
+		if(!WurstClient.INSTANCE.getHax().autoLootHack.shouldAllowPickup(self))
 			ci.cancel();
 	}
 }

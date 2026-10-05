@@ -77,6 +77,8 @@ public final class AutoDropHack extends Hack implements UpdateListener
 	@Override
 	public void onUpdate()
 	{
+		if(WURST.getHax().itemHandlerHack.isPickFilterActive())
+			return;
 		// check screen
 		if(MC.screen instanceof AbstractContainerScreen
 			&& !(MC.screen instanceof InventoryScreen))
