@@ -265,6 +265,12 @@ public final class WebhookAlertHack extends Hack
 				+ localPlayerStatus() + "\n" + worldStatus());
 	}
 	
+	public boolean shouldAlertForChunk(boolean old)
+	{
+		return isEnabled() && (old ? oldChunkDetection.isChecked()
+			: newChunkDetection.isChecked());
+	}
+	
 	public void onChunkDetected(String type, ChunkPos chunkPos)
 	{
 		if(!isEnabled() || chunkPos == null)
@@ -272,9 +278,7 @@ public final class WebhookAlertHack extends Hack
 		
 		boolean isOld =
 			type != null && type.toLowerCase(Locale.ROOT).contains("old");
-		if(isOld && !oldChunkDetection.isChecked())
-			return;
-		if(!isOld && !newChunkDetection.isChecked())
+		if(!shouldAlertForChunk(isOld))
 			return;
 		
 		int x = chunkPos.getMiddleBlockX();

@@ -11,11 +11,11 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 import java.io.IOException;
 import java.io.BufferedReader;
-import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -24,6 +24,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import net.minecraft.client.multiplayer.ClientLevel;
@@ -42,6 +43,7 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.HashMapPalette;
+import net.minecraft.world.level.chunk.Palette;
 import net.minecraft.world.level.chunk.PalettedContainer;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
 import net.minecraft.world.level.chunk.LevelChunk;
@@ -52,6 +54,7 @@ import net.wurstclient.Category;
 import net.wurstclient.events.RenderListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
+import net.wurstclient.hacks.newchunks.ChunkOverlayGeometry;
 import net.wurstclient.settings.ButtonSetting;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ColorSetting;
@@ -60,6 +63,7 @@ import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
 import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.RenderUtils;
+import net.wurstclient.util.chunk.ChunkPaletteUtils;
 
 public final class NewerNewChunksHack extends Hack
 	implements UpdateListener, RenderListener
@@ -115,10 +119,6 @@ public final class NewerNewChunksHack extends Hack
 	
 	private static final Set<Block> NEW_NETHER_BLOCKS = createNewNetherBlocks();
 	
-	private static final Field PAL_CONTAINER_DATA_FIELD =
-		getField(PalettedContainer.class, "data");
-	private static final Field PAL_DATA_PALETTE_FIELD = getPaletteField();
-	private static final Class<?> PAL_STRATEGY_CLASS = getPalStrategyClass();
 	private static final Pattern CHUNK_COORD_PATTERN =
 		Pattern.compile("-?\\d+");
 	
@@ -272,7 +272,7 @@ public final class NewerNewChunksHack extends Hack
 		ConcurrentHashMap.newKeySet();
 	
 	// Region-bucket indices (32x32 chunk tiles) for O(visible) queries
-	private static final int REGION_SHIFT = 5; // 32x32 tiles
+	private static final int REGION_SHIFT = ChunkOverlayGeometry.REGION_SHIFT;
 	private static final int WEBHOOK_MIN_THICKNESS_CHUNKS = 6;
 	private final Map<Long, Set<ChunkPos>> idxNew = new ConcurrentHashMap<>();
 	private final Map<Long, Set<ChunkPos>> idxOld = new ConcurrentHashMap<>();
@@ -292,6 +292,8 @@ public final class NewerNewChunksHack extends Hack
 	
 	private String serverKey = "unknown";
 	private String dimensionKey = "unknown";
+	private Path initializedDataDir;
+	private final List<AABB> renderScratch = new ArrayList<>();
 	private boolean loadedThisSession;
 	private int autoReloadTicks;
 	private long lastMapaRescanTick = Long.MIN_VALUE;
@@ -373,132 +375,6 @@ public final class NewerNewChunksHack extends Hack
 		return Collections.unmodifiableSet(blocks);
 	}
 	
-	private static Field getField(Class<?> owner, String name)
-	{
-		try
-		{
-			Field field = owner.getDeclaredField(name);
-			field.setAccessible(true);
-			return field;
-		}catch(ReflectiveOperationException e)
-		{
-			return null;
-		}
-	}
-	
-	private static Field getPaletteField()
-	{
-		try
-		{
-			Class<?> dataClass = Class.forName(
-				"net.minecraft.world.level.chunk.PalettedContainer$Data");
-			Field field = dataClass.getDeclaredField("palette");
-			field.setAccessible(true);
-			return field;
-		}catch(ReflectiveOperationException e)
-		{
-			return null;
-		}
-	}
-	
-	private static Class<?> getPalStrategyClass()
-	{
-		try
-		{
-			return Class.forName(
-				"net.minecraft.world.level.chunk.PalettedContainer$Strategy");
-		}catch(ClassNotFoundException e)
-		{
-			return null;
-		}
-	}
-	
-	private static Object getPalStrategy(String name)
-	{
-		if(PAL_STRATEGY_CLASS == null)
-			return null;
-		
-		try
-		{
-			Field field = PAL_STRATEGY_CLASS.getDeclaredField(name);
-			field.setAccessible(true);
-			return field.get(null);
-		}catch(ReflectiveOperationException e)
-		{
-			return null;
-		}
-	}
-	
-	@SuppressWarnings("unchecked")
-	private static <T> List<T> getRawPaletteEntries(Object paletteContainer)
-	{
-		if(paletteContainer == null || PAL_CONTAINER_DATA_FIELD == null
-			|| PAL_DATA_PALETTE_FIELD == null)
-			return List.of();
-		
-		try
-		{
-			Object data = PAL_CONTAINER_DATA_FIELD.get(paletteContainer);
-			Object palette = PAL_DATA_PALETTE_FIELD.get(data);
-			if(palette == null)
-				return List.of();
-			
-			int size = getPaletteSize(palette);
-			if(size <= 0)
-				return List.of();
-			
-			var entries = new java.util.ArrayList<T>(size);
-			for(int i = 0; i < size; i++)
-			{
-				T entry = (T)getPaletteEntry(palette, i);
-				if(entry != null)
-					entries.add(entry);
-			}
-			return entries;
-		}catch(ReflectiveOperationException e)
-		{
-			return List.of();
-		}
-	}
-	
-	private static int getPaletteSize(Object palette)
-	{
-		try
-		{
-			return ((Number)palette.getClass().getMethod("getSize")
-				.invoke(palette)).intValue();
-		}catch(ReflectiveOperationException ignored)
-		{
-			try
-			{
-				return ((Number)palette.getClass().getMethod("size")
-					.invoke(palette)).intValue();
-			}catch(ReflectiveOperationException ignoredToo)
-			{
-				return 0;
-			}
-		}
-	}
-	
-	private static Object getPaletteEntry(Object palette, int index)
-	{
-		try
-		{
-			return palette.getClass().getMethod("get", int.class)
-				.invoke(palette, index);
-		}catch(ReflectiveOperationException ignored)
-		{
-			try
-			{
-				return palette.getClass().getMethod("valueFor", int.class)
-					.invoke(palette, index);
-			}catch(ReflectiveOperationException ignoredToo)
-			{
-				return null;
-			}
-		}
-	}
-	
 	private static final class Paths
 	{
 		private static final Path NewChunkData = Path.of("NewChunkData.txt");
@@ -564,6 +440,7 @@ public final class NewerNewChunksHack extends Hack
 	protected void onEnable()
 	{
 		resolveWorldKeys();
+		initializedDataDir = null;
 		ensureDataFiles();
 		if(loadChunkData.isChecked())
 		{
@@ -693,52 +570,24 @@ public final class NewerNewChunksHack extends Hack
 		double maxDist = renderDistance.getValue() * 16;
 		BlockPos playerPos = MC.player.blockPosition();
 		
-		ChunkPos pc = MC.player.chunkPosition();
-		int visR = (int)Math.ceil(maxDist / 16.0);
-		Set<ChunkPos> visOld = getOldChunksInRange(pc.x(), pc.z(), visR);
-		Set<ChunkPos> visNew = getNewChunksInRange(pc.x(), pc.z(), visR);
-		Set<ChunkPos> visTick =
-			getBlockExploitChunksInRange(pc.x(), pc.z(), visR);
-		Set<ChunkPos> visBeing =
-			getBeingUpdatedChunksInRange(pc.x(), pc.z(), visR);
-		Set<ChunkPos> visOldGen =
-			getOldGenerationChunksInRange(pc.x(), pc.z(), visR);
-		List<AABB> oldBoxes = collectBoxes(visOld, y, playerPos, maxDist);
-		List<AABB> newBoxes = collectBoxes(visNew, y, playerPos, maxDist);
-		List<AABB> tickBoxes = collectBoxes(visTick, y, playerPos, maxDist);
-		List<AABB> beingUpdatedBoxes =
-			collectBoxes(visBeing, y, playerPos, maxDist);
-		List<AABB> oldVersionBoxes =
-			collectBoxes(visOldGen, y, playerPos, maxDist);
-		
-		if(!oldBoxes.isEmpty())
+		SimulationSonarHack sonar = WURST.getHax().simulationSonarHack;
+		Predicate<ChunkPos> excluded =
+			sonar.isEnabled() ? sonar::isChunkOverridden : null;
+		try
 		{
-			renderBoxes(matrices, oldBoxes, oldChunksSideColor.getColorI(40),
+			renderIndexedBoxes(matrices, idxOld, y, playerPos, maxDist,
+				excluded, oldChunksSideColor.getColorI(40),
 				oldChunksLineColor.getColorI(80));
-		}
-		
-		if(!newBoxes.isEmpty())
-		{
-			renderBoxes(matrices, newBoxes, newChunksSideColor.getColorI(95),
+			renderIndexedBoxes(matrices, idxNew, y, playerPos, maxDist,
+				excluded, newChunksSideColor.getColorI(95),
 				newChunksLineColor.getColorI(205));
-		}
-		
-		if(!beingUpdatedBoxes.isEmpty())
-		{
-			renderBoxes(matrices, beingUpdatedBoxes,
-				beingUpdatedChunksSideColor.getColorI(60),
+			renderIndexedBoxes(matrices, idxBeingUpdated, y, playerPos, maxDist,
+				excluded, beingUpdatedChunksSideColor.getColorI(60),
 				beingUpdatedChunksLineColor.getColorI(100));
-		}
-		
-		if(!oldVersionBoxes.isEmpty())
-		{
-			renderBoxes(matrices, oldVersionBoxes,
-				oldVersionChunksSideColor.getColorI(40),
+			renderIndexedBoxes(matrices, idxOldGen, y, playerPos, maxDist,
+				excluded, oldVersionChunksSideColor.getColorI(40),
 				oldVersionChunksLineColor.getColorI(80));
-		}
-		
-		if(!tickBoxes.isEmpty())
-		{
+			
 			int side;
 			int line;
 			DetectMode mode = detectMode.getSelected();
@@ -756,7 +605,13 @@ public final class NewerNewChunksHack extends Hack
 				side = blockExploitChunksSideColor.getColorI(75);
 				line = blockExploitChunksLineColor.getColorI(170);
 			}
-			renderBoxes(matrices, tickBoxes, side, line);
+			renderIndexedBoxes(matrices, idxTick, y, playerPos, maxDist,
+				excluded, side, line);
+		}finally
+		{
+			// RenderUtils consumes each list synchronously. Retain only
+			// capacity.
+			renderScratch.clear();
 		}
 	}
 	
@@ -833,15 +688,19 @@ public final class NewerNewChunksHack extends Hack
 		boolean chunkIsBeingUpdated = false;
 		boolean hasUsableEvidence = false;
 		LevelChunkSection[] sections = chunk.getSections();
+		boolean overworld = isOverworld();
+		boolean nether = isNether();
+		boolean end = isEnd();
+		boolean detectBeingUpdated = beingUpdatedDetector.isChecked();
+		int minY = getClassificationMinY();
 		
-		if(overworldOldChunksDetector.isChecked() && isOverworld())
+		if(overworldOldChunksDetector.isChecked() && overworld)
 			isOldGeneration = isOverworldOldGeneration(chunk);
 		
-		if(!isOldGeneration && netherOldChunksDetector.isChecked()
-			&& isNether())
+		if(!isOldGeneration && netherOldChunksDetector.isChecked() && nether)
 			isOldGeneration = isNetherOldGeneration(chunk);
 		
-		if(!isOldGeneration && endOldChunksDetector.isChecked() && isEnd())
+		if(!isOldGeneration && endOldChunksDetector.isChecked() && end)
 			isOldGeneration = hasEndBiomeFromPalette(sections);
 		
 		if(paletteExploit.isChecked())
@@ -856,7 +715,7 @@ public final class NewerNewChunksHack extends Hack
 			{
 				LevelChunkSection section = sections[sectionIndex];
 				if(section == null
-					|| !shouldUseSectionForClassification(chunk, sectionIndex))
+					|| getSectionMaxY(chunk, sectionIndex) < minY)
 					continue;
 				
 				int isNewSection = 0;
@@ -867,13 +726,16 @@ public final class NewerNewChunksHack extends Hack
 					hasUsableEvidence = true;
 					PalettedContainer<BlockState> blockStates =
 						section.getStates();
+					Palette<BlockState> palette =
+						ChunkPaletteUtils.getPalette(blockStates);
 					List<BlockState> paletteEntries =
-						getRawPaletteEntries(blockStates);
+						ChunkPaletteUtils.getRawEntries(palette);
 					int blockPaletteLength = paletteEntries.size();
 					
-					if(isHashMapPalette(blockStates))
+					if(palette instanceof HashMapPalette<?>)
 					{
-						int bstatesSize = countDistinctSectionStates(section);
+						int bstatesSize =
+							ChunkPaletteUtils.countUsedStates(blockStates);
 						if(bstatesSize <= 1)
 							bstatesSize = blockPaletteLength;
 						if(bstatesSize < blockPaletteLength)
@@ -883,33 +745,31 @@ public final class NewerNewChunksHack extends Hack
 					for(int i = 0; i < blockPaletteLength; i++)
 					{
 						Block block = paletteEntries.get(i).getBlock();
-						if(i == 0 && loops == 0 && block == Blocks.AIR
-							&& !isEnd())
+						if(i == 0 && loops == 0 && block == Blocks.AIR && !end)
 							firstChunkAppearsNew = true;
 						
-						if(i == 0 && block == Blocks.AIR && !isNether()
-							&& !isEnd())
+						if(i == 0 && block == Blocks.AIR && !nether && !end)
 							isNewSection++;
 						
 						if(i == 1
 							&& (block == Blocks.WATER || block == Blocks.STONE
 								|| block == Blocks.GRASS_BLOCK
 								|| block == Blocks.SNOW_BLOCK)
-							&& !isNether() && !isEnd())
+							&& !nether && !end)
 							isNewSection++;
 						
 						if(i == 2
 							&& (block == Blocks.SNOW_BLOCK
 								|| block == Blocks.DIRT
 								|| block == Blocks.POWDER_SNOW)
-							&& !isNether() && !isEnd())
+							&& !nether && !end)
 							isNewSection++;
 						
-						if(loops == 4 && block == Blocks.BEDROCK && !isNether()
-							&& !isEnd() && beingUpdatedDetector.isChecked())
+						if(loops == 4 && block == Blocks.BEDROCK && !nether
+							&& !end && detectBeingUpdated)
 							chunkIsBeingUpdated = true;
 						
-						if(block == Blocks.AIR && (isNether() || isEnd()))
+						if(block == Blocks.AIR && (nether || end))
 							isBeingUpdatedSection++;
 					}
 					
@@ -919,7 +779,7 @@ public final class NewerNewChunksHack extends Hack
 						newChunkQuantifier++;
 				}
 				
-				if(isEnd() && isEndNewChunkByPalette(section))
+				if(end && isEndNewChunkByPalette(section))
 					isNewChunk = true;
 				
 				if(!section.hasOnlyAir())
@@ -928,13 +788,13 @@ public final class NewerNewChunksHack extends Hack
 			
 			if(loops > 0)
 			{
-				if(beingUpdatedDetector.isChecked() && (isNether() || isEnd()))
+				if(detectBeingUpdated && (nether || end))
 				{
 					double oldPercentage =
 						((double)oldChunkQuantifier / loops) * 100;
 					if(oldPercentage >= 25)
 						chunkIsBeingUpdated = true;
-				}else if(!isNether() && !isEnd())
+				}else if(!nether && !end)
 				{
 					double percentage =
 						((double)newChunkQuantifier / loops) * 100;
@@ -966,12 +826,6 @@ public final class NewerNewChunksHack extends Hack
 	private int getSectionMaxY(LevelChunk chunk, int sectionIndex)
 	{
 		return getSectionMinY(chunk, sectionIndex) + 15;
-	}
-	
-	private boolean shouldUseSectionForClassification(LevelChunk chunk,
-		int sectionIndex)
-	{
-		return getSectionMaxY(chunk, sectionIndex) >= getClassificationMinY();
 	}
 	
 	public void afterUpdateBlock(BlockPos pos)
@@ -1211,12 +1065,9 @@ public final class NewerNewChunksHack extends Hack
 			{
 				if(!MC.level.hasChunk(x, z))
 					continue;
-				
-				LevelChunk chunk = MC.level.getChunkSource().getChunk(x, z,
-					ChunkStatus.FULL, false);
-				if(chunk == null || chunk.isEmpty())
-					continue;
-				
+					
+				// afterLoadChunk skips known positions and checks the chunk
+				// once.
 				afterLoadChunk(x, z);
 			}
 	}
@@ -1236,7 +1087,8 @@ public final class NewerNewChunksHack extends Hack
 		indexRemove(idxOldGen, chunkPos);
 		if(saveChunkData.isChecked())
 			saveChunk(Paths.NewChunkData, chunkPos);
-		if(isThickEnoughForWebhook(chunkPos, newChunksView))
+		if(WURST.getHax().webhookAlertHack.shouldAlertForChunk(false)
+			&& isThickEnoughForWebhook(chunkPos, newChunksView))
 			WURST.getHax().webhookAlertHack.onChunkDetected("new chunk",
 				chunkPos);
 		triggerAlarm(AlarmType.NEW);
@@ -1257,7 +1109,8 @@ public final class NewerNewChunksHack extends Hack
 		indexRemove(idxOldGen, chunkPos);
 		if(saveChunkData.isChecked())
 			saveChunk(Paths.OldChunkData, chunkPos);
-		if(isThickEnoughForWebhook(chunkPos, oldChunksView))
+		if(WURST.getHax().webhookAlertHack.shouldAlertForChunk(true)
+			&& isThickEnoughForWebhook(chunkPos, oldChunksView))
 			WURST.getHax().webhookAlertHack.onChunkDetected("old chunk",
 				chunkPos);
 		triggerAlarm(AlarmType.OLD);
@@ -1466,35 +1319,19 @@ public final class NewerNewChunksHack extends Hack
 		idxOldGen.clear();
 	}
 	
-	private List<AABB> collectBoxes(Set<ChunkPos> chunks, double y,
-		BlockPos playerPos, double maxDist)
+	private void renderIndexedBoxes(PoseStack matrices,
+		Map<Long, Set<ChunkPos>> index, double y, BlockPos playerPos,
+		double maxDist, Predicate<ChunkPos> excluded, int sideColor,
+		int lineColor)
 	{
-		var boxes = new java.util.ArrayList<AABB>();
-		for(ChunkPos chunk : chunks)
-		{
-			double centerX = chunk.getMiddleBlockX();
-			double centerZ = chunk.getMiddleBlockZ();
-			if(playerPos.closerThan(
-				new BlockPos((int)centerX, playerPos.getY(), (int)centerZ),
-				maxDist))
-			{
-				double minX = chunk.getMinBlockX();
-				double minZ = chunk.getMinBlockZ();
-				boxes.add(new AABB(minX, y, minZ, minX + 16, y + 1, minZ + 16));
-			}
-		}
-		return boxes;
+		ChunkOverlayGeometry.collectBoxes(index, playerPos, y, maxDist,
+			excluded, renderScratch);
+		renderBoxes(matrices, renderScratch, sideColor, lineColor);
 	}
 	
 	private void renderBoxes(PoseStack matrices, List<AABB> boxes,
 		int sideColor, int lineColor)
 	{
-		if(WURST != null && WURST.getHax().simulationSonarHack.isEnabled())
-			boxes = boxes.stream().filter(
-				box -> !WURST.getHax().simulationSonarHack.isChunkOverridden(
-					new ChunkPos((int)Math.floor(box.minX / 16),
-						(int)Math.floor(box.minZ / 16))))
-				.toList();
 		if(boxes.isEmpty())
 			return;
 		ShapeMode mode = shapeMode.getSelected();
@@ -1570,6 +1407,8 @@ public final class NewerNewChunksHack extends Hack
 			return;
 		
 		Path baseDir = getBaseDir();
+		if(baseDir.equals(initializedDataDir))
+			return;
 		try
 		{
 			Files.createDirectories(baseDir);
@@ -1579,6 +1418,7 @@ public final class NewerNewChunksHack extends Hack
 				if(Files.notExists(file))
 					Files.createFile(file);
 			}
+			initializedDataDir = baseDir;
 		}catch(IOException e)
 		{
 			e.printStackTrace();
@@ -1749,6 +1589,7 @@ public final class NewerNewChunksHack extends Hack
 				StandardOpenOption.CREATE, StandardOpenOption.APPEND);
 		}catch(IOException e)
 		{
+			initializedDataDir = null;
 			e.printStackTrace();
 		}
 	}
@@ -1858,6 +1699,7 @@ public final class NewerNewChunksHack extends Hack
 		clearChunkData();
 		
 		Path baseDir = getBaseDir();
+		initializedDataDir = null;
 		try
 		{
 			Files.deleteIfExists(baseDir.resolve(Paths.NewChunkData));
@@ -1878,28 +1720,19 @@ public final class NewerNewChunksHack extends Hack
 	{
 		int minY = Math.max(chunk.getMinY(), getClassificationMinY());
 		int maxY = chunk.getMaxY();
+		int minX = chunk.getPos().getMinBlockX();
+		int minZ = chunk.getPos().getMinBlockZ();
 		BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
 		for(int cx = 0; cx < 16; cx++)
 			for(int y = minY; y <= maxY; y++)
 				for(int cz = 0; cz < 16; cz++)
 				{
-					pos.set(chunk.getPos().getMinBlockX() + cx, y,
-						chunk.getPos().getMinBlockZ() + cz);
+					pos.set(minX + cx, y, minZ + cz);
 					FluidState fluid = chunk.getFluidState(pos);
 					if(!fluid.isEmpty() && !fluid.isSource())
 						return true;
 				}
 		return false;
-	}
-	
-	private int countDistinctSectionStates(LevelChunkSection section)
-	{
-		HashSet<BlockState> distinct = new HashSet<>();
-		for(int x = 0; x < 16; x++)
-			for(int y = 0; y < 16; y++)
-				for(int z = 0; z < 16; z++)
-					distinct.add(section.getBlockState(x, y, z));
-		return distinct.size();
 	}
 	
 	private boolean detectOldGenerationChunk(LevelChunk chunk)
@@ -1919,34 +1752,14 @@ public final class NewerNewChunksHack extends Hack
 		return false;
 	}
 	
-	@SuppressWarnings("unchecked")
-	private static boolean isHashMapPalette(
-		PalettedContainer<BlockState> states)
-	{
-		if(PAL_CONTAINER_DATA_FIELD == null || PAL_DATA_PALETTE_FIELD == null)
-			return false;
-		
-		try
-		{
-			Object data = PAL_CONTAINER_DATA_FIELD.get(states);
-			Object palette = PAL_DATA_PALETTE_FIELD.get(data);
-			return palette instanceof HashMapPalette<?>;
-		}catch(ReflectiveOperationException e)
-		{
-			return false;
-		}
-	}
-	
 	private boolean hasEndBiomeFromPalette(LevelChunkSection[] sections)
 	{
 		if(MC.level == null || sections.length == 0 || sections[0] == null)
 			return false;
 		
-		List<Holder<Biome>> paletteEntries =
-			getRawPaletteEntries(sections[0].getBiomes());
-		
-		return !paletteEntries.isEmpty()
-			&& paletteEntries.get(0).is(Biomes.THE_END);
+		Holder<Biome> firstBiome =
+			ChunkPaletteUtils.getFirstRawEntry(sections[0].getBiomes());
+		return firstBiome != null && firstBiome.is(Biomes.THE_END);
 	}
 	
 	private boolean isEndNewChunkByPalette(LevelChunkSection section)
@@ -1954,11 +1767,9 @@ public final class NewerNewChunksHack extends Hack
 		if(MC.level == null)
 			return false;
 		
-		List<Holder<Biome>> paletteEntries =
-			getRawPaletteEntries(section.getBiomes());
-		
-		return !paletteEntries.isEmpty()
-			&& paletteEntries.get(0).is(Biomes.PLAINS);
+		Holder<Biome> firstBiome =
+			ChunkPaletteUtils.getFirstRawEntry(section.getBiomes());
+		return firstBiome != null && firstBiome.is(Biomes.PLAINS);
 	}
 	
 	private boolean isOverworldOldGeneration(LevelChunk chunk)
@@ -1966,42 +1777,36 @@ public final class NewerNewChunksHack extends Hack
 		LevelChunkSection[] sections = chunk.getSections();
 		int safeSections = Math.min(17, sections.length);
 		boolean foundAnyOre = false;
-		boolean hasNewOverworldGeneration = false;
 		int minY = getClassificationMinY();
 		
 		for(int i = 0; i < safeSections; i++)
 		{
 			LevelChunkSection section = sections[i];
 			if(section == null || section.hasOnlyAir()
-				|| !shouldUseSectionForClassification(chunk, i))
+				|| getSectionMaxY(chunk, i) < minY)
 				continue;
 			
 			int sectionMinY = getSectionMinY(chunk, i);
-			for(int x = 0; x < 16; x++)
-				for(int y = 0; y < 16; y++)
-					for(int z = 0; z < 16; z++)
+			int localMinY = Math.max(minY, sectionMinY) - sectionMinY;
+			for(int y = localMinY; y < 16; y++)
+				for(int z = 0; z < 16; z++)
+					for(int x = 0; x < 16; x++)
 					{
 						int blockY = sectionMinY + y;
-						if(blockY < minY)
-							continue;
-						
 						Block block = section.getBlockState(x, y, z).getBlock();
 						if(!foundAnyOre && ORE_BLOCKS.contains(block))
 							foundAnyOre = true;
-						
-						if(hasNewOverworldGeneration)
-							continue;
 						
 						boolean inModernRange = blockY >= 5;
 						if(inModernRange
 							&& (NEW_OVERWORLD_BLOCKS.contains(block)
 								|| DEEPSLATE_BLOCKS.contains(block)))
-							hasNewOverworldGeneration = true;
+							return false;
 					}
 		}
 		
 		// Mirrors Trouser: avoid false positives in flat/no-ore chunks.
-		return foundAnyOre && !hasNewOverworldGeneration;
+		return foundAnyOre;
 	}
 	
 	private boolean isNetherOldGeneration(LevelChunk chunk)
@@ -2015,18 +1820,16 @@ public final class NewerNewChunksHack extends Hack
 		{
 			LevelChunkSection section = sections[i];
 			if(section == null || section.hasOnlyAir()
-				|| !shouldUseSectionForClassification(chunk, i))
+				|| getSectionMaxY(chunk, i) < minY)
 				continue;
 			
 			foundUsableSection = true;
 			int sectionMinY = getSectionMinY(chunk, i);
-			for(int x = 0; x < 16; x++)
-				for(int y = 0; y < 16; y++)
-					for(int z = 0; z < 16; z++)
+			int localMinY = Math.max(minY, sectionMinY) - sectionMinY;
+			for(int y = localMinY; y < 16; y++)
+				for(int z = 0; z < 16; z++)
+					for(int x = 0; x < 16; x++)
 					{
-						if(sectionMinY + y < minY)
-							continue;
-						
 						Block block = section.getBlockState(x, y, z).getBlock();
 						if(NEW_NETHER_BLOCKS.contains(block))
 							return false;
