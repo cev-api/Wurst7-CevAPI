@@ -61,7 +61,7 @@ public final class MultiAuraHack extends Hack
 			"Stops attacking while AutoEat is actively eating.", true);
 	
 	private final EntityFilterList entityFilters =
-		EntityFilterList.genericCombat();
+		EntityFilterList.genericMeleeCombat();
 	
 	private final CheckboxSetting ignoreNpcs = new CheckboxSetting(
 		"Ignore NPCs", "Skips likely server-side NPC players.", true);
@@ -152,7 +152,7 @@ public final class MultiAuraHack extends Hack
 			return;
 		
 		// get entities
-		Stream<Entity> stream = EntityUtils.getAttackableEntities();
+		Stream<Entity> stream = EntityUtils.getMeleeAttackableEntities();
 		double rangeSq = Math.pow(range.getValue(), 2);
 		stream =
 			stream.filter(e -> EntityUtils.distanceToHitboxSq(e) <= rangeSq);

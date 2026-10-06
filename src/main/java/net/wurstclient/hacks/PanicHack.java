@@ -104,6 +104,7 @@ public final class PanicHack extends Hack
 	
 	private void disableOtherHacks()
 	{
+		WURST.getHax().fullbrightHack.turnOffInstantly();
 		for(Hack hack : WURST.getHax().getAllHax())
 			if(hack.isEnabled() && hack != this)
 				hack.setEnabled(false);

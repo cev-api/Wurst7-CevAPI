@@ -11,6 +11,11 @@ public interface ILocalPlayer
 {
 	public boolean isTouchingWaterBypass();
 	
+	public default boolean isInWaterBypass()
+	{
+		return isTouchingWaterBypass();
+	}
+	
 	/**
 	 * Forces LocalPlayer.sendPosition() to emit a movement packet this tick.
 	 */

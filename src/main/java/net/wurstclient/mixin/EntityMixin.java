@@ -35,8 +35,8 @@ public abstract class EntityMixin
 	implements Nameable, EntityAccess, CommandSource
 {
 	/**
-	 * This mixin makes the VelocityFromFluidEvent work, which is used by
-	 * AntiWaterPush.
+	 * Prevents fluid currents from pushing the local player while AntiWaterPush
+	 * is enabled.
 	 */
 	@WrapOperation(method = "updateFluidInteraction()Z",
 		at = @At(value = "INVOKE",
@@ -45,25 +45,24 @@ public abstract class EntityMixin
 	private boolean wrapUpdateFluidInteractionIsPushedByFluid(Entity instance,
 		Operation<Boolean> original)
 	{
-		VelocityFromFluidEvent event = new VelocityFromFluidEvent(instance);
-		EventManager.fire(event);
-		
-		if(event.isCancelled())
+		if(instance == WurstClient.MC.player
+			&& WurstClient.INSTANCE.getHax().antiWaterPushHack.isEnabled())
 			return false;
 		
 		return original.call(instance);
 	}
 	
+	/**
+	 * Prevents entity collisions from pushing the local player while
+	 * AntiEntityPush is enabled.
+	 */
 	@Inject(method = "push(Lnet/minecraft/world/entity/Entity;)V",
 		at = @At("HEAD"),
 		cancellable = true)
-	private void onPushAwayFrom(Entity entity, CallbackInfo ci)
+	private void onPush(Entity entity, CallbackInfo ci)
 	{
-		VelocityFromEntityCollisionEvent event =
-			new VelocityFromEntityCollisionEvent((Entity)(Object)this);
-		EventManager.fire(event);
-		
-		if(event.isCancelled())
+		if((Object)this == WurstClient.MC.player
+			&& WurstClient.INSTANCE.getHax().antiEntityPushHack.isEnabled())
 			ci.cancel();
 	}
 	

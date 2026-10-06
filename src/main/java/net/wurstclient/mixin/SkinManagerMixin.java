@@ -49,7 +49,7 @@ public abstract class SkinManagerMixin
 	@Inject(
 		method = "registerTextures(Ljava/util/UUID;Lcom/mojang/authlib/minecraft/MinecraftProfileTextures;)Ljava/util/concurrent/CompletableFuture;",
 		at = @At("HEAD"))
-	private void onFetchSkinTextures(UUID uuid,
+	private void onRegisterTextures(UUID uuid,
 		MinecraftProfileTextures textures,
 		CallbackInfoReturnable<CompletableFuture<PlayerSkin>> cir)
 	{

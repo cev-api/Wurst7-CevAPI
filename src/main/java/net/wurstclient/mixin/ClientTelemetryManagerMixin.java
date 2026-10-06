@@ -22,7 +22,8 @@ public class ClientTelemetryManagerMixin
 		method = "getOutsideSessionSender()Lnet/minecraft/client/telemetry/TelemetryEventSender;",
 		at = @At("HEAD"),
 		cancellable = true)
-	private void onGetSender(CallbackInfoReturnable<TelemetryEventSender> cir)
+	private void onGetOutsideSessionSender(
+		CallbackInfoReturnable<TelemetryEventSender> cir)
 	{
 		if(WurstClient.INSTANCE.getOtfs() != null)
 			WurstClient.INSTANCE.getOtfs().packetToolsOtf

@@ -11,6 +11,7 @@ import java.util.LinkedHashMap;
 import java.util.Optional;
 
 import org.spongepowered.asm.mixin.Shadow;
+import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -63,6 +64,18 @@ public abstract class ClientPacketListenerMixin
 	extends ClientCommonPacketListenerImpl
 	implements TickablePacketListener, ClientGamePacketListener
 {
+	@ModifyExpressionValue(
+		method = "handleExplosion(Lnet/minecraft/network/protocol/game/ClientboundExplodePacket;)V",
+		at = @At(value = "INVOKE",
+			target = "Lnet/minecraft/network/protocol/game/ClientboundExplodePacket;playerKnockback()Ljava/util/Optional;"))
+	private Optional<Vec3> onHandleExplosionPlayerKnockback(
+		Optional<Vec3> original)
+	{
+		return original.map(
+			WurstClient.INSTANCE.getHax().antiKnockbackHack::modifyKnockback);
+	}
+	
+	
 	@Inject(method = "handleTakeItemEntity", at = @At("HEAD"))
 	private void onSelectedItemPickup(
 		net.minecraft.network.protocol.game.ClientboundTakeItemEntityPacket packet,

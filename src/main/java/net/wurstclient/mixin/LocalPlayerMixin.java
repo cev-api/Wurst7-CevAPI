@@ -13,6 +13,7 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
+import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
@@ -38,10 +39,10 @@ import net.wurstclient.InputFaker;
 import net.wurstclient.InputFaker.TempRealInput;
 import net.wurstclient.WurstClient;
 import net.wurstclient.event.EventManager;
-import net.wurstclient.events.AirStrafingSpeedListener.AirStrafingSpeedEvent;
+import net.wurstclient.events.FlyingSpeedListener.FlyingSpeedEvent;
 import net.wurstclient.events.IsPlayerInLavaListener.IsPlayerInLavaEvent;
 import net.wurstclient.events.IsPlayerInWaterListener.IsPlayerInWaterEvent;
-import net.wurstclient.events.KnockbackListener.KnockbackEvent;
+import net.wurstclient.events.MobEffectListener.MobEffectEvent;
 import net.wurstclient.events.PlayerMoveListener.PlayerMoveEvent;
 import net.wurstclient.events.PostMotionListener.PostMotionEvent;
 import net.wurstclient.events.PreMotionListener.PreMotionEvent;
@@ -222,11 +223,31 @@ public abstract class LocalPlayerMixin extends AbstractClientPlayer
 	 * Getter method for what used to be airStrafingSpeed.
 	 * Overridden to allow for the speed to be modified by hacks.
 	 */
+	/**
+	 * Prevents flying up with Flight activating elytra.
+	 */
+	@Override
+	public boolean canGlide()
+	{
+		return !WurstClient.INSTANCE.getHax().flightHack.isEnabled()
+			&& super.canGlide();
+	}
+	
+	/**
+	 * Prevents Flight getting horizontally stuck if elytra is already active.
+	 */
+	@Override
+	public boolean isFallFlying()
+	{
+		return !WurstClient.INSTANCE.getHax().flightHack.isEnabled()
+			&& super.isFallFlying();
+	}
+	
 	@Override
 	protected float getFlyingSpeed()
 	{
-		AirStrafingSpeedEvent event =
-			new AirStrafingSpeedEvent(super.getFlyingSpeed());
+		FlyingSpeedEvent event =
+			new FlyingSpeedEvent(super.getFlyingSpeed());
 		EventManager.fire(event);
 		return event.getSpeed();
 	}
@@ -234,9 +255,8 @@ public abstract class LocalPlayerMixin extends AbstractClientPlayer
 	@Override
 	public void lerpMotion(Vec3 vec)
 	{
-		KnockbackEvent event = new KnockbackEvent(vec.x, vec.y, vec.z);
-		EventManager.fire(event);
-		super.lerpMotion(new Vec3(event.getX(), event.getY(), event.getZ()));
+		super.lerpMotion(WurstClient.INSTANCE.getHax().antiKnockbackHack
+			.modifyKnockback(vec));
 	}
 	
 	@Override
@@ -301,41 +321,19 @@ public abstract class LocalPlayerMixin extends AbstractClientPlayer
 	@Override
 	public boolean hasEffect(Holder<MobEffect> effect)
 	{
-		HackList hax = WurstClient.INSTANCE.getHax();
-		
-		if(effect == MobEffects.NIGHT_VISION
-			&& hax.fullbrightHack.isNightVisionActive())
-			return true;
-		
-		if(effect == MobEffects.LEVITATION && hax.noLevitationHack.isEnabled())
-			return false;
-		
-		if(effect == MobEffects.BLINDNESS && hax.antiBlindHack.isEnabled())
-			return false;
-		
-		if(effect == MobEffects.DARKNESS && hax.antiBlindHack.isEnabled())
-			return false;
-		
-		if(effect == MobEffects.SLOWNESS
-			&& hax.speedHackHack.shouldIgnoreSlowdownsForPotionMode())
-			return false;
-		
-		return super.hasEffect(effect);
+		return getEffect(effect) != null;
 	}
 	
 	@Override
 	public MobEffectInstance getEffect(Holder<MobEffect> effect)
 	{
-		HackList hax = WurstClient.INSTANCE.getHax();
-		
-		if(effect == MobEffects.LEVITATION && hax.noLevitationHack.isEnabled())
+		if(effect == MobEffects.SLOWNESS && WurstClient.INSTANCE.getHax()
+			.speedHackHack.shouldIgnoreSlowdownsForPotionMode())
 			return null;
-		
-		if(effect == MobEffects.SLOWNESS
-			&& hax.speedHackHack.shouldIgnoreSlowdownsForPotionMode())
-			return null;
-		
-		return super.getEffect(effect);
+		MobEffectEvent event =
+			new MobEffectEvent(effect, super.getEffect(effect));
+		EventManager.fire(event);
+		return event.getInstance();
 	}
 	
 	@Override
@@ -370,20 +368,17 @@ public abstract class LocalPlayerMixin extends AbstractClientPlayer
 	}
 	
 	/**
-	 * This is the part that makes Liquids work.
+	 * Makes Liquids work. Must take priority over Freecam's raycast wrapper.
 	 */
-	@WrapOperation(
+	@ModifyArg(
 		method = "pick(Lnet/minecraft/world/entity/Entity;DDF)Lnet/minecraft/world/phys/HitResult;",
 		at = @At(value = "INVOKE",
 			target = "Lnet/minecraft/world/entity/Entity;pick(DFZ)Lnet/minecraft/world/phys/HitResult;",
-			ordinal = 0))
-	private static HitResult liquidsRaycast(Entity instance, double maxDistance,
-		float tickDelta, boolean includeFluids, Operation<HitResult> original)
+			ordinal = 0),
+		index = 2)
+	private static boolean modifyIncludeFluidsForLiquids(boolean includeFluids)
 	{
-		if(!WurstClient.INSTANCE.getHax().liquidsHack.isEnabled())
-			return original.call(instance, maxDistance, tickDelta,
-				includeFluids);
-		
-		return original.call(instance, maxDistance, tickDelta, true);
+		return includeFluids
+			|| WurstClient.INSTANCE.getHax().liquidsHack.isEnabled();
 	}
 }

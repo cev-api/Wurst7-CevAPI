@@ -5,7 +5,7 @@
  * License, version 3. If a copy of the GPL was not distributed with this
  * file, You can obtain one at: https://www.gnu.org/licenses/gpl-3.0.txt
  */
-package net.wurstclient.mixin;
+package net.wurstclient.mixin.snowshoe;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -29,7 +29,7 @@ public abstract class PowderSnowBlockMixin extends Block implements BucketPickup
 		method = "canEntityWalkOnPowderSnow(Lnet/minecraft/world/entity/Entity;)Z",
 		at = @At("HEAD"),
 		cancellable = true)
-	private static void onCanWalkOnPowderSnow(Entity entity,
+	private static void onCanEntityWalkOnPowderSnow(Entity entity,
 		CallbackInfoReturnable<Boolean> cir)
 	{
 		if(!WurstClient.INSTANCE.getHax().snowShoeHack.isEnabled())

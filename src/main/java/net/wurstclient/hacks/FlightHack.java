@@ -16,8 +16,8 @@ import net.minecraft.world.phys.Vec2;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
-import net.wurstclient.events.AirStrafingSpeedListener;
-import net.wurstclient.events.AirStrafingSpeedListener.AirStrafingSpeedEvent;
+import net.wurstclient.events.FlyingSpeedListener;
+import net.wurstclient.events.FlyingSpeedListener.FlyingSpeedEvent;
 import net.wurstclient.events.IsPlayerInWaterListener;
 import net.wurstclient.events.IsPlayerInWaterListener.IsPlayerInWaterEvent;
 import net.wurstclient.events.MouseScrollListener;
@@ -32,7 +32,7 @@ import net.wurstclient.util.PlayerRangeAlertManager;
 
 @SearchTags({"FlyHack", "fly hack", "flying"})
 public final class FlightHack extends Hack implements UpdateListener,
-	IsPlayerInWaterListener, AirStrafingSpeedListener,
+	IsPlayerInWaterListener, FlyingSpeedListener,
 	PlayerRangeAlertManager.Listener, MouseScrollListener
 {
 	private static final double DEFAULT_SPEED_STEP = 0.5;
@@ -192,7 +192,7 @@ public final class FlightHack extends Hack implements UpdateListener,
 		
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(IsPlayerInWaterListener.class, this);
-		EVENTS.add(AirStrafingSpeedListener.class, this);
+		EVENTS.add(FlyingSpeedListener.class, this);
 		alertManager.addListener(this);
 		EVENTS.add(MouseScrollListener.class, this);
 	}
@@ -208,7 +208,7 @@ public final class FlightHack extends Hack implements UpdateListener,
 		restoreNoSlowdownVineIgnore();
 		EVENTS.remove(UpdateListener.class, this);
 		EVENTS.remove(IsPlayerInWaterListener.class, this);
-		EVENTS.remove(AirStrafingSpeedListener.class, this);
+		EVENTS.remove(FlyingSpeedListener.class, this);
 		alertManager.removeListener(this);
 		EVENTS.remove(MouseScrollListener.class, this);
 		WURST.getHax().spearAssistHack.onFlightDisabled();
@@ -382,7 +382,7 @@ public final class FlightHack extends Hack implements UpdateListener,
 	}
 	
 	@Override
-	public void onGetAirStrafingSpeed(AirStrafingSpeedEvent event)
+	public void onGetFlyingSpeed(FlyingSpeedEvent event)
 	{
 		if(WURST.getHax().freecamHack.isMovingCamera())
 			return;

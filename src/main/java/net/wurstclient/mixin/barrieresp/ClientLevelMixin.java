@@ -5,7 +5,7 @@
  * License, version 3. If a copy of the GPL was not distributed with this
  * file, You can obtain one at: https://www.gnu.org/licenses/gpl-3.0.txt
  */
-package net.wurstclient.mixin;
+package net.wurstclient.mixin.barrieresp;
 
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -35,7 +35,7 @@ public class ClientLevelMixin
 		method = "getMarkerParticleTarget()Lnet/minecraft/world/level/block/Block;",
 		at = @At("HEAD"),
 		cancellable = true)
-	private void onGetBlockParticle(CallbackInfoReturnable<Block> cir)
+	private void onGetMarkerParticleTarget(CallbackInfoReturnable<Block> cir)
 	{
 		if(!WurstClient.INSTANCE.getHax().barrierEspHack.isEnabled())
 			return;

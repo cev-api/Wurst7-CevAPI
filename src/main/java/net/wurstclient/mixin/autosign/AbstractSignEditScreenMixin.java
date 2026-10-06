@@ -5,7 +5,7 @@
  * License, version 3. If a copy of the GPL was not distributed with this
  * file, You can obtain one at: https://www.gnu.org/licenses/gpl-3.0.txt
  */
-package net.wurstclient.mixin;
+package net.wurstclient.mixin.autosign;
 
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -46,7 +46,7 @@ public abstract class AbstractSignEditScreenMixin extends Screen
 		super(title);
 	}
 	
-	@Inject(method = "init()V", at = @At("HEAD"))
+	@Inject(method = "init()V", at = @At("TAIL"))
 	private void onInit(CallbackInfo ci)
 	{
 		AutoSignHack autoSignHack = WurstClient.INSTANCE.getHax().autoSignHack;
@@ -64,7 +64,7 @@ public abstract class AbstractSignEditScreenMixin extends Screen
 	}
 	
 	@Inject(method = "onDone()V", at = @At("HEAD"))
-	private void onFinishEditing(CallbackInfo ci)
+	private void onOnDone(CallbackInfo ci)
 	{
 		WurstClient.INSTANCE.getHax().autoSignHack.setSignText(messages);
 	}

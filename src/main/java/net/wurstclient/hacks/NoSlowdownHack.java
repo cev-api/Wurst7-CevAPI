@@ -167,5 +167,5 @@ public final class NoSlowdownHack extends Hack implements
 		return isEnabled() && waterSpeed.isChecked() && swimSpeed.isChecked();
 	}
 	
-	// See BlockMixin, LocalPlayerMixin
+	// See LocalPlayerMixin
 }

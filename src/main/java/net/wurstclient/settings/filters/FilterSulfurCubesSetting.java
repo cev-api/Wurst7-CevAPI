@@ -8,19 +8,20 @@
 package net.wurstclient.settings.filters;
 
 import net.minecraft.world.entity.Entity;
+import net.wurstclient.util.text.WText;
 import net.minecraft.world.entity.monster.cubemob.SulfurCube;
 
 public final class FilterSulfurCubesSetting extends EntityFilterCheckbox
 {
 	public FilterSulfurCubesSetting(String description, boolean checked)
 	{
-		super("Filter sulfur cubes", description, checked);
+		super("Filter sulfur cubes", WText.translated(description), checked);
 	}
 	
 	@Override
-	public boolean test(Entity e)
+	protected boolean filtersOut(Entity e)
 	{
-		return !(e instanceof SulfurCube);
+		return e instanceof SulfurCube;
 	}
 	
 	public static FilterSulfurCubesSetting genericCombat(boolean checked)

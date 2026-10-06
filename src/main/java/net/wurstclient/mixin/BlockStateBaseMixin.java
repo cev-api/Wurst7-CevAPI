@@ -57,7 +57,7 @@ public abstract class BlockStateBaseMixin extends StateHolder<Block, BlockState>
 	@Inject(at = @At("HEAD"),
 		method = "getShape(Lnet/minecraft/world/level/BlockGetter;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/phys/shapes/CollisionContext;)Lnet/minecraft/world/phys/shapes/VoxelShape;",
 		cancellable = true)
-	private void onGetOutlineShape(BlockGetter view, BlockPos pos,
+	private void onGetShape(BlockGetter view, BlockPos pos,
 		CollisionContext context, CallbackInfoReturnable<VoxelShape> cir)
 	{
 		if(context == CollisionContext.empty())

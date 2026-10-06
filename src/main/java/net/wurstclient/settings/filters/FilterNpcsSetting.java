@@ -8,6 +8,7 @@
 package net.wurstclient.settings.filters;
 
 import net.minecraft.world.entity.Entity;
+import net.wurstclient.util.text.WText;
 import net.minecraft.world.entity.player.Player;
 import net.wurstclient.util.NpcUtils;
 
@@ -15,16 +16,16 @@ public final class FilterNpcsSetting extends EntityFilterCheckbox
 {
 	public FilterNpcsSetting(String description, boolean checked)
 	{
-		super("Filter NPCs", description, checked);
+		super("Filter NPCs", WText.translated(description), checked);
 	}
 	
 	@Override
-	public boolean test(Entity e)
+	protected boolean filtersOut(Entity e)
 	{
 		if(!(e instanceof Player player))
-			return true;
+			return false;
 		
-		return !NpcUtils.isLikelyNpcPlayer(player);
+		return NpcUtils.isLikelyNpcPlayer(player);
 	}
 	
 	public static FilterNpcsSetting genericCombat(boolean checked)

@@ -178,6 +178,6 @@ public final class NoChatReportsOtf extends OtherFeature
 		return Category.CHAT;
 	}
 	
-	// See ChatComponentMixin, ClientPacketListenerMixin.onOnGameJoin(),
-	// MinecraftMixin.onGetProfileKeys()
+	// See ChatComponentMixin, ClientPacketListenerMixin.onHandleLogin(),
+	// MinecraftMixin.onGetProfileKeyPairManager()
 }

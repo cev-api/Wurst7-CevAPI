@@ -48,7 +48,7 @@ public abstract class ChatScreenMixin extends Screen
 	@Inject(method = "handleChatInput(Ljava/lang/String;Z)V",
 		at = @At("HEAD"),
 		cancellable = true)
-	public void onSendMessage(String message, boolean addToHistory,
+	public void onHandleChatInput(String message, boolean addToHistory,
 		CallbackInfo ci)
 	{
 		// Ignore empty messages just like vanilla

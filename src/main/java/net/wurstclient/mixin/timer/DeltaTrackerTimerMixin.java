@@ -5,7 +5,7 @@
  * License, version 3. If a copy of the GPL was not distributed with this
  * file, You can obtain one at: https://www.gnu.org/licenses/gpl-3.0.txt
  */
-package net.wurstclient.mixin;
+package net.wurstclient.mixin.timer;
 
 import org.objectweb.asm.Opcodes;
 import org.spongepowered.asm.mixin.Mixin;
@@ -27,7 +27,7 @@ public abstract class DeltaTrackerTimerMixin
 			target = "Lnet/minecraft/client/DeltaTracker$Timer;lastMs:J",
 			opcode = Opcodes.PUTFIELD,
 			ordinal = 0))
-	public void onBeginRenderTick(long timeMillis,
+	public void onAdvanceGameTime(long timeMillis,
 		CallbackInfoReturnable<Integer> cir)
 	{
 		deltaTicks *= WurstClient.INSTANCE.getTimerManager().getTimerSpeed();

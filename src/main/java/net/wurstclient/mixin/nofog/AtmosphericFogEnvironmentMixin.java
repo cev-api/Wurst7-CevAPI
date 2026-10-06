@@ -5,7 +5,7 @@
  * License, version 3. If a copy of the GPL was not distributed with this
  * file, You can obtain one at: https://www.gnu.org/licenses/gpl-3.0.txt
  */
-package net.wurstclient.mixin;
+package net.wurstclient.mixin.nofog;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -28,9 +28,8 @@ public class AtmosphericFogEnvironmentMixin
 	 * NoFog is enabled.
 	 */
 	@Inject(method = "setupFog", at = @At("TAIL"), cancellable = true)
-	private void onApplyStartEndModifier(FogData data, Camera camera,
-		ClientLevel world, float viewDistance, DeltaTracker tickCounter,
-		CallbackInfo ci)
+	private void onSetupFog(FogData data, Camera camera, ClientLevel world,
+		float viewDistance, DeltaTracker tickCounter, CallbackInfo ci)
 	{
 		RenderAdjustHack renderAdjust =
 			WurstClient.INSTANCE.getHax().renderAdjustHack;

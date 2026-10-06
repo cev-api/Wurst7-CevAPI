@@ -235,13 +235,16 @@ public final class NBTEditorGameTest implements FabricClientGameTest
 	
 	private void key(Screen screen, int key, int modifiers)
 	{
-		check(screen.keyPressed(new KeyEvent(key, 0, modifiers)),
+		// 26.3 shortcuts use the logical keycode as well as the physical key.
+		int keycode = key >= InputConstants.KEY_A && key <= InputConstants.KEY_Z
+			? 'a' + key - InputConstants.KEY_A : 0;
+		check(screen.keyPressed(new KeyEvent(key, keycode, modifiers)),
 			"Editor must consume key " + key);
 	}
 	
 	private MouseButtonEvent mouse(double x, double y, int modifiers)
 	{
-		return new MouseButtonEvent(x, y, new MouseButtonInfo(0, modifiers));
+		return new MouseButtonEvent(x, y, new MouseButtonInfo(InputConstants.MOUSE_BUTTON_LEFT, modifiers));
 	}
 	
 	private void check(boolean condition, String message)
