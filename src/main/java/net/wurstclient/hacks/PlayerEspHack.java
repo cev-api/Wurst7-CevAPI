@@ -86,8 +86,8 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 			+ "\u00a7lFancy\u00a7r mode shows slightly larger boxes that look better.");
 	
 	private final EntityFilterList entityFilters = new EntityFilterList(
-		new FilterSleepingSetting(
-			net.wurstclient.util.text.WText.literal("Won't show sleeping players."), false),
+		new FilterSleepingSetting(net.wurstclient.util.text.WText
+			.literal("Won't show sleeping players."), false),
 		new FilterInvisibleSetting(this, false));
 	
 	private final ArrayList<Player> players = new ArrayList<>();

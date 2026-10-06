@@ -244,7 +244,8 @@ public final class NBTEditorGameTest implements FabricClientGameTest
 	
 	private MouseButtonEvent mouse(double x, double y, int modifiers)
 	{
-		return new MouseButtonEvent(x, y, new MouseButtonInfo(InputConstants.MOUSE_BUTTON_LEFT, modifiers));
+		return new MouseButtonEvent(x, y,
+			new MouseButtonInfo(InputConstants.MOUSE_BUTTON_LEFT, modifiers));
 	}
 	
 	private void check(boolean condition, String message)

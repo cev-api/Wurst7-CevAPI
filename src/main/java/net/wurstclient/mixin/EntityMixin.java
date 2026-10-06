@@ -24,9 +24,6 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.entity.EntityAccess;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.WurstClient;
-import net.wurstclient.event.EventManager;
-import net.wurstclient.events.VelocityFromEntityCollisionListener.VelocityFromEntityCollisionEvent;
-import net.wurstclient.events.VelocityFromFluidListener.VelocityFromFluidEvent;
 import net.wurstclient.nicewurst.NiceWurstModule;
 import net.wurstclient.util.MovementMutationTracker;
 

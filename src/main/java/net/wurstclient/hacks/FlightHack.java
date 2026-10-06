@@ -31,8 +31,8 @@ import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.PlayerRangeAlertManager;
 
 @SearchTags({"FlyHack", "fly hack", "flying"})
-public final class FlightHack extends Hack implements UpdateListener,
-	IsPlayerInWaterListener, FlyingSpeedListener,
+public final class FlightHack extends Hack
+	implements UpdateListener, IsPlayerInWaterListener, FlyingSpeedListener,
 	PlayerRangeAlertManager.Listener, MouseScrollListener
 {
 	private static final double DEFAULT_SPEED_STEP = 0.5;

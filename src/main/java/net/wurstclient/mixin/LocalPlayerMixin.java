@@ -31,9 +31,7 @@ import net.minecraft.core.Holder;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
-import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.MoverType;
-import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.InputFaker;
 import net.wurstclient.InputFaker.TempRealInput;
@@ -246,8 +244,7 @@ public abstract class LocalPlayerMixin extends AbstractClientPlayer
 	@Override
 	protected float getFlyingSpeed()
 	{
-		FlyingSpeedEvent event =
-			new FlyingSpeedEvent(super.getFlyingSpeed());
+		FlyingSpeedEvent event = new FlyingSpeedEvent(super.getFlyingSpeed());
 		EventManager.fire(event);
 		return event.getSpeed();
 	}
@@ -327,8 +324,9 @@ public abstract class LocalPlayerMixin extends AbstractClientPlayer
 	@Override
 	public MobEffectInstance getEffect(Holder<MobEffect> effect)
 	{
-		if(effect == MobEffects.SLOWNESS && WurstClient.INSTANCE.getHax()
-			.speedHackHack.shouldIgnoreSlowdownsForPotionMode())
+		if(effect == MobEffects.SLOWNESS
+			&& WurstClient.INSTANCE.getHax().speedHackHack
+				.shouldIgnoreSlowdownsForPotionMode())
 			return null;
 		MobEffectEvent event =
 			new MobEffectEvent(effect, super.getEffect(effect));

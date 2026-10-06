@@ -75,7 +75,6 @@ public abstract class ClientPacketListenerMixin
 			WurstClient.INSTANCE.getHax().antiKnockbackHack::modifyKnockback);
 	}
 	
-	
 	@Inject(method = "handleTakeItemEntity", at = @At("HEAD"))
 	private void onSelectedItemPickup(
 		net.minecraft.network.protocol.game.ClientboundTakeItemEntityPacket packet,
