@@ -198,8 +198,7 @@ public final class ScaffoldWalkHack extends Hack implements UpdateListener
 			}else
 			{
 				rotation.sendPlayerLookPacket();
-				IMC.getInteractionManager().rightClickBlock(neighbor, side2,
-					hitVec);
+				IMC.getGameMode().rightClickBlock(neighbor, side2, hitVec);
 				MC.player.swing(InteractionHand.MAIN_HAND,
 					MC.player.getMainHandItem().getInteractAnimation(), false);
 				MC.rightClickDelay = 4;

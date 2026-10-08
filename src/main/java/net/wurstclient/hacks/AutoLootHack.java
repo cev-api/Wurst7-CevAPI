@@ -409,7 +409,7 @@ public final class AutoLootHack extends Hack
 	private void stopMoving()
 	{
 		if(movingTo != null)
-			IKeyBinding.get(MC.options.keyUp).resetPressedState();
+			IKeyBinding.get(MC.options.keyUp).resetDownState();
 		movingTo = null;
 	}
 	
@@ -490,9 +490,9 @@ public final class AutoLootHack extends Hack
 			ItemStack expected = candidate.copy();
 			int source = InventoryUtils.toNetworkSlot(i);
 			int target = 8 - armorSlot.getIndex();
-			IMC.getInteractionManager().windowClick_PICKUP(source);
-			IMC.getInteractionManager().windowClick_PICKUP(target);
-			IMC.getInteractionManager().windowClick_PICKUP(source);
+			IMC.getGameMode().windowClick_PICKUP(source);
+			IMC.getGameMode().windowClick_PICKUP(target);
+			IMC.getGameMode().windowClick_PICKUP(source);
 			verifyAction(
 				() -> ItemStack.isSameItemSameComponents(
 					MC.player.getItemBySlot(armorSlot), expected),
@@ -588,7 +588,7 @@ public final class AutoLootHack extends Hack
 		if(stack.isEmpty() || isProtected(stack))
 			return;
 		ItemStack before = stack.copy();
-		IMC.getInteractionManager()
+		IMC.getGameMode()
 			.windowClick_THROW(InventoryUtils.toNetworkSlot(inventorySlot));
 		verifyDrop(inventorySlot, before);
 	}

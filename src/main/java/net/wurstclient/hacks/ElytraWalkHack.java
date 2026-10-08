@@ -347,12 +347,12 @@ public final class ElytraWalkHack extends Hack
 		{
 			if(originalChest == null && !chest.is(Items.ELYTRA))
 				originalChest = chest.copy();
-			IMC.getInteractionManager().windowClick_QUICK_MOVE(6);
+			IMC.getGameMode().windowClick_QUICK_MOVE(6);
 		}
 		slot =
 			InventoryUtils.indexOf(ElytraWalkHack::isUsableElytra, 36, false);
 		if(slot >= 0)
-			IMC.getInteractionManager()
+			IMC.getGameMode()
 				.windowClick_QUICK_MOVE(InventoryUtils.toNetworkSlot(slot));
 	}
 	
@@ -362,11 +362,11 @@ public final class ElytraWalkHack extends Hack
 		if(p == null || originalChest == null || !hasElytra()
 			|| p.getInventory().getFreeSlot() < 0)
 			return;
-		IMC.getInteractionManager().windowClick_QUICK_MOVE(6);
+		IMC.getGameMode().windowClick_QUICK_MOVE(6);
 		int slot = InventoryUtils
 			.indexOf(stack -> stack.is(originalChest.getItem()), 36, false);
 		if(slot >= 0)
-			IMC.getInteractionManager()
+			IMC.getGameMode()
 				.windowClick_QUICK_MOVE(InventoryUtils.toNetworkSlot(slot));
 		originalChest = null;
 	}

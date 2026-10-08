@@ -18,7 +18,7 @@ import net.wurstclient.WurstClient;
 import net.wurstclient.altmanager.AltManager;
 import net.wurstclient.altmanager.LoginException;
 import net.wurstclient.altmanager.TokenAlt;
-import net.wurstclient.mixinterface.IMinecraftClient;
+import net.wurstclient.mixinterface.IMinecraft;
 import net.wurstclient.util.ChatUtils;
 
 /**
@@ -189,8 +189,8 @@ public final class AccountSwitchController
 			sourceHost = hostPort[0];
 			sourcePort = Integer.parseInt(hostPort[1]);
 			
-			IMinecraftClient imc = WurstClient.IMC;
-			previousSession = imc.getWurstSession();
+			IMinecraft imc = WurstClient.IMC;
+			previousSession = imc.getWurstUser();
 			sourceAlt = botManager.resolveCurrentAlt();
 			sourceName = Minecraft.getInstance().getUser().getName();
 			
@@ -325,7 +325,7 @@ public final class AccountSwitchController
 			{
 				rollbackProgress = "Restoring previous account session...";
 				AltBotUtils.runOnClientThread(
-					() -> WurstClient.IMC.setWurstSession(previousSession));
+					() -> WurstClient.IMC.setWurstUser(previousSession));
 			}
 			
 			// Stop the source bot (A) to avoid duplicate-session problems.

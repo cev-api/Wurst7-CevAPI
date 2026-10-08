@@ -202,12 +202,10 @@ public enum BlockBreaker
 						continue;
 					
 					// break block
-					WurstClient.IMC.getInteractionManager()
-						.sendPlayerActionC2SPacket(Action.START_DESTROY_BLOCK,
-							pos, side);
-					WurstClient.IMC.getInteractionManager()
-						.sendPlayerActionC2SPacket(Action.STOP_DESTROY_BLOCK,
-							pos, side);
+					WurstClient.IMC.getGameMode().sendPlayerActionC2SPacket(
+						Action.START_DESTROY_BLOCK, pos, side);
+					WurstClient.IMC.getGameMode().sendPlayerActionC2SPacket(
+						Action.STOP_DESTROY_BLOCK, pos, side);
 					onAttempt.accept(pos);
 					
 					break;

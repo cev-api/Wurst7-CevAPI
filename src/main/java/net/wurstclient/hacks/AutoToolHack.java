@@ -204,7 +204,7 @@ public final class AutoToolHack extends Hack
 			return false;
 		
 		int selectedSlot = player.getInventory().getSelectedSlot();
-		IMC.getInteractionManager().windowClick_SWAP(
+		IMC.getGameMode().windowClick_SWAP(
 			InventoryUtils.toNetworkSlot(bestSlot), selectedSlot);
 		return true;
 	}
@@ -355,7 +355,7 @@ public final class AutoToolHack extends Hack
 	{
 		Inventory inv = MC.player.getInventory();
 		int selectedSlot = inv.getSelectedSlot();
-		IMultiPlayerGameMode im = IMC.getInteractionManager();
+		IMultiPlayerGameMode gm = IMC.getGameMode();
 		
 		// If there's an empty slot in the main inventory,
 		// shift-click the damaged item out of the hotbar
@@ -363,7 +363,7 @@ public final class AutoToolHack extends Hack
 			.filter(i -> !inv.getItem(i).isEmpty()).findFirst();
 		if(emptySlot.isPresent())
 		{
-			im.windowClick_QUICK_MOVE(
+			gm.windowClick_QUICK_MOVE(
 				InventoryUtils.toNetworkSlot(selectedSlot));
 			return;
 		}
@@ -373,7 +373,7 @@ public final class AutoToolHack extends Hack
 			.filter(i -> !isDamageable(inv.getItem(i))).findFirst();
 		if(nonDamageableSlot.isPresent())
 		{
-			im.windowClick_SWAP(nonDamageableSlot.getAsInt(), selectedSlot);
+			gm.windowClick_SWAP(nonDamageableSlot.getAsInt(), selectedSlot);
 			return;
 		}
 		
@@ -382,13 +382,13 @@ public final class AutoToolHack extends Hack
 			.filter(i -> !isTooDamaged(inv.getItem(i), repairMode)).findFirst();
 		if(notTooDamagedSlot.isPresent())
 		{
-			im.windowClick_SWAP(notTooDamagedSlot.getAsInt(), selectedSlot);
+			gm.windowClick_SWAP(notTooDamagedSlot.getAsInt(), selectedSlot);
 			return;
 		}
 		
 		// Failing all of the above (whole inventory full of damaged tools),
 		// just swap with the top-left slot
-		im.windowClick_SWAP(0, selectedSlot);
+		gm.windowClick_SWAP(0, selectedSlot);
 	}
 	
 	private boolean isWrongTool(ItemStack heldItem, BlockState state)

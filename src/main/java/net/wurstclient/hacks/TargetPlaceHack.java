@@ -23,7 +23,7 @@ import net.wurstclient.WurstClient;
 import net.wurstclient.events.RenderListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
-import net.wurstclient.mixinterface.IMinecraftClient;
+import net.wurstclient.mixinterface.IMinecraft;
 import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.settings.TextFieldSetting;
 import net.wurstclient.util.BlockUtils;
@@ -37,7 +37,7 @@ public final class TargetPlaceHack extends Hack
 {
 	private static final WurstClient WURST = WurstClient.INSTANCE;
 	
-	private static final IMinecraftClient IMC = WurstClient.IMC;
+	private static final IMinecraft IMC = WurstClient.IMC;
 	
 	private final ColorSetting highlightColor =
 		new ColorSetting("Highlight color", Color.CYAN);
@@ -229,7 +229,7 @@ public final class TargetPlaceHack extends Hack
 		}
 		
 		WURST.getRotationFaker().faceVectorPacket(placement.hitVec());
-		IMC.getInteractionManager().rightClickBlock(placement.neighbor(),
+		IMC.getGameMode().rightClickBlock(placement.neighbor(),
 			placement.side(), placement.hitVec());
 	}
 	

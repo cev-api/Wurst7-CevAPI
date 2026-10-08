@@ -43,7 +43,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import net.minecraft.client.User;
 import net.wurstclient.WurstClient;
-import net.wurstclient.mixinterface.IMinecraftClient;
+import net.wurstclient.mixinterface.IMinecraft;
 import net.wurstclient.proxy.SocksProxy;
 import net.wurstclient.util.json.JsonException;
 import net.wurstclient.util.json.JsonUtils;
@@ -1365,18 +1365,18 @@ public enum MicrosoftLoginManager
 	
 	private static void setSession(MinecraftProfile mcProfile)
 	{
-		IMinecraftClient imc = WurstClient.IMC;
-		User before = imc.getWurstSession();
+		IMinecraft imc = WurstClient.IMC;
+		User before = imc.getWurstUser();
 		String beforeName = before == null ? "<original>"
 			: before.getName() + " (" + before.getProfileId() + ")";
 		System.out.println("Applying alt session. Previous: " + beforeName);
 		
-		User session = new User(mcProfile.getName(), mcProfile.getUUID(),
+		User user = new User(mcProfile.getName(), mcProfile.getUUID(),
 			mcProfile.getAccessToken(), Optional.empty(), Optional.empty());
 		
-		imc.setWurstSession(session);
+		imc.setWurstUser(user);
 		
-		User after = imc.getWurstSession();
+		User after = imc.getWurstUser();
 		String afterName = after == null ? "<original>"
 			: after.getName() + " (" + after.getProfileId() + ")";
 		System.out.println("Alt session applied. Current: " + afterName);

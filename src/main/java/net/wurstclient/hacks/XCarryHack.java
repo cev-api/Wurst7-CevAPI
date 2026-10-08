@@ -156,8 +156,7 @@ public final class XCarryHack extends Hack
 			if(stack.isEmpty())
 				continue;
 			
-			IMC.getInteractionManager()
-				.windowClick_QUICK_MOVE(CRAFTING_SLOT_START + i);
+			IMC.getGameMode().windowClick_QUICK_MOVE(CRAFTING_SLOT_START + i);
 			moveTimer = moveDelay.getValueI();
 			return;
 		}

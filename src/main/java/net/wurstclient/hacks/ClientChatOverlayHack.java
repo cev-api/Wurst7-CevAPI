@@ -19,7 +19,7 @@ import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
-import net.wurstclient.mixinterface.ISimpleOption;
+import net.wurstclient.mixinterface.IOptionInstance;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.settings.SliderSetting;
@@ -284,7 +284,7 @@ public final class ClientChatOverlayHack extends Hack implements UpdateListener
 		if(MC == null || MC.options == null)
 			return;
 		
-		ISimpleOption.get(MC.options.chatScale()).forceSetValue(1.0);
+		IOptionInstance.get(MC.options.chatScale()).forceSet(1.0);
 	}
 	
 	public int getHudOffsetX()

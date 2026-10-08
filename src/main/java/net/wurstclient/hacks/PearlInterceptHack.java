@@ -248,7 +248,7 @@ public final class PearlInterceptHack extends Hack implements UpdateListener
 		Rotation aim = new Rotation(solution.yaw(), solution.pitch());
 		aim.applyToClientPlayer();
 		aim.sendPlayerLookPacket();
-		IMC.getInteractionManager().rightClickItem();
+		IMC.getGameMode().rightClickItem();
 		
 		if(switchBack.isChecked()
 			&& MC.player.getInventory().getSelectedSlot() != oldSlot)

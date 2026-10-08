@@ -3092,7 +3092,7 @@ public final class LootRunnerHack extends Hack
 			return;
 		MC.options.keyShift.setDown(false);
 		net.wurstclient.mixinterface.IKeyBinding.get(MC.options.keyShift)
-			.resetPressedState();
+			.resetDownState();
 	}
 	
 	private void debugTick()

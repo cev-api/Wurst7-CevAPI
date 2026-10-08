@@ -273,9 +273,9 @@ public final class MiningStateCompat
 		duraSwap.onBeforePacketBreak(pos);
 		try
 		{
-			WurstClient.IMC.getInteractionManager().sendPlayerActionC2SPacket(
+			WurstClient.IMC.getGameMode().sendPlayerActionC2SPacket(
 				Action.START_DESTROY_BLOCK, pos, params.side());
-			int sequence = WurstClient.IMC.getInteractionManager()
+			int sequence = WurstClient.IMC.getGameMode()
 				.sendPlayerActionC2SPacketWithSequence(
 					Action.STOP_DESTROY_BLOCK, pos, params.side());
 			if(sequence < 0)
@@ -307,7 +307,7 @@ public final class MiningStateCompat
 		duraSwap.onBeforePacketBreak(target.pos());
 		try
 		{
-			int sequence = WurstClient.IMC.getInteractionManager()
+			int sequence = WurstClient.IMC.getGameMode()
 				.sendPlayerActionC2SPacketWithSequence(
 					Action.STOP_DESTROY_BLOCK, target.pos(), target.side());
 			pipeline.markStopped(target.pos().asLong(), sequence);
@@ -415,7 +415,7 @@ public final class MiningStateCompat
 		duraSwap.onBeforePacketBreak(pos);
 		try
 		{
-			int sequence = WurstClient.IMC.getInteractionManager()
+			int sequence = WurstClient.IMC.getGameMode()
 				.sendPlayerActionC2SPacketWithSequence(
 					Action.STOP_DESTROY_BLOCK, pos, ownedTarget.side());
 			log(sequence >= 0 ? action : "timed STOP withheld by timer guard",

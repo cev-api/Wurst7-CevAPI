@@ -450,7 +450,7 @@ public class ItemHandlerHack extends Hack
 					break;
 				
 				int networkSlot = InventoryUtils.toNetworkSlot(foundSlot);
-				IMC.getInteractionManager().windowClick(0, networkSlot, 0,
+				IMC.getGameMode().windowClick(0, networkSlot, 0,
 					net.minecraft.world.inventory.ContainerInput.THROW);
 				remainingToDrop--;
 				
@@ -680,8 +680,7 @@ public class ItemHandlerHack extends Hack
 				.filter(st -> ItemStack.isSameItemSameComponents(st, stack))
 				.mapToInt(ItemStack::getCount).sum();
 			discardCheckAt = now + 300;
-			IMC.getInteractionManager().windowClick(0,
-				InventoryUtils.toNetworkSlot(i),
+			IMC.getGameMode().windowClick(0, InventoryUtils.toNetworkSlot(i),
 				excess >= stack.getCount() ? 1 : 0,
 				net.minecraft.world.inventory.ContainerInput.THROW);
 			lastSelectionInventory = selectionSnapshot();
@@ -1412,7 +1411,7 @@ public class ItemHandlerHack extends Hack
 		if(!autoWalking)
 			return;
 		
-		IKeyBinding.get(MC.options.keyUp).resetPressedState();
+		IKeyBinding.get(MC.options.keyUp).resetDownState();
 		autoWalking = false;
 	}
 	

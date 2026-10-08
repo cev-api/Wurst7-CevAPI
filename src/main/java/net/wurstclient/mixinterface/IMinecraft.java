@@ -9,15 +9,15 @@ package net.wurstclient.mixinterface;
 
 import net.minecraft.client.User;
 
-public interface IMinecraftClient
+public interface IMinecraft
 {
-	public IMultiPlayerGameMode getInteractionManager();
+	public IMultiPlayerGameMode getGameMode();
 	
 	public ILocalPlayer getPlayer();
 	
-	public User getWurstSession();
+	public User getWurstUser();
 	
-	public void setWurstSession(User session);
+	public void setWurstUser(User user);
 	
 	public User getOriginalSession();
 	

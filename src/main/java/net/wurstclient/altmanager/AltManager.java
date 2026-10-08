@@ -439,7 +439,7 @@ public final class AltManager
 		Thread thread = new Thread(() -> {
 			try
 			{
-				if(WurstClient.IMC.getWurstSession() == null)
+				if(WurstClient.IMC.getWurstUser() == null)
 					login(alt);
 			}catch(LoginException | RuntimeException e)
 			{

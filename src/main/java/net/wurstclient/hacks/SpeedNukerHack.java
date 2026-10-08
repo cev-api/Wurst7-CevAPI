@@ -243,8 +243,7 @@ public final class SpeedNukerHack extends Hack
 		
 		if(!MiningStateCompat.controlsMining() && MC.gameMode.isDestroying())
 		{
-			BlockPos manual =
-				WurstClient.IMC.getInteractionManager().getMiningTarget();
+			BlockPos manual = WurstClient.IMC.getGameMode().getMiningTarget();
 			if(manual != null && blocks.contains(manual))
 				MiningStateCompat.adoptVanillaTarget(manual);
 			else if(!blocks.isEmpty())

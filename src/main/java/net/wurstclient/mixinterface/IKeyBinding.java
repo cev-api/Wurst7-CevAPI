@@ -25,10 +25,10 @@ public interface IKeyBinding
 	boolean wurst_isActuallyDown();
 	
 	/**
-	 * @deprecated Use {@link #resetPressedState()} instead.
+	 * @deprecated Use {@link #resetDownState()} instead.
 	 */
 	@Deprecated
-	void wurst_resetPressedState();
+	void wurst_resetDownState();
 	
 	/**
 	 * @deprecated Use {@link #simulatePress(boolean)} instead.
@@ -47,11 +47,11 @@ public interface IKeyBinding
 	
 	/**
 	 * Resets the pressed state to whether or not the user is actually pressing
-	 * this key on their keyboard.
+	 * this key on their keyboard or mouse.
 	 */
-	default void resetPressedState()
+	default void resetDownState()
 	{
-		wurst_resetPressedState();
+		wurst_resetDownState();
 	}
 	
 	/**

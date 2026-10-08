@@ -18,8 +18,7 @@ public interface IKeyMapping extends IKeyBinding
 	}
 	
 	/**
-	 * Returns the given KeyMapping object as an IKeyMapping, allowing you to
-	 * access the resetPressedState() method.
+	 * Returns the given KeyMapping object as an IKeyMapping.
 	 */
 	public static IKeyMapping get(KeyMapping kb)
 	{

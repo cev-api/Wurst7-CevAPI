@@ -18,10 +18,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.OptionInstance;
 import net.wurstclient.WurstClient;
-import net.wurstclient.mixinterface.ISimpleOption;
+import net.wurstclient.mixinterface.IOptionInstance;
 
 @Mixin(OptionInstance.class)
-public class OptionInstanceMixin<T> implements ISimpleOption<T>
+public class OptionInstanceMixin<T> implements IOptionInstance<T>
 {
 	@Shadow
 	T value;
@@ -31,7 +31,7 @@ public class OptionInstanceMixin<T> implements ISimpleOption<T>
 	private OptionInstance.ValueUpdateListener<? super T> onValueUpdate;
 	
 	@Override
-	public void forceSetValue(T newValue)
+	public void forceSet(T newValue)
 	{
 		if(!Minecraft.getInstance().isRunning())
 		{

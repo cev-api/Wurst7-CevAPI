@@ -140,8 +140,8 @@ public final class FastBreakHack extends Hack
 		
 		try
 		{
-			IMC.getInteractionManager().sendPlayerActionC2SPacket(action,
-				blockPos, direction);
+			IMC.getGameMode().sendPlayerActionC2SPacket(action, blockPos,
+				direction);
 			
 		}finally
 		{
