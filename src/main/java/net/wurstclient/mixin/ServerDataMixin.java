@@ -44,7 +44,10 @@ public class ServerDataMixin implements IServerDataExt
 				tag.getBooleanOr("wurstBypassMojangBlock", false));
 	}
 	
-	@Inject(method = "copyFrom(Lnet/minecraft/client/multiplayer/ServerData;)V",
+	// copyFrom delegates here, and re-adding a hidden server uses this
+	// directly.
+	@Inject(
+		method = "copyNameIconFrom(Lnet/minecraft/client/multiplayer/ServerData;)V",
 		at = @At("TAIL"))
 	private void copyBypass(ServerData source, CallbackInfo ci)
 	{

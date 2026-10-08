@@ -63,6 +63,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.CommonComponents;
 import net.wurstclient.mixinterface.IMultiplayerMultiSelect;
 import net.wurstclient.mixinterface.IMultiplayerTitleRefresher;
+import net.wurstclient.mixinterface.IServerDataExt;
 import net.wurstclient.mixinterface.IServerSelectionListExt;
 import net.wurstclient.nicewurst.NiceWurstModule;
 import net.wurstclient.altmanager.screens.AltManagerScreen;
@@ -106,6 +107,8 @@ public class JoinMultiplayerScreenMixin extends Screen
 	protected ServerSelectionList serverSelectionList;
 	@Shadow
 	private ServerList servers;
+	@Shadow
+	private ServerData editingServer;
 	@Shadow
 	private Button editButton;
 	@Shadow
@@ -182,6 +185,21 @@ public class JoinMultiplayerScreenMixin extends Screen
 	private EditBox wurst$searchBox;
 	@Unique
 	private String wurst$searchQuery = "";
+	
+	@Inject(method = "editServerCallback(Z)V",
+		at = @At(value = "INVOKE",
+			target = "Lnet/minecraft/client/multiplayer/ServerList;save()V"))
+	private void wurst$saveMojangBlockBypass(boolean confirmed, CallbackInfo ci)
+	{
+		// Vanilla saves individual fields here instead of calling copyFrom.
+		// Copy our setting before the edited server list is written to disk.
+		if(confirmed && serverSelectionList
+			.getSelected() instanceof ServerSelectionList.OnlineServerEntry entry)
+			((IServerDataExt)(Object)entry.getServerData())
+				.wurst$setBypassMojangBlock(
+					((IServerDataExt)(Object)editingServer)
+						.wurst$getBypassMojangBlock());
+	}
 	
 	private JoinMultiplayerScreenMixin(WurstClient wurst, Component title)
 	{
