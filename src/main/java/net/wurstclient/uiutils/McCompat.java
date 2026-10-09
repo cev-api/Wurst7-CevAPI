@@ -9,10 +9,13 @@ package net.wurstclient.uiutils;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.List;
 
+import net.minecraft.SharedConstants;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.components.ChatComponent;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.gui.screens.Screen;
 
 public final class McCompat
 {
@@ -91,6 +94,55 @@ public final class McCompat
 		ChatComponent chat = getChatComponent(mc);
 		if(chat != null)
 			chat.addRecentChat(message);
+	}
+	
+	/** Returns the shared sent-message history used by vanilla chat. */
+	public static List<String> recentChat(Minecraft mc)
+	{
+		ChatComponent chat = mc == null ? null : getChatComponent(mc);
+		return chat == null ? List.of() : List.copyOf(chat.getRecentChat());
+	}
+	
+	/** -1 for Up, +1 for Down, or zero for other keys. */
+	public static int chatHistoryDirection(KeyEvent event)
+	{
+		if(event == null)
+			return 0;
+		boolean sdlInput = usesSdlInput();
+		if(event.key() == (sdlInput ? 82 : 265))
+			return -1;
+		if(event.key() == (sdlInput ? 81 : 264))
+			return 1;
+		return 0;
+	}
+	
+	public static boolean isLeftMouseButton(int button)
+	{
+		return button == (usesSdlInput() ? 1 : 0);
+	}
+	
+	public static boolean isConfirmationKey(KeyEvent event)
+	{
+		if(event == null)
+			return false;
+		return usesSdlInput() ? event.key() == 40 || event.key() == 88
+			: event.key() == 257 || event.key() == 335;
+	}
+	
+	private static boolean usesSdlInput()
+	{
+		String version = SharedConstants.getCurrentVersion().id();
+		String[] parts = version.split("\\.");
+		try
+		{
+			int major = Integer.parseInt(parts[0]);
+			int minor = parts.length > 1
+				? Integer.parseInt(parts[1].replaceAll("[^0-9].*$", "")) : 0;
+			return major > 26 || major == 26 && minor >= 3;
+		}catch(NumberFormatException e)
+		{
+			return version.startsWith("26.3");
+		}
 	}
 	
 	private static ChatComponent getChatComponent(Minecraft mc)

@@ -455,13 +455,36 @@ public final class UiUtils
 		EditBox field =
 			new EditBox(font, x, y, 160, 20, Component.literal("Chat ..."))
 			{
+				private final UiUtilsChatHistory history =
+					new UiUtilsChatHistory();
+				
+				@Override
+				public void setValue(String value)
+				{
+					super.setValue(value);
+					if(history != null && value.isEmpty())
+						history.reset();
+				}
+				
 				@Override
 				public boolean keyPressed(KeyEvent keyEvent)
 				{
-					if(keyEvent.key() == GLFW.GLFW_KEY_ENTER
-						|| keyEvent.key() == GLFW.GLFW_KEY_KP_ENTER)
+					if(!isFocused())
+						return false;
+					int direction = McCompat.chatHistoryDirection(keyEvent);
+					if(direction != 0)
+					{
+						setValue(history.move(McCompat.recentChat(mc),
+							getValue(), direction));
+						setCursorPosition(getValue().length());
+						return true;
+					}
+					
+					if(McCompat.isConfirmationKey(keyEvent))
 					{
 						String text = getValue();
+						if(text.isBlank())
+							return true;
 						if(WurstClient.INSTANCE.getOtfs() != null
 							&& text != null && !text.isEmpty())
 						{
@@ -486,10 +509,11 @@ public final class UiUtils
 								UiUtilsCommandSystem.execute(command);
 							if(mc.player != null && !result.isEmpty())
 								for(String line : result.split("\n"))
-									net.wurstclient.util.ChatUtils
-										.component(Component.literal(line));
+									mc.player.displayClientMessage(
+										Component.literal(line), false);
+							McCompat.addRecentChat(mc, text);
 							setValue("");
-							return false;
+							return true;
 						}
 						
 						if(mc.getConnection() != null && mc.player != null)
@@ -502,8 +526,10 @@ public final class UiUtils
 						}else
 							LOGGER.warn(
 								"Minecraft player/connection was null while sending chat.");
+						McCompat.addRecentChat(mc, text);
 						
 						setValue("");
+						return true;
 					}
 					return super.keyPressed(keyEvent);
 				}

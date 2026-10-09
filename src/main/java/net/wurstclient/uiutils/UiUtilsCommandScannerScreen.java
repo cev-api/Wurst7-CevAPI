@@ -53,6 +53,12 @@ public final class UiUtilsCommandScannerScreen extends Screen
 	@Override
 	protected void init()
 	{
+		String previousSearch =
+			searchField == null ? "" : searchField.getValue();
+		String previousPacketCommands = packetCommandsField == null
+			? UiUtilsSettings.get().commandScannerPacketCommands
+			: packetCommandsField.getValue();
+		
 		panelWidth = Math.min(420, Math.max(260, this.width - 32));
 		int left = (this.width - panelWidth) / 2;
 		panelLeft = left;
@@ -152,6 +158,7 @@ public final class UiUtilsCommandScannerScreen extends Screen
 		
 		searchField = new EditBox(this.font, left, y, splitWidth, rowH,
 			Component.literal("Search results"));
+		searchField.setValue(previousSearch);
 		searchField.setMaxLength(64);
 		searchField.setHint(Component.literal("Search results..."));
 		addRenderableWidget(searchField);
@@ -174,8 +181,7 @@ public final class UiUtilsCommandScannerScreen extends Screen
 		packetCommandsField = new EditBox(this.font, left, y, splitWidth, rowH,
 			Component.literal("Packet commands"));
 		packetCommandsField.setMaxLength(256);
-		packetCommandsField
-			.setValue(UiUtilsSettings.get().commandScannerPacketCommands);
+		packetCommandsField.setValue(previousPacketCommands);
 		addRenderableWidget(packetCommandsField);
 		addRenderableWidget(UiUtils.styledButton("Send packet cmds", b -> {
 			UiUtilsSettings.get().commandScannerPacketCommands =
