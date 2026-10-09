@@ -650,3 +650,17 @@ tasks.named("test") {
 tasks.named("check") {
     dependsOn tasks.named("offlineProtocolCompatRegressionTest")
 }
+
+// VillagerDupe filters and pending durability can be checked without a client.
+tasks.register("villagerDupeRegressionTest", JavaExec) {
+    dependsOn tasks.named("testClasses")
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = "net.wurstclient.hacks.villagerdupe.VillagerDupeRegressionTest"
+    systemProperty "joml.nounsafe", "true"
+}
+tasks.named("test") {
+    exclude "net/wurstclient/hacks/villagerdupe/VillagerDupeRegressionTest*"
+}
+tasks.named("check") {
+    dependsOn tasks.named("villagerDupeRegressionTest")
+}
