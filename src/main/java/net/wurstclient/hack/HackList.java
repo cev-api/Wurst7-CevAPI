@@ -31,6 +31,7 @@ import net.wurstclient.util.json.JsonException;
 
 public final class HackList implements UpdateListener
 {
+	public final VillagerDupeHack villagerDupeHack = new VillagerDupeHack();
 	public final AirstrikePlusHack airstrikePlusHack = new AirstrikePlusHack();
 	public final ArmorStandImagesHack armorStandImagesHack =
 		new ArmorStandImagesHack();

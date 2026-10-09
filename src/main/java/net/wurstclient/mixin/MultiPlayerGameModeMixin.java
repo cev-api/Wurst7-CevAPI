@@ -349,6 +349,12 @@ public abstract class MultiPlayerGameModeMixin implements IMultiPlayerGameMode
 		return packet;
 	}
 	
+	@Override
+	public void syncSelectedSlot()
+	{
+		ensureHasSentCarriedItem();
+	}
+	
 	@Shadow
 	private void ensureHasSentCarriedItem()
 	{}

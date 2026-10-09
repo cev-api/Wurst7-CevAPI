@@ -82,6 +82,16 @@ public abstract class MinecraftMixin
 		wurstAuthenticationService = yggdrasilAuthenticationService;
 	}
 	
+	@Inject(method = "runTick",
+		at = @At(value = "INVOKE",
+			target = "Lnet/minecraft/client/Minecraft;runAllTasks()V",
+			shift = At.Shift.BEFORE))
+	private void wurst$villagerDupePacketFrame(CallbackInfo ci)
+	{
+		if(WurstClient.INSTANCE.getHax() != null)
+			WurstClient.INSTANCE.getHax().villagerDupeHack.onPacketFrame();
+	}
+	
 	@Inject(method = "tick()V", at = @At("HEAD"))
 	private void wurst$tickMiningState(CallbackInfo ci)
 	{

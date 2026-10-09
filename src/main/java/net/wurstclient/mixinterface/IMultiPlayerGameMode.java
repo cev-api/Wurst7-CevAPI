@@ -17,6 +17,8 @@ import net.minecraft.world.phys.Vec3;
 
 public interface IMultiPlayerGameMode
 {
+	public void syncSelectedSlot();
+	
 	public void windowClick(int syncId, int slot, int button, ClickType action);
 	
 	public void windowClick_PICKUP(int slot);
