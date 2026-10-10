@@ -26,6 +26,8 @@
     "ChatScreenMixin",
     "ChatReportScreenMixin",
     "ConnectionMixin",
+    "VanillaSpoofAnvilScreenMixin",
+    "VanillaSpoofSignEditScreenMixin",
     "ConnectionInitializerMixin",
     "ConnectScreenMixin",
     "OfflineSettingsHandshakeMixin",

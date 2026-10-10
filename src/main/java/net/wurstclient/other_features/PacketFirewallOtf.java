@@ -295,7 +295,7 @@ public final class PacketFirewallOtf extends OtherFeature
 		
 		MC.execute(this::handleSetbackOnClientThread);
 	}
-
+	
 	public void onAntiCheatDetected(String detected)
 	{
 		if(detected == null || "Unknown".equalsIgnoreCase(detected))
@@ -313,7 +313,8 @@ public final class PacketFirewallOtf extends OtherFeature
 	
 	private void enableForDetectedAntiCheat(String server, String detected)
 	{
-		if(server != null && java.util.Objects.equals(server, autoEnabledServer))
+		if(server != null
+			&& java.util.Objects.equals(server, autoEnabledServer))
 			return;
 		
 		autoEnabledServer = server;
@@ -322,9 +323,8 @@ public final class PacketFirewallOtf extends OtherFeature
 		
 		firewallEnabled = true;
 		pauseActivationHacks();
-		ChatUtils.message(
-			"PacketFirewall: automatically enabled because " + detected
-				+ " was detected.");
+		ChatUtils.message("PacketFirewall: automatically enabled because "
+			+ detected + " was detected.");
 	}
 	
 	private void handleSetbackOnClientThread()

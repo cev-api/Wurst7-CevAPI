@@ -28,6 +28,9 @@ import net.wurstclient.events.ConnectionPacketOutputListener.ConnectionPacketOut
 import net.wurstclient.events.PacketInputListener.PacketInputEvent;
 import net.wurstclient.hacks.NbtFilterHack;
 import net.wurstclient.other_features.PacketFirewallOtf;
+import net.wurstclient.other_features.VanillaSpoofOtf;
+import net.wurstclient.util.VanillaSpoofOutboundHandler;
+import net.minecraft.network.protocol.PacketFlow;
 import net.wurstclient.uiutils.UiUtilsServerFingerprintCollector;
 import net.wurstclient.util.MovementPacketCompat;
 
@@ -61,8 +64,9 @@ public abstract class ConnectionMixin
 	private void serverIntel$captureFingerprint(ChannelHandlerContext context,
 		Packet<?> packet, CallbackInfo ci)
 	{
-		UiUtilsServerFingerprintCollector
-			.onIncomingPacket((Connection)(Object)this, packet);
+		Connection connection = (Connection)(Object)this;
+		UiUtilsServerFingerprintCollector.onIncomingPacket(connection, packet);
+		VanillaSpoofOtf.onIncomingPacket(connection, packet);
 	}
 	
 	@Inject(
@@ -146,6 +150,25 @@ public abstract class ConnectionMixin
 		return finalPacket != null ? finalPacket : originalPacket;
 	}
 	
+	/**
+	 * Install once per client connection, before outbound encoding/splitting.
+	 */
+	@Inject(method = "channelActive(Lio/netty/channel/ChannelHandlerContext;)V",
+		at = @At("RETURN"))
+	private void wurst$installVanillaSpoof(ChannelHandlerContext context,
+		CallbackInfo ci)
+	{
+		Connection connection = (Connection)(Object)this;
+		if(connection.getReceiving() != PacketFlow.CLIENTBOUND)
+			return;
+		
+		context.pipeline().addBefore(context.name(), "wurst:vanilla_spoof",
+			new VanillaSpoofOutboundHandler(
+				packet -> WurstClient.INSTANCE.getOtfs().vanillaSpoofOtf
+					.filterOutgoing(connection, packet),
+				() -> VanillaSpoofOtf.onDisconnect(connection)));
+	}
+	
 	@Inject(
 		method = "send(Lnet/minecraft/network/protocol/Packet;Lio/netty/channel/ChannelFutureListener;)V",
 		at = @At("HEAD"),
@@ -180,7 +203,9 @@ public abstract class ConnectionMixin
 		at = @At("HEAD"))
 	private void wurst$resetMovementPacketCompat(CallbackInfo ci)
 	{
-		MovementPacketCompat.reset((Connection)(Object)this);
+		Connection connection = (Connection)(Object)this;
+		MovementPacketCompat.reset(connection);
+		VanillaSpoofOtf.onDisconnect(connection);
 	}
 	
 	@Inject(
@@ -189,7 +214,9 @@ public abstract class ConnectionMixin
 	private void wurst$resetMovementPacketCompat(
 		net.minecraft.network.DisconnectionDetails details, CallbackInfo ci)
 	{
-		MovementPacketCompat.reset((Connection)(Object)this);
+		Connection connection = (Connection)(Object)this;
+		MovementPacketCompat.reset(connection);
+		VanillaSpoofOtf.onDisconnect(connection);
 	}
 	
 	private ConnectionPacketOutputEvent getEvent(Packet<?> packet)

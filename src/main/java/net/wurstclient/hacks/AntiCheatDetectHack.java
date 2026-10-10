@@ -140,8 +140,7 @@ public final class AntiCheatDetectHack extends Hack
 		if("Unknown".equalsIgnoreCase(antiCheat) && suppressUnknown.isChecked())
 			return;
 		
-		WURST.getOtfs().packetFirewallOtf
-			.onAntiCheatDetected(antiCheat);
+		WURST.getOtfs().packetFirewallOtf.onAntiCheatDetected(antiCheat);
 		
 		long now = System.currentTimeMillis();
 		if(antiCheat.equalsIgnoreCase(lastAnnounced)
