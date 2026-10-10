@@ -59,6 +59,10 @@ public final class TriggerBotHack extends Hack
 				+ " \"Simulate mouse click\" is enabled.",
 			false);
 	
+	private final CheckboxSetting requireAttackKey =
+		new CheckboxSetting("Require left click",
+			"Only attack while the left mouse button is held.", false);
+	
 	private final CheckboxSetting simulateMouseClick = new CheckboxSetting(
 		"Simulate mouse click",
 		"Simulates an actual mouse click (or key press) when attacking. Can be"
@@ -95,6 +99,7 @@ public final class TriggerBotHack extends Hack
 		addSetting(speedRandMS);
 		addSetting(swingHand);
 		addSetting(attackWhileBlocking);
+		addSetting(requireAttackKey);
 		addSetting(simulateMouseClick);
 		
 		entityFilters.forEach(this::addSetting);
@@ -166,6 +171,12 @@ public final class TriggerBotHack extends Hack
 		}
 		
 		if(!attackWhileBlocking.isChecked() && player.isUsingItem())
+		{
+			releaseWeaponRules();
+			return;
+		}
+		
+		if(requireAttackKey.isChecked() && !MC.options.keyAttack.isDown())
 		{
 			releaseWeaponRules();
 			return;
