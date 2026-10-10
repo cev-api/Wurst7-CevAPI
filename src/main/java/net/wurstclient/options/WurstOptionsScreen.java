@@ -249,7 +249,7 @@ public final class WurstOptionsScreen extends Screen
 				.selectNext());
 		
 		addButton(column,
-			() -> "Spoof Vanilla: " + onOff(vanillaSpoof.isEnabled()),
+			() -> "VanillaSpoof: " + onOff(vanillaSpoof.isEnabled()),
 			vanillaSpoof.getDescription(), b -> vanillaSpoof.doPrimaryAction());
 		
 		addButton(column,
