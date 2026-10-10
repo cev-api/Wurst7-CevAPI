@@ -7,7 +7,11 @@
  */
 package net.wurstclient.hacks;
 
+import java.util.Locale;
+
 import net.minecraft.core.registries.Registries;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
@@ -66,6 +70,13 @@ public final class AttributeSwapHack extends Hack
 		"Breach swapping",
 		"Swaps to a mace with Breach to deal more damage (Smart mode).", true);
 	
+	private final CheckboxSetting densitySwapping =
+		new CheckboxSetting("Density swapping",
+			"Swaps to a mace with Density while falling (Smart mode).", true);
+	
+	private final CheckboxSetting lungeSwapping = new CheckboxSetting(
+		"Lunge swapping", "Swaps to a spear with Lunge (Smart mode).", true);
+	
 	private final CheckboxSetting shieldBreaker =
 		new CheckboxSetting("Shield breaker",
 			"Swaps to an axe when target is blocking (Smart mode).", true);
@@ -116,6 +127,8 @@ public final class AttributeSwapHack extends Hack
 		addSetting(shieldBreaker);
 		addSetting(itemSaver);
 		addSetting(breachSwapping);
+		addSetting(densitySwapping);
+		addSetting(lungeSwapping);
 		addSetting(onlyAgainstOtherPlayers);
 		addSetting(onlyAgainstMobs);
 		addSetting(onlyWithKillAura);
@@ -336,6 +349,24 @@ public final class AttributeSwapHack extends Hack
 				return breachSlot;
 		}
 		
+		if(densitySwapping.isChecked() && isFalling())
+		{
+			int densitySlot =
+				InventoryUtils.indexOf(s -> s.getItem() instanceof MaceItem
+					&& getEnchantLevel(s, Enchantments.DENSITY) > 0, 9);
+			if(densitySlot != -1)
+				return densitySlot;
+		}
+		
+		if(lungeSwapping.isChecked())
+		{
+			int lungeSlot = InventoryUtils.indexOf(
+				s -> isSpear(s) && getEnchantLevel(s, Enchantments.LUNGE) > 0,
+				9);
+			if(lungeSlot != -1)
+				return lungeSlot;
+		}
+		
 		int bestSlot = -1;
 		int bestScore = getDurabilityScore(current);
 		
@@ -384,6 +415,22 @@ public final class AttributeSwapHack extends Hack
 			return restrictToMobs;
 		
 		return false;
+	}
+	
+	private boolean isFalling()
+	{
+		return MC.player != null && !MC.player.onGround()
+			&& MC.player.getDeltaMovement().y < 0;
+	}
+	
+	private boolean isSpear(ItemStack stack)
+	{
+		if(stack.isEmpty())
+			return false;
+		
+		Identifier id = BuiltInRegistries.ITEM.getKey(stack.getItem());
+		return id != null
+			&& id.getPath().toLowerCase(Locale.ROOT).contains("spear");
 	}
 	
 	public boolean canPlayerSelectHotbarSlot(int slot)
