@@ -295,6 +295,37 @@ public final class PacketFirewallOtf extends OtherFeature
 		
 		MC.execute(this::handleSetbackOnClientThread);
 	}
+
+	public void onAntiCheatDetected(String detected)
+	{
+		if(detected == null || "Unknown".equalsIgnoreCase(detected))
+			return;
+		
+		MC.execute(() -> {
+			if(!autoEnableAntiCheat.isChecked() || !WURST.isEnabled()
+				|| MC.player == null || MC.level == null)
+				return;
+			
+			enableForDetectedAntiCheat(
+				WURST.getServerObserver().getServerAddress(), detected);
+		});
+	}
+	
+	private void enableForDetectedAntiCheat(String server, String detected)
+	{
+		if(server != null && java.util.Objects.equals(server, autoEnabledServer))
+			return;
+		
+		autoEnabledServer = server;
+		if(firewallEnabled)
+			return;
+		
+		firewallEnabled = true;
+		pauseActivationHacks();
+		ChatUtils.message(
+			"PacketFirewall: automatically enabled because " + detected
+				+ " was detected.");
+	}
 	
 	private void handleSetbackOnClientThread()
 	{
@@ -316,19 +347,8 @@ public final class PacketFirewallOtf extends OtherFeature
 			var observer = WURST.getServerObserver();
 			String server = observer.getServerAddress();
 			String detected = observer.guessAntiCheat(server);
-			if(detected != null && !"Unknown".equalsIgnoreCase(detected)
-				&& !java.util.Objects.equals(server, autoEnabledServer))
-			{
-				autoEnabledServer = server;
-				if(!firewallEnabled)
-				{
-					firewallEnabled = true;
-					pauseActivationHacks();
-					ChatUtils.message(
-						"PacketFirewall: automatically enabled because "
-							+ detected + " was detected.");
-				}
-			}
+			if(detected != null && !"Unknown".equalsIgnoreCase(detected))
+				enableForDetectedAntiCheat(server, detected);
 		}
 		if(!isFirewallEnabled())
 			restoreSuppressedHacks();

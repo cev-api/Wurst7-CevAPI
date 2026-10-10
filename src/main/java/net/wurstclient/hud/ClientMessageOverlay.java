@@ -772,6 +772,8 @@ public final class ClientMessageOverlay
 		ClientChatOverlayHack hack = getSettings();
 		if(hack == null || !hack.isEnabled() || message == null)
 			return null;
+		if(isWurstMessage(stripLegacyFormatting(message.getString()).trim()))
+			return null;
 			
 		// PlayerSprite.getString() is represented as "[Name head]". Keep the
 		// component tree intact when another chat-head implementation already
