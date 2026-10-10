@@ -1,0 +1,82 @@
+name: Latest prerelease
+
+on:
+  push:
+    branches:
+      - "**"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: latest-prerelease
+  cancel-in-progress: false
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v6
+        with:
+          java-version: "25"
+          distribution: "microsoft"
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+
+      - name: Build
+        run: ./gradlew build --stacktrace
+
+      - name: Create or update latest prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: latest-build
+          TITLE: Latest development build
+        run: |
+          set -euo pipefail
+
+          NOTES=$(cat <<EOF
+          **Pre-Release — unstable.**
+
+          This build may contain bugs, unfinished changes, or other issues. It is intended for impatient users who want the newest changes before the next stable release. Use it at your own risk.
+
+          Built from commit $GITHUB_SHA on branch $GITHUB_REF_NAME.
+          EOF
+          )
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            git tag -f "$TAG" "$GITHUB_SHA"
+            git push --force origin "refs/tags/$TAG"
+            gh release edit "$TAG" --title "$TITLE" --notes "$NOTES" --prerelease
+
+            while IFS= read -r asset; do
+              [ -z "$asset" ] || gh release delete-asset "$TAG" "$asset" --yes
+            done < <(gh release view "$TAG" --json assets --jq '.assets[].name')
+          else
+            gh release create "$TAG" \
+              --target "$GITHUB_SHA" \
+              --title "$TITLE" \
+              --notes "$NOTES" \
+              --prerelease
+          fi
+
+          shopt -s nullglob
+          jars=(build/libs/*-v*.jar)
+          for jar in "${jars[@]}"; do
+            [[ "$jar" == *-sources.jar ]] || gh release upload "$TAG" "$jar"
+          done
+
+          if ! gh release view "$TAG" --json assets --jq '.assets | length' | grep -q '[1-9]'; then
+            echo "No application JARs were found in build/libs." >&2
+            exit 1
+          fi
