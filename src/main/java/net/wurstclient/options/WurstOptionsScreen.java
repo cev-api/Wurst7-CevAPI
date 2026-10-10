@@ -525,6 +525,8 @@ public final class WurstOptionsScreen extends Screen
 			b -> os.openUri("https://discord.gg/wDgqxkAKFQ"));
 		addButton(column, () -> "CevAPI Website", "cevapi.dev",
 			b -> os.openUri("https://cevapi.dev/"));
+		addButton(column, () -> "CevAPI Patreon", "Support CevAPI on Patreon.",
+			b -> os.openUri("https://www.patreon.com/cevapi_dev/"));
 		addButton(column, () -> "Wurst Addon Template",
 			"gitlab.com/Cev-API/wurst-addon-template",
 			b -> os.openUri("https://gitlab.com/Cev-API/wurst-addon-template"));
