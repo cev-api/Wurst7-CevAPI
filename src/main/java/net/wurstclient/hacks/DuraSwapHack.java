@@ -30,6 +30,7 @@ import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
+import net.wurstclient.util.ChatUtils;
 
 @SearchTags({"dura swap", "durability swap", "durability saver", "tool saver",
 	"mine swap", "mining swap", "efficiency transfer", "item saver",
@@ -81,6 +82,7 @@ public final class DuraSwapHack extends Hack
 	private BlockPos trackedPos;
 	private int ticksBreaking;
 	private int restoreSlot = -1;
+	private Boolean sacrificeAvailable;
 	
 	public DuraSwapHack()
 	{
@@ -99,6 +101,7 @@ public final class DuraSwapHack extends Hack
 		trackedPos = null;
 		ticksBreaking = 0;
 		restoreSlot = -1;
+		sacrificeAvailable = null;
 		
 		EVENTS.add(BlockBreakingProgressListener.class, this);
 		EVENTS.add(UpdateListener.class, this);
@@ -113,6 +116,7 @@ public final class DuraSwapHack extends Hack
 		restoreSelectedSlot();
 		trackedPos = null;
 		ticksBreaking = 0;
+		sacrificeAvailable = null;
 	}
 	
 	@Override
@@ -148,8 +152,10 @@ public final class DuraSwapHack extends Hack
 			return;
 		
 		float required = SERVER_THRESHOLD * (float)safetyMargin.getValue();
-		swapTo(findSacrificeSlot(List.of(pos), new float[]{required},
-			ticksBreaking + 1));
+		int sacrifice = findSacrificeSlot(List.of(pos), new float[]{required},
+			ticksBreaking + 1);
+		reportSacrificeStatus(sacrifice);
+		swapTo(sacrifice);
 	}
 	
 	public void onBeforeInstaBreakPacket(BlockPos pos)
@@ -161,7 +167,9 @@ public final class DuraSwapHack extends Hack
 		if(state.getDestroyProgress(MC.player, MC.player.level(), pos) < 1)
 			return;
 		
-		swapTo(findSacrificeSlot(List.of(pos), new float[]{1}, 1));
+		int sacrifice = findSacrificeSlot(List.of(pos), new float[]{1}, 1);
+		reportSacrificeStatus(sacrifice);
+		swapTo(sacrifice);
 	}
 	
 	public void onBeforePacketBreak(BlockPos pos)
@@ -169,8 +177,10 @@ public final class DuraSwapHack extends Hack
 		if(getBreakableState(pos) == null)
 			return;
 		
-		swapTo(findSacrificeSlot(List.of(pos),
-			new float[]{getHeldProgress(pos)}, 1));
+		int sacrifice = findSacrificeSlot(List.of(pos),
+			new float[]{getHeldProgress(pos)}, 1);
+		reportSacrificeStatus(sacrifice);
+		swapTo(sacrifice);
 	}
 	
 	public void onBeforePacketBreak(Iterable<BlockPos> blocks)
@@ -200,12 +210,30 @@ public final class DuraSwapHack extends Hack
 		for(int i = 0; i < required.length; i++)
 			required[i] = getHeldProgress(samples.get(i));
 		
-		swapTo(findSacrificeSlot(samples, required, 1));
+		int sacrifice = findSacrificeSlot(samples, required, 1);
+		reportSacrificeStatus(sacrifice);
+		swapTo(sacrifice);
 	}
 	
 	public void onAfterBreakPacket()
 	{
 		restoreSelectedSlot();
+	}
+	
+	private void reportSacrificeStatus(int sacrifice)
+	{
+		boolean available = sacrifice != -1;
+		if(sacrificeAvailable != null && sacrificeAvailable == available)
+			return;
+		
+		sacrificeAvailable = available;
+		if(available)
+			ChatUtils.message(
+				"DuraSwap: OK - viable sacrificial tool found in hotbar slot "
+					+ (sacrifice + 1) + ".");
+		else
+			ChatUtils.warning(
+				"DuraSwap: NO viable sacrificial tool available in the hotbar.");
 	}
 	
 	private float getHeldProgress(BlockPos pos)
