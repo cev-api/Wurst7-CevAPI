@@ -24,7 +24,6 @@ import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.renderer.Panorama;
 import net.wurstclient.WurstClient;
-import net.wurstclient.util.ShadertoyBackgroundManager;
 import net.wurstclient.util.TitleBackgroundModeManager;
 import net.wurstclient.util.TitleScreenBackgroundRenderer;
 
@@ -55,16 +54,11 @@ public abstract class ScreenMixin extends AbstractContainerEventHandler
 	{
 		if(!((Object)this instanceof TitleScreen))
 			return;
-		if(!WurstClient.INSTANCE.isEnabled())
-			return;
 		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
 			return;
 		if(!WurstClient.INSTANCE.getOtfs().wurstOptionsOtf
 			.isTitleScreenShadertoyBackgroundEnabled())
 			return;
-		if(ShadertoyBackgroundManager.hasCustomShader())
-			return;
-		
 		if(context.key() == InputConstants.KEY_ESCAPE)
 		{
 			TitleBackgroundModeManager.advanceForEnableToggle();

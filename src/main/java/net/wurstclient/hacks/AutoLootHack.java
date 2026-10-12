@@ -113,9 +113,9 @@ public final class AutoLootHack extends Hack
 	private final SliderSetting range = new SliderSetting("Range",
 		"Maximum distance to collect valuable dropped items.", 6, 1, 32, 1,
 		ValueDisplay.INTEGER);
-	private final SliderSetting delay = new SliderSetting("Action delay",
-		"Delay between inventory actions.", 50, 50, 1000, 50,
-		ValueDisplay.INTEGER.withSuffix("ms"));
+	private final SliderSetting delay =
+		new SliderSetting("Action delay", "Delay between inventory actions.",
+			50, 50, 1000, 50, ValueDisplay.INTEGER.withSuffix("ms"));
 	
 	private Entity pendingKill;
 	private ItemEntity movingTo;

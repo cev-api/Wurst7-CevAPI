@@ -16,6 +16,12 @@ float titleTime()
 	return (encodedTime.a * 16.0 + floor(encodedTime.r / 16.0)) / 20.0;
 }
 
+float titleCameraTime()
+{
+	float cameraMoving = mod(floor(vertexColor.g * 255.0 + 0.5), 2.0);
+	return cameraMoving > 0.5 ? titleTime() : 0.0;
+}
+
 float titleMode()
 {
 	float red = floor(vertexColor.r * 255.0 + 0.5);
@@ -568,9 +574,10 @@ void main()
 	vec2 p = vec2((2.0 * q.x - 1.0) * TITLE_ASPECT, 2.0 * q.y - 1.0);
 	float iTime = titleTime();
 
-	float cr = 0.2 * cos(0.1 * iTime);
-	vec3 ro = path(iTime + 0.0, 1.0);
-	vec3 ta = path(iTime + 5.0, 1.0) - vec3(0.0, 6.0, 0.0);
+	float cameraTime = titleCameraTime();
+	vec3 ro = path(cameraTime, 1.0);
+	vec3 ta = ro + vec3(0.0, 0.0, -1.0);
+	float cr = 0.0;
 	gro = ro;
 
 	mat3 cam = setCamera(ro, ta, cr);

@@ -48,7 +48,8 @@ public final class ShadertoyBackgroundManager
 {
 	private static final String BUNDLED_PRESET_FOLDER =
 		"/wurst/shadertoy-presets/";
-	private static final List<String> BUNDLED_PRESETS = List.of("LCL");
+	private static final List<String> BUNDLED_PRESETS =
+		List.of("LCL", "RainyDay");
 	private static final Identifier SHADER_RESOURCE =
 		Identifier.parse("wurst:shaders/core/title_shadertoy_background.fsh");
 	private static final Pattern SHADERTOY_ID = Pattern
@@ -577,20 +578,24 @@ public final class ShadertoyBackgroundManager
 			#define iChannel1 Sampler1
 			#define iChannel2 Sampler2
 			#define iChannel3 Sampler2
+			#define wurstTitleMode floor(mod(floor(vertexColor.b * 255.0 + 0.5), 4.0))
+			#define wurstXray mod(floor(floor(vertexColor.b * 255.0 + 0.5) / 4.0), 2.0)
+			#define wurstCameraMoving mod(floor(floor(vertexColor.b * 255.0 + 0.5) / 8.0), 2.0)
 			
 			const vec3 iResolution = vec3(1920.0, 1080.0, 1.0);
 			const vec4 iMouse = vec4(0.0);
 			const vec3 iChannelResolution[4] = vec3[4](
-			""" + channelResolutionArray + """
-			);
-			
-			""" + body + """
-			
-			void main()
-			{
-				mainImage(fragColor, texCoord * iResolution.xy);
-			}
-			""";
+			"""
+			+ channelResolutionArray + """
+				);
+				
+				""" + body + """
+				
+				void main()
+				{
+					mainImage(fragColor, texCoord * iResolution.xy);
+				}
+				""";
 	}
 	
 	private static String buildChannelResolutionArray(
