@@ -59,7 +59,7 @@ public final class NiceWurstModule
 	private static final Set<String> ALLOWED_NAME_ONLY =
 		Set.of("ClickGUI", "Navigator", "AltGUI", "XPGUI", "ChorusFruit",
 			"MeasurementESP", "Towny", "NecoMode", "InstantCommand", "JoinDrop",
-			"NBTFilter", "NoGoZone");
+			"NBTFilter", "NBTEditor", "NoGoZone");
 	
 	private static final Set<String> HIDDEN_OTHER_FEATURES =
 		Set.of("Anti-Fingerprint");
@@ -103,13 +103,16 @@ public final class NiceWurstModule
 		ALLOWED_HACKS.put(Category.COMBAT,
 			Set.of("AutoArmor", "AutoPotion", "AutoRespawn", "AutoSoup",
 				"AutoTotem", "AutoLeave", "PearlIntercept", "ShieldSwing",
-				"WindChargeKey", "AntiProjectile", "AttributeSwap"));
+				"WindChargeKey", "AntiProjectile", "AttributeSwap",
+				"PearlLauncher"));
 		
 		ALLOWED_HACKS.put(Category.RENDER,
-			Set.of("BarrierESP", "DurabilityHUD", "Fullbright", "HealthTags",
+			Set.of("AntiFov", "BarrierESP", "DurabilityHUD", "Fullbright",
+				"HealthTags",
 				"MobHealth", "NameTags", "NoBackground", "NoFireOverlay",
-				"NoVignette", "NoFog", "NoOverlay", "NoPumpkin", "NoWeather",
-				"NoShieldOverlay", "Freecam", "SpawnRadius", "Trajectories",
+				"NameProtect", "NoVignette", "NoFog", "NoHurtcam", "NoOverlay",
+				"NoPumpkin", "NoWeather", "NoShieldOverlay", "OpenWaterESP",
+				"Freecam", "SpawnRadius", "Trajectories",
 				"TrialSpawnerESP", "Waypoints", "ElytraInfo", "RoofESP",
 				"RenderAdjust", "Viewmodel", "MobOwners", "StasisDetector",
 				"PotESP", "SkyBuildESP", "DamageESP", "ProjectileESP",
@@ -119,11 +122,12 @@ public final class NiceWurstModule
 			Set.of("Breadcrumbs", "LogoutSpots", "NewChunks", "NewerNewChunks",
 				"Mapa", "BedrockStash", "LivestreamDetector", "StaffMonitor",
 				"OppStats", "SimulationSonar", "TextureRotator", "ServerIntel",
-				"MicDetect"));
+				"MicDetect", "Telemetrics", "Triangulator"));
 		
 		ALLOWED_HACKS.put(Category.CHAT,
-			Set.of("AutoChat", "ChatTranslator", "FancyChat", "Mention",
-				"NoPlayerChat", "ChatSpam", "CommandSpam", "PlayerMute"));
+			Set.of("AntiSpam", "AutoChat", "AutoComplete", "ChatTranslator",
+				"FancyChat", "Mention", "NoPlayerChat", "ChatSpam",
+				"CommandSpam", "PlayerMute", "ClientChatOverlay"));
 		
 		ALLOWED_HACKS.put(Category.TOOLS,
 			Set.of("AntiCheatDetect", "CheatDetector", "PacketRate",
@@ -134,7 +138,7 @@ public final class NiceWurstModule
 			Set.of("AntiAFK", "Antisocial", "AutoFish", "AutoLibrarian",
 				"AutoReconnect", "AutoTrader", "ClickGUI", "FeedAura",
 				"Navigator", "Panic", "PortalGUI", "SafeTP", "TooManyHax",
-				"DamageDetect", "ClientChatOverlay", "GlobalToggle",
+				"DamageDetect", "GlobalToggle",
 				"WebhookAlert", "RemoteEChest", "ShearAura", "AirMiner",
 				"VaultRoll", "VillagerRoll"));
 		
