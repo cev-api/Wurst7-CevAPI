@@ -19,6 +19,7 @@ import net.wurstclient.events.ConnectionPacketOutputListener.ConnectionPacketOut
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.CheckboxSetting;
+import net.wurstclient.settings.EnumSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
 
@@ -39,19 +40,30 @@ public final class PacketRateHack extends Hack
 	private final CheckboxSetting dropExcess = new CheckboxSetting(
 		"Drop excess packets",
 		"Drop packets that exceed the limit instead of queueing them.", false);
+	private final EnumSetting<RateMode> mode =
+		new EnumSetting<>("Rate control", RateMode.values(), RateMode.NORMAL);
 	
 	private final SliderSetting limit = new SliderSetting("Limit",
 		"Max outgoing packets per second.\n0 = unlimited", 100, 0, 1000, 1,
 		ValueDisplay.INTEGER);
+	private final SliderSetting instantLimit = new SliderSetting(
+		"Instantaneous limit", 875, 1, 2000, 1, ValueDisplay.INTEGER);
+	private final SliderSetting sustainedLimit = new SliderSetting(
+		"Sustained limit", 200, 1, 1000, 1, ValueDisplay.INTEGER);
+	private final SliderSetting safetyMargin = new SliderSetting(
+		"Safety margin", 0.10, 0, 0.5, 0.01, ValueDisplay.PERCENTAGE);
 	
 	private final ArrayDeque<Packet<?>> queue = new ArrayDeque<>();
 	private final Object queueLock = new Object();
 	private final ArrayDeque<Long> sentTimes = new ArrayDeque<>();
+	private final ArrayDeque<Long> pacedTimes = new ArrayDeque<>();
 	private final Object sentTimesLock = new Object();
 	private final ThreadLocal<Boolean> bypassLimiter =
 		ThreadLocal.withInitial(() -> false);
 	private double tokens;
 	private long lastRefillMs;
+	private double autoTuneCap = 100;
+	private long lastAutoTuneMs;
 	
 	public PacketRateHack()
 	{
@@ -59,7 +71,11 @@ public final class PacketRateHack extends Hack
 		setCategory(Category.TOOLS);
 		addSetting(limiterEnabled);
 		addSetting(dropExcess);
+		addSetting(mode);
 		addSetting(limit);
+		addSetting(instantLimit);
+		addSetting(sustainedLimit);
+		addSetting(safetyMargin);
 	}
 	
 	@Override
@@ -92,6 +108,7 @@ public final class PacketRateHack extends Hack
 			queue.clear();
 			tokens = 0;
 			lastRefillMs = System.currentTimeMillis();
+			autoTuneCap = Math.max(1, limit.getValue());
 		}
 		synchronized(sentTimesLock)
 		{
@@ -132,7 +149,7 @@ public final class PacketRateHack extends Hack
 			return;
 		}
 		
-		int limitValue = limit.getValueI();
+		int limitValue = getOperatingLimit();
 		if(limitValue <= 0)
 		{
 			recordSent(now);
@@ -143,13 +160,15 @@ public final class PacketRateHack extends Hack
 		synchronized(queueLock)
 		{
 			refillTokensLocked(now, limitValue);
+			prunePacedTimesLocked(now);
+			boolean paced = withinPacedLimitsLocked(now);
 			
 			if(dropExcess.isChecked())
 			{
 				// If the setting was changed while packets were queued, do not
 				// release the old queue in drop mode.
 				queue.clear();
-				if(tokens >= 1)
+				if(tokens >= 1 && paced)
 				{
 					tokens -= 1;
 					allowed = true;
@@ -157,7 +176,7 @@ public final class PacketRateHack extends Hack
 			}else if(!queue.isEmpty())
 			{
 				queue.addLast(packet);
-			}else if(tokens >= 1)
+			}else if(tokens >= 1 && paced)
 			{
 				tokens -= 1;
 				allowed = true;
@@ -165,6 +184,8 @@ public final class PacketRateHack extends Hack
 			{
 				queue.addLast(packet);
 			}
+			if(allowed && mode.getSelected() == RateMode.VIA_VERSION)
+				pacedTimes.addLast(now);
 		}
 		
 		if(allowed)
@@ -191,16 +212,17 @@ public final class PacketRateHack extends Hack
 			return;
 		}
 		
-		if(limit.getValueI() <= 0)
+		if(getOperatingLimit() <= 0)
 		{
 			flushAll();
 			pruneSentTimes(System.currentTimeMillis());
 			return;
 		}
 		
-		int limitValue = limit.getValueI();
+		int limitValue = getOperatingLimit();
 		synchronized(queueLock)
 		{
+			tuneRateLocked(System.currentTimeMillis());
 			refillTokensLocked(System.currentTimeMillis(), limitValue);
 			if(dropExcess.isChecked())
 				queue.clear();
@@ -229,13 +251,15 @@ public final class PacketRateHack extends Hack
 				if(queue.isEmpty())
 					return;
 				
-				refillTokensLocked(System.currentTimeMillis(),
-					limit.getValueI());
-				if(tokens < 1)
+				long now = System.currentTimeMillis();
+				refillTokensLocked(now, getOperatingLimit());
+				prunePacedTimesLocked(now);
+				if(tokens < 1 || !withinPacedLimitsLocked(now))
 					return;
 				
 				packet = queue.removeFirst();
 				tokens -= 1;
+				pacedTimes.addLast(now);
 			}
 			
 			sendBypassingLimiter(connection, packet);
@@ -314,6 +338,66 @@ public final class PacketRateHack extends Hack
 				break;
 			sentTimes.removeFirst();
 		}
+	}
+	
+	private int getOperatingLimit()
+	{
+		switch(mode.getSelected())
+		{
+			case VIA_VERSION:
+			return Math.max(1,
+				(int)(instantLimit.getValue() * (1 - safetyMargin.getValue())));
+			case AUTO_TUNE:
+			return Math.max(1,
+				(int)(autoTuneCap * (1 - safetyMargin.getValue())));
+			default:
+			return limit.getValueI();
+		}
+	}
+	
+	private void tuneRateLocked(long now)
+	{
+		if(mode.getSelected() != RateMode.AUTO_TUNE
+			|| now - lastAutoTuneMs < 1000)
+			return;
+		lastAutoTuneMs = now;
+		if(queue.isEmpty())
+			autoTuneCap = Math.min(1000, autoTuneCap + 5);
+		else
+			autoTuneCap = Math.max(20, autoTuneCap * 0.9);
+	}
+	
+	private boolean withinPacedLimitsLocked(long now)
+	{
+		if(mode.getSelected() != RateMode.VIA_VERSION)
+			return true;
+		int instant = Math.max(1,
+			(int)(instantLimit.getValue() * (1 - safetyMargin.getValue())));
+		int sustained = Math.max(1,
+			(int)(sustainedLimit.getValue() * (1 - safetyMargin.getValue())));
+		int oneSecond = 0;
+		int fiveSeconds = 0;
+		for(long sent : pacedTimes)
+		{
+			if(sent > now - 1000)
+				oneSecond++;
+			if(sent > now - 5000)
+				fiveSeconds++;
+		}
+		return oneSecond < instant && fiveSeconds < sustained * 5;
+	}
+	
+	private void prunePacedTimesLocked(long now)
+	{
+		while(!pacedTimes.isEmpty() && pacedTimes.peekFirst() <= now - 5000)
+			pacedTimes.removeFirst();
+	}
+	
+	private enum RateMode
+	{
+		NORMAL,
+		VIA_VERSION,
+		AUTO_TUNE
 	}
 	
 	private void refillTokensLocked(long now, int limitValue)
