@@ -2461,6 +2461,11 @@ public final class AltGuiScreen extends Screen
 		finishInlineTextField(true);
 		editingTextField = setting;
 		originalTextFieldValue = setting.getValue();
+		inlineTextField.addFormatter(
+			(value, cursor) -> net.minecraft.network.chat.Component
+				.literal(
+					setting.isMasked() ? "*".repeat(value.length()) : value)
+				.getVisualOrderText());
 		inlineTextField.setMaxLength(setting.getMaxLength());
 		inlineTextField.setValue(originalTextFieldValue);
 		inlineTextField.setEditable(true);
@@ -3021,6 +3026,8 @@ public final class AltGuiScreen extends Screen
 	
 	private String getSettingName(Setting setting)
 	{
+		if(setting instanceof ButtonSetting button)
+			return button.getButtonText();
 		if(setting instanceof SettingGroup group)
 			return (expandedGroups.contains(group) ? "[-] " : "[+] ")
 				+ setting.getName();
@@ -3046,13 +3053,13 @@ public final class AltGuiScreen extends Screen
 			return normalizeDisplayValue(dropdown.getSelected());
 		
 		if(setting instanceof TextFieldSetting textField)
-			return normalizeDisplayValue(textField.getValue());
+			return normalizeDisplayValue(textField.getDisplayValue());
 		
 		if(setting instanceof ColorSetting color)
 			return ColorUtils.toHex(color.getColor());
 		
-		if(setting instanceof ButtonSetting)
-			return "Run";
+		if(setting instanceof ButtonSetting button)
+			return button.getButtonText().startsWith("STOP") ? "STOP" : "Run";
 		
 		if(setting instanceof PlantTypeSetting plant)
 			return "H:" + (plant.isHarvestingEnabled() ? "ON" : "OFF") + " R:"

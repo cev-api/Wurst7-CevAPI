@@ -47,6 +47,10 @@ public final class TextFieldEditButton extends Component
 		inlineField.setMaxLength(setting.getMaxLength());
 		inlineField.setValue(setting.getValue());
 		inlineField.setEditable(false);
+		if(setting.isMasked())
+			inlineField.addFormatter(
+				(value, cursor) -> net.minecraft.network.chat.Component
+					.literal("*".repeat(value.length())).getVisualOrderText());
 		setWidth(getDefaultWidth());
 		setHeight(getDefaultHeight());
 	}
@@ -144,7 +148,7 @@ public final class TextFieldEditButton extends Component
 		if(hText)
 			GUI.setTooltip(ChatUtils.wrapText(setting.getDescription(), 200));
 		else if(hBox && !editing)
-			GUI.setTooltip(ChatUtils.wrapText(setting.getValue(), 200));
+			GUI.setTooltip(ChatUtils.wrapText(setting.getDisplayValue(), 200));
 		
 		context.fill(x1, y1, x2, boxY1,
 			RenderUtils.toIntColor(bgColor, opacity));
@@ -168,7 +172,7 @@ public final class TextFieldEditButton extends Component
 				partialTicks);
 		}else
 		{
-			String value = setting.getValue();
+			String value = setting.getDisplayValue();
 			int maxWidth = getWidth() - TR.width("...") - 2;
 			int maxLength = TR.getSplitter().plainIndexAtWidth(value, maxWidth,
 				Style.EMPTY);

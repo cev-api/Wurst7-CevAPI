@@ -10,9 +10,12 @@ package net.wurstclient.mixin;
 import java.util.LinkedHashMap;
 import java.util.Optional;
 
-import org.spongepowered.asm.mixin.Shadow;
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
+import com.mojang.brigadier.tree.RootCommandNode;
+import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
@@ -22,6 +25,7 @@ import net.minecraft.client.gui.components.toasts.SystemToast;
 import net.minecraft.client.multiplayer.ClientCommonPacketListenerImpl;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.multiplayer.ClientPacketListener;
+import net.minecraft.client.multiplayer.ClientSuggestionProvider;
 import net.minecraft.client.multiplayer.CommonListenerCookie;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.client.player.LocalPlayer;
@@ -40,10 +44,12 @@ import net.minecraft.network.protocol.game.ClientboundExplodePacket;
 import net.minecraft.network.protocol.game.ClientboundLevelChunkWithLightPacket;
 import net.minecraft.network.protocol.game.ClientboundLoginPacket;
 import net.minecraft.network.protocol.game.ClientboundCommandSuggestionsPacket;
+import net.minecraft.network.protocol.game.ClientboundCommandsPacket;
 import net.minecraft.network.protocol.game.ClientboundSystemChatPacket;
 import net.wurstclient.uiutils.UiUtilsCommandScanner;
 import net.wurstclient.uiutils.UiUtilsLegacyPluginScanner;
 import net.wurstclient.uiutils.UiUtilsPluginScanner;
+import net.wurstclient.uiutils.UiUtilsServerCommands;
 import net.minecraft.network.protocol.game.ClientboundMapItemDataPacket;
 import net.minecraft.network.protocol.game.ClientboundOpenSignEditorPacket;
 import net.minecraft.world.level.block.entity.SignTextSlot;
@@ -61,9 +67,36 @@ import net.wurstclient.util.MiningStateCompat;
 
 @Mixin(ClientPacketListener.class)
 public abstract class ClientPacketListenerMixin
-	extends ClientCommonPacketListenerImpl
-	implements TickablePacketListener, ClientGamePacketListener
+	extends ClientCommonPacketListenerImpl implements TickablePacketListener,
+	ClientGamePacketListener, UiUtilsServerCommands
 {
+	@Shadow
+	@Final
+	private static ClientboundCommandsPacket.NodeBuilder<ClientSuggestionProvider> COMMAND_NODE_BUILDER;
+	
+	@Unique
+	private RootCommandNode<ClientSuggestionProvider> wurst$serverCommandRoot;
+	
+	@Inject(method = "handleCommands",
+		at = @At(value = "INVOKE",
+			target = "Lcom/mojang/brigadier/CommandDispatcher;<init>(Lcom/mojang/brigadier/tree/RootCommandNode;)V"))
+	private void wurst$captureServerCommands(ClientboundCommandsPacket packet,
+		CallbackInfo ci)
+	{
+		ClientPacketListener connection = (ClientPacketListener)(Object)this;
+		// Decode before Fabric mutates the regular dispatcher at method return.
+		wurst$serverCommandRoot = packet.getRoot(
+			net.minecraft.commands.CommandBuildContext.simple(
+				connection.registryAccess(), connection.enabledFeatures()),
+			COMMAND_NODE_BUILDER);
+	}
+	
+	@Override
+	public RootCommandNode<ClientSuggestionProvider> wurst$getServerCommandRoot()
+	{
+		return wurst$serverCommandRoot;
+	}
+	
 	@ModifyExpressionValue(
 		method = "handleExplosion(Lnet/minecraft/network/protocol/game/ClientboundExplodePacket;)V",
 		at = @At(value = "INVOKE",
@@ -90,6 +123,8 @@ public abstract class ClientPacketListenerMixin
 	private void serverIntel$onSuggestions(
 		ClientboundCommandSuggestionsPacket packet, CallbackInfo ci)
 	{
+		if(Minecraft.getInstance().getConnection() != (Object)this)
+			return;
 		UiUtilsPluginScanner.onSuggestionsPacket(packet);
 		UiUtilsLegacyPluginScanner.onSuggestionsPacket(packet);
 		UiUtilsCommandScanner.onSuggestionsPacket(packet);
@@ -101,6 +136,8 @@ public abstract class ClientPacketListenerMixin
 	private void serverIntel$onSystemChat(ClientboundSystemChatPacket packet,
 		CallbackInfo ci)
 	{
+		if(Minecraft.getInstance().getConnection() != (Object)this)
+			return;
 		UiUtilsCommandScanner.onSystemChat(packet.content());
 		UiUtilsPluginScanner.onSystemChat(packet.content());
 	}

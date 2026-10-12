@@ -23,6 +23,7 @@ import net.wurstclient.util.text.WText;
 public final class ButtonSetting extends Setting
 {
 	private final Runnable action;
+	private java.util.function.Supplier<String> buttonText = this::getName;
 	
 	public ButtonSetting(String name, WText description, Runnable action)
 	{
@@ -40,6 +41,16 @@ public final class ButtonSetting extends Setting
 		this(name, WText.empty(), action);
 	}
 	
+	public void setButtonText(java.util.function.Supplier<String> buttonText)
+	{
+		this.buttonText = Objects.requireNonNull(buttonText);
+	}
+	
+	public String getButtonText()
+	{
+		return buttonText.get();
+	}
+	
 	public void runAction()
 	{
 		action.run();
@@ -48,7 +59,7 @@ public final class ButtonSetting extends Setting
 	@Override
 	public Component getComponent()
 	{
-		return new ButtonComponent(getName(), action);
+		return new ButtonComponent(this::getButtonText, action);
 	}
 	
 	@Override

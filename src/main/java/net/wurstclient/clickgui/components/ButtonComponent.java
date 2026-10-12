@@ -16,10 +16,16 @@ import net.wurstclient.util.RenderUtils;
 
 public final class ButtonComponent extends Component
 {
-	private final String text;
+	private final java.util.function.Supplier<String> text;
 	private final Runnable action;
 	
 	public ButtonComponent(String text, Runnable action)
+	{
+		this(() -> text, action);
+	}
+	
+	public ButtonComponent(java.util.function.Supplier<String> text,
+		Runnable action)
 	{
 		this.text = text;
 		this.action = action;
@@ -53,14 +59,14 @@ public final class ButtonComponent extends Component
 		if(getParent() instanceof net.wurstclient.clickgui.modern.ModernWindow)
 			textY = y1 + Math.max(0,
 				Math.round((getHeight() - MC.font.lineHeight) / 2F));
-		context.centeredText(MC.font, text, (x1 + x2) / 2, textY,
+		context.centeredText(MC.font, text.get(), (x1 + x2) / 2, textY,
 			WURST.getGui().getTxtColor());
 	}
 	
 	@Override
 	public int getDefaultWidth()
 	{
-		return MC.font.width(text) + 8;
+		return MC.font.width(text.get()) + 8;
 	}
 	
 	@Override

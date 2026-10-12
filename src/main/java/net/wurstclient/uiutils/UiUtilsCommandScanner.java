@@ -7,14 +7,17 @@
  */
 package net.wurstclient.uiutils;
 
-import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.suggestion.Suggestion;
 import com.mojang.brigadier.suggestion.Suggestions;
+import com.mojang.brigadier.tree.ArgumentCommandNode;
 import com.mojang.brigadier.tree.CommandNode;
+import com.mojang.brigadier.tree.RootCommandNode;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -27,17 +30,136 @@ import net.minecraft.network.protocol.game.ServerboundCommandSuggestionPacket;
 
 public final class UiUtilsCommandScanner
 {
-	private static final int RESPONSE_TIMEOUT_TICKS = 20;
+	private static final int RESPONSE_TIMEOUT_TICKS = 60;
+	private static final int MAX_PROBE_ATTEMPTS = 3;
 	private static final int EXECUTE_COOLDOWN_TICKS = 40;
-	private static final int SUGGESTION_LIMIT = 1000;
-	private static final int MAX_PROBES = 128;
-	private static final int MAX_PREFIX_LENGTH = 4;
-	private static final int MANUAL_OUTPUT_TIMEOUT_TICKS = 100;
-	private static final int MAX_MANUAL_OUTPUT_LINES = 12;
+	private static final int MAX_SUGGESTIONS_PER_RESPONSE = 1000;
+	private static final int MAX_ADAPTIVE_PROBES = 128;
+	private static final int MAX_ADAPTIVE_PREFIX_LENGTH = 4;
 	private static final char[] LETTERS =
 		"abcdefghijklmnopqrstuvwxyz".toCharArray();
-	private static final char[] ADAPTIVE_CHARACTERS =
+	private static final char[] PROBE_SUFFIXES =
 		"abcdefghijklmnopqrstuvwxyz0123456789_-.".toCharArray();
+	private static final Set<String> ESSENTIALS_COMMANDS =
+		new HashSet<>(Arrays.asList("about", "ac", "action", "adventure",
+			"adventuremode", "afk", "alts", "amsg", "antioch", "anvil", "away",
+			"back", "backup", "bal", "balance", "balancetop", "baltop", "ban",
+			"banip", "bc", "bcast", "bcastw", "bcw", "beecannon", "beezooka",
+			"bigtree", "blocks", "book", "bottom", "break", "broadcast",
+			"broadcastworld", "burn", "butcher", "call", "cartographytable",
+			"carttable", "changems", "ci", "ck", "clean", "clear",
+			"clearconfirm", "clearconfirmoff", "clearconfirmon", "clearinvent",
+			"clearinventory", "clearinventoryconfirmoff",
+			"clearinventoryconfirmtoggle", "compact", "compass", "condense",
+			"coords", "craft", "createhome", "createjail", "createk",
+			"createkit", "createwarp", "creative", "creativemode", "customtext",
+			"day", "deletekit", "delhome", "delignore", "deljail", "delkit",
+			"delwarp", "depth", "describe", "direction", "disposal", "dura",
+			"durability", "eabout", "eac", "eaction", "eadventure",
+			"eadventuremode", "eafk", "ealts", "eamsg", "eantioch", "eanvil",
+			"eat", "eaway", "eback", "ebackup", "ebal", "ebalance",
+			"ebalancetop", "ebaltop", "eban", "ebanip", "ebc", "ebcast",
+			"ebcastw", "ebcw", "ebeecannon", "ebeezooka", "ebigtree", "eblocks",
+			"ebook", "ebottom", "ebreak", "ebroadcast", "ebroadcastworld",
+			"eburn", "ebutcher", "ec", "ecall", "ecartographytable",
+			"ecarttable", "echangems", "echest", "echo", "eci", "eclean",
+			"eclear", "eclearconfirm", "eclearconfirmoff", "eclearconfirmon",
+			"eclearinvent", "eclearinventory", "eclearinventoryconfirmoff",
+			"eclearinventoryconfirmtoggle", "eco", "ecompact", "ecompass",
+			"econdense", "economy", "ecraft", "ecreatehome", "ecreatejail",
+			"ecreatewarp", "ecreative", "ecreativemode", "eday", "edeletekit",
+			"edelhome", "edelignore", "edeljail", "edelkit", "edelwarp",
+			"edepth", "edescribe", "edirection", "edisposal", "editsign",
+			"edura", "edurability", "eeat", "eec", "eechest", "eecho", "eeco",
+			"eeconomy", "eecreative", "eeditsign", "eelixer", "eemail",
+			"eenchant", "eenchantment", "eenderchest", "eendersee", "eentities",
+			"eess", "eessentials", "eexp", "eext", "eextinguish", "efeed",
+			"efireball", "efireentity", "efireskull", "efirework", "efix",
+			"efly", "eflyspeed", "eformula", "efreeze", "efspeed", "egamemode",
+			"egc", "egetloc", "egetlocation", "egetpos", "egive", "egm", "egma",
+			"egmc", "egms", "egmsp", "egmt", "egod", "egodmode", "egrenade",
+			"egrindstone", "ehat", "ehead", "eheal", "eheight", "ehelp",
+			"ehelpop", "ehome", "ehomes", "ei", "eice", "eifo", "eignore",
+			"eilore", "einame", "einfo", "einform", "einvsee", "eirename",
+			"eitem", "eitemdb", "eitemlore", "eitemname", "eitemno",
+			"eitemrename", "ej", "ejail", "ejailed", "ejailedplayers", "ejails",
+			"ejp", "ejump", "ejumpto", "ekick", "ekickall", "ekill", "ekillall",
+			"ekit", "ekitr", "ekitreset", "ekits", "ekittycannon", "elag",
+			"elargetree", "elightning", "elist", "elixer", "eloom", "elore",
+			"email", "eme", "emem", "ememo", "ememory", "emethod", "emob",
+			"emobkill", "emobspawner", "emoney", "emore", "emotd", "emsg",
+			"emsgtoggle", "emute", "enchant", "enchantment", "enderchest",
+			"endersee", "enear", "enearby", "enews", "enick", "enickname",
+			"enight", "entities", "enuke", "eonline", "epardon", "epardonip",
+			"epay", "epayconfirm", "epayconfirmoff", "epayconfirmon",
+			"epayconfirmtoggle", "epayoff", "epayon", "epaytoggle", "eping",
+			"eplayerlist", "eplayerskull", "eplayertime", "eplayerweather",
+			"eplaytime", "eplist", "epm", "epong", "eposition", "epotion",
+			"epowertool", "epowertoollist", "epowertooltoggle", "eprice", "ept",
+			"eptime", "eptlist", "eptt", "epttoggle", "epweather", "er",
+			"erain", "erealname", "erecipe", "erecipes", "eremhome",
+			"eremignore", "eremjail", "eremkit", "eremove", "eremwarp",
+			"erenamehome", "erepair", "ereply", "ereplytoggle", "eresetkit",
+			"erest", "ereturn", "ermhome", "ermignore", "ermjail", "ermkit",
+			"ermwarp", "ertoggle", "erules", "eseen", "esell", "esethome",
+			"esetjail", "esettpr", "esettprandom", "esetwarp", "esetworth",
+			"eshock", "eshout", "eshoutworld", "esign", "esilence", "eskull",
+			"esky", "esmite", "esmithingtable", "esmithtable", "esocialspy",
+			"espawnentity", "espawner", "espawnmob", "espeed", "ess",
+			"essentials", "essversion", "estonecutter", "estorm", "estrike",
+			"esudo", "esuicide", "esun", "esurvival", "esurvivalmode", "etele",
+			"eteleport", "etell", "etempban", "etempbanip", "etgm", "ethor",
+			"ethunder", "etime", "etjail", "etnt", "etoblocks", "etogglejail",
+			"etop", "etp", "etp2p", "etpa", "etpaall", "etpacancel",
+			"etpaccept", "etpahere", "etpall", "etpask", "etpauto", "etpdeny",
+			"etphere", "etpno", "etpo", "etpoffline", "etpohere", "etppos",
+			"etpr", "etprandom", "etps", "etptoggle", "etpyes", "etrash",
+			"etree", "eul", "eunban", "eunbanip", "eunignore", "eunjail",
+			"eunl", "eunlimited", "eunmute", "euptime", "ev", "evanish",
+			"ewalkspeed", "ewarp", "ewarpinfo", "ewarps", "ewb", "ewbench",
+			"eweather", "ewhereami", "ewhisper", "ewho", "ewhois", "eworkbench",
+			"eworld", "eworth", "ewspeed", "exp", "ext", "extinguish", "feed",
+			"fireball", "fireentity", "fireskull", "firework", "fix", "fly",
+			"flyspeed", "formula", "fspeed", "gamemode", "gc", "getloc",
+			"getlocation", "getpos", "give", "gm", "gma", "gmc", "gms", "gmsp",
+			"gmt", "god", "godmode", "grenade", "grindstone", "hat", "head",
+			"heal", "height", "help", "helpop", "home", "homes", "i", "ice",
+			"ifo", "ignore", "ilore", "iname", "info", "inform", "invsee",
+			"irename", "item", "itemdb", "itemlore", "itemname", "itemno",
+			"itemrename", "j", "jail", "jailedplayers", "jails", "jump",
+			"jumpto", "kc", "kick", "kickall", "kill", "killall", "kit",
+			"kitcreate", "kitpreview", "kitr", "kitreset", "kits", "kitshow",
+			"kittycannon", "lag", "largetree", "lightning", "list", "loom",
+			"lore", "m", "mail", "me", "mem", "memo", "memory", "method", "mob",
+			"mobkill", "mobspawner", "money", "more", "motd", "msg",
+			"msgtoggle", "mute", "near", "nearby", "news", "nick", "nickname",
+			"night", "nuke", "offlinetp", "online", "otp", "pardon", "pardonip",
+			"pay", "payconfirm", "payconfirmoff", "payconfirmon",
+			"payconfirmtoggle", "payoff", "payon", "paytoggle", "ping",
+			"playerlist", "playerskull", "playertime", "playerweather",
+			"playtime", "plist", "pm", "pong", "position", "potion",
+			"powertool", "powertoollist", "powertooltoggle", "preview", "price",
+			"pt", "ptime", "ptlist", "ptt", "pttoggle", "pweather", "r", "rain",
+			"realname", "recipe", "recipes", "remhome", "remignore", "remjail",
+			"remkit", "remove", "remwarp", "renamehome", "repair", "reply",
+			"replytoggle", "resetkit", "rest", "return", "rmhome", "rmignore",
+			"rmjail", "rmkit", "rmwarp", "rtoggle", "rules", "s", "seen",
+			"sell", "sethome", "setjail", "settpr", "settprandom", "setwarp",
+			"setworth", "shock", "shout", "shoutworld", "showkit", "sign",
+			"silence", "skull", "sky", "smite", "smithingtable", "smithtable",
+			"socialspy", "sp", "spawnentity", "spawner", "spawnmob", "spec",
+			"spectator", "speed", "stonecutter", "storm", "strike", "sudo",
+			"suicide", "sun", "survival", "survivalmode", "t", "tele",
+			"teleport", "tell", "tempban", "tempbanip", "tgm", "thor",
+			"thunder", "time", "tjail", "tnt", "toblocks", "togglejail", "top",
+			"tp", "tp2p", "tpa", "tpaall", "tpacancel", "tpaccept", "tpahere",
+			"tpall", "tpask", "tpauto", "tpdeny", "tphere", "tpno", "tpo",
+			"tpoff", "tpoffline", "tpohere", "tppos", "tpr", "tprandom", "tps",
+			"tptoggle", "tpyes", "trash", "tree", "ul", "unban", "unbanip",
+			"unignore", "unjail", "unl", "unlimited", "unmute", "uptime", "v",
+			"vanish", "w", "walkspeed", "warp", "warpinfo", "warps", "wb",
+			"wbench", "weather", "whereami", "whisper", "who", "whois",
+			"workbench", "world", "worth", "wspeed", "xp"));
 	
 	private static final Set<String> VANILLA_COMMANDS = new HashSet<>(
 		Arrays.asList("advancement", "attribute", "ban", "ban-ip", "banlist",
@@ -55,141 +177,31 @@ public final class UiUtilsCommandScanner
 			"teammsg", "teleport", "tell", "tellraw", "test", "tick", "time",
 			"title", "tm", "tp", "transfer", "trigger", "version", "w",
 			"waypoint", "weather", "whitelist", "worldborder", "xp"));
-	/* EssentialsX 2.x command roots and aliases from its plugin.yml. */
-	private static final Set<String> ESSENTIALS_COMMANDS = Set.of("afk",
-		"antioch", "anvil", "back", "backup", "balance", "balancetop", "ban",
-		"banip", "beezooka", "book", "bottom", "break", "broadcast",
-		"broadcastworld", "bigtree", "burn", "cartographytable",
-		"clearinventory", "clearinventoryconfirmtoggle", "condense", "compass",
-		"createkit", "customtext", "delhome", "deljail", "delkit", "delwarp",
-		"depth", "disposal", "eco", "enchant", "enderchest", "essentials",
-		"exp", "ext", "feed", "fly", "fireball", "firework", "gamemode", "gc",
-		"getpos", "give", "god", "grindstone", "hat", "heal", "help", "helpop",
-		"home", "ice", "ignore", "info", "invsee", "item", "itemdb", "itemlore",
-		"itemname", "jailedplayers", "jails", "jump", "kick", "kickall", "kill",
-		"kit", "kitreset", "kittycannon", "lightning", "list", "loom", "mail",
-		"me", "more", "motd", "msg", "msgtoggle", "mute", "near", "nick",
-		"nuke", "tpoffline", "pay", "paytoggle", "payconfirmtoggle", "ping",
-		"playtime", "potion", "powertool", "powertoollist", "powertooltoggle",
-		"ptime", "pweather", "r", "rtoggle", "realname", "recipe", "remove",
-		"renamehome", "repair", "rest", "rules", "seen", "sell", "sethome",
-		"setjail", "settpr", "setwarp", "setworth", "showkit", "editsign",
-		"skull", "smithingtable", "socialspy", "spawner", "spawnmob", "speed",
-		"stonecutter", "sudo", "suicide", "tempban", "tempbanip", "thunder",
-		"time", "togglejail", "top", "tp", "tpa", "tpaall", "tpaccept",
-		"tpahere", "tpall", "tpauto", "tpacancel", "tpdeny", "tphere", "tpo",
-		"tpohere", "tppos", "tpr", "tptoggle", "tree", "unban", "unbanip",
-		"unlimited", "vanish", "warp", "warpinfo", "weather", "whois",
-		"workbench", "worth", "eafk", "away", "eaway", "eantioch", "grenade",
-		"egrenade", "tnt", "etnt", "eanvil", "eback", "return", "ereturn",
-		"ebackup", "bal", "ebal", "ebalance", "money", "emoney", "ebalancetop",
-		"baltop", "ebaltop", "eban", "ebanip", "ebeezooka", "beecannon",
-		"ebeecannon", "ebook", "ebottom", "ebreak", "bc", "ebc", "bcast",
-		"ebcast", "ebroadcast", "shout", "eshout", "bcw", "ebcw", "bcastw",
-		"ebcastw", "ebroadcastworld", "shoutworld", "eshoutworld", "ebigtree",
-		"largetree", "elargetree", "eburn", "ecartographytable", "carttable",
-		"ecarttable", "ci", "eci", "clean", "eclean", "clear", "eclear",
-		"clearinvent", "eclearinvent", "eclearinventory",
-		"eclearinventoryconfirmtoggle", "clearinventoryconfirmoff",
-		"eclearinventoryconfirmoff", "clearconfirmoff", "eclearconfirmoff",
-		"clearconfirmon", "eclearconfirmon", "clearconfirm", "eclearconfirm",
-		"econdense", "compact", "ecompact", "blocks", "eblocks", "toblocks",
-		"etoblocks", "ecompass", "direction", "edirection", "kitcreate",
-		"createk", "kc", "ck", "edelhome", "remhome", "eremhome", "rmhome",
-		"ermhome", "edeljail", "remjail", "eremjail", "rmjail", "ermjail",
-		"edelkit", "remkit", "eremkit", "rmkit", "ermkit", "deletekit",
-		"edeletekit", "edelwarp", "remwarp", "eremwarp", "rmwarp", "ermwarp",
-		"edepth", "height", "eheight", "edisposal", "trash", "etrash", "eeco",
-		"economy", "eeconomy", "eenchant", "enchantment", "eenchantment",
-		"echest", "eechest", "eenderchest", "endersee", "eendersee", "ec",
-		"eec", "eessentials", "ess", "eess", "essversion", "eexp", "xp", "eext",
-		"extinguish", "eextinguish", "eat", "eeat", "efeed", "efly",
-		"efireball", "fireentity", "efireentity", "fireskull", "efireskull",
-		"efirework", "adventure", "eadventure", "adventuremode",
-		"eadventuremode", "creative", "ecreative", "eecreative", "creativemode",
-		"ecreativemode", "egamemode", "gm", "egm", "gma", "egma", "gmc", "egmc",
-		"gms", "egms", "gmt", "egmt", "survival", "esurvival", "survivalmode",
-		"esurvivalmode", "gmsp", "sp", "egmsp", "spec", "spectator", "lag",
-		"elag", "egc", "mem", "emem", "memory", "ememory", "uptime", "euptime",
-		"tps", "etps", "entities", "eentities", "coords", "egetpos", "position",
-		"eposition", "whereami", "ewhereami", "getlocation", "egetlocation",
-		"getloc", "egetloc", "egive", "egod", "godmode", "egodmode", "tgm",
-		"etgm", "egrindstone", "ehat", "head", "ehead", "eheal", "ehelp", "ac",
-		"eac", "amsg", "eamsg", "ehelpop", "ehome", "homes", "ehomes", "eice",
-		"efreeze", "eignore", "unignore", "eunignore", "delignore",
-		"edelignore", "remignore", "eremignore", "rmignore", "ermignore",
-		"about", "eabout", "ifo", "eifo", "einfo", "inform", "einform", "news",
-		"enews", "einvsee", "i", "eitem", "ei", "dura", "edura", "durability",
-		"edurability", "eitemdb", "itemno", "eitemno", "lore", "elore", "ilore",
-		"eilore", "eitemlore", "iname", "einame", "eitemname", "itemrename",
-		"irename", "eitemrename", "eirename", "ejailedplayers", "ejailed",
-		"ejp", "ejails", "j", "ej", "ejump", "jumpto", "ejumpto", "ekick",
-		"ekickall", "ekill", "ekit", "kits", "ekits", "ekitreset", "kitr",
-		"ekitr", "resetkit", "eresetkit", "ekittycannon", "elightning", "shock",
-		"eshock", "smite", "esmite", "strike", "estrike", "thor", "ethor",
-		"elist", "online", "eonline", "playerlist", "eplayerlist", "plist",
-		"eplist", "who", "ewho", "eloom", "email", "eemail", "memo", "ememo",
-		"action", "eaction", "describe", "edescribe", "eme", "emore", "emotd",
-		"w", "m", "t", "pm", "emsg", "epm", "tell", "etell", "whisper",
-		"ewhisper", "emsgtoggle", "emute", "silence", "esilence", "unmute",
-		"eunmute", "enear", "nearby", "enearby", "enick", "nickname",
-		"enickname", "enuke", "otp", "offlinetp", "tpoff", "etpoffline", "epay",
-		"epaytoggle", "payoff", "epayoff", "payon", "epayon",
-		"epayconfirmtoggle", "payconfirmoff", "epayconfirmoff", "payconfirmon",
-		"epayconfirmon", "payconfirm", "epayconfirm", "echo", "eecho", "eping",
-		"pong", "epong", "eplaytime", "epotion", "elixer", "eelixer",
-		"epowertool", "pt", "ept", "epowertoollist", "ptlist", "eptlist",
-		"epowertooltoggle", "ptt", "eptt", "pttoggle", "epttoggle",
-		"playertime", "eplayertime", "eptime", "playerweather",
-		"eplayerweather", "epweather", "er", "reply", "ereply", "ertoggle",
-		"replytoggle", "ereplytoggle", "erealname", "formula", "eformula",
-		"method", "emethod", "erecipe", "recipes", "erecipes", "eremove",
-		"butcher", "ebutcher", "killall", "ekillall", "mobkill", "emobkill",
-		"erenamehome", "fix", "efix", "erepair", "erest", "erules", "eseen",
-		"ealts", "alts", "esell", "esethome", "createhome", "ecreatehome",
-		"esetjail", "createjail", "ecreatejail", "esettpr", "settprandom",
-		"esettprandom", "createwarp", "ecreatewarp", "esetwarp", "esetworth",
-		"kitpreview", "preview", "kitshow", "sign", "esign", "eeditsign",
-		"eskull", "playerskull", "eplayerskull", "esmithingtable", "smithtable",
-		"esmithtable", "esocialspy", "changems", "echangems", "espawner",
-		"mobspawner", "emobspawner", "mob", "emob", "spawnentity",
-		"espawnentity", "espawnmob", "flyspeed", "eflyspeed", "fspeed",
-		"efspeed", "espeed", "walkspeed", "ewalkspeed", "wspeed", "ewspeed",
-		"estonecutter", "esudo", "esuicide", "etempban", "etempbanip",
-		"ethunder", "day", "eday", "night", "enight", "etime", "jail", "ejail",
-		"tjail", "etjail", "etogglejail", "unjail", "eunjail", "etop", "tele",
-		"etele", "teleport", "eteleport", "etp", "tp2p", "etp2p", "call",
-		"ecall", "etpa", "tpask", "etpask", "etpaall", "etpaccept", "tpyes",
-		"etpyes", "etpahere", "etpall", "etpauto", "etpacancel", "etpdeny",
-		"tpno", "etpno", "s", "etphere", "etpo", "etpohere", "etppos", "etpr",
-		"tprandom", "etprandom", "etptoggle", "etree", "pardon", "eunban",
-		"epardon", "eunbanip", "pardonip", "epardonip", "eunlimited", "ul",
-		"unl", "eul", "eunl", "v", "ev", "evanish", "ewarp", "warps", "ewarps",
-		"ewarpinfo", "rain", "erain", "sky", "esky", "storm", "estorm", "sun",
-		"esun", "eweather", "ewhois", "craft", "ecraft", "wb", "ewb", "wbench",
-		"ewbench", "eworkbench", "eworld", "eprice", "price", "eworth");
 	
 	private static final Set<String> scannedCommands =
 		new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
-	private static final Set<String> hiddenCommands =
+	private static final Set<String> knownCommands =
 		new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+	private static boolean scanCompleted;
 	private static final Set<String> triggerValues =
 		new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+	private static final Set<Character> truncatedCommandLetters =
+		new HashSet<>();
+	private static final Set<String> scheduledProbePrefixes = new HashSet<>();
+	private static final ArrayDeque<String> commandProbeQueue =
+		new ArrayDeque<>();
 	private static final ArrayDeque<String> commandsToExecute =
 		new ArrayDeque<>();
-	private static final ArrayDeque<String> probeQueue = new ArrayDeque<>();
-	private static final Set<String> scheduledPrefixes = new HashSet<>();
-	private static final Set<Character> truncatedGroups = new HashSet<>();
 	
 	private static boolean awaitingResponse;
 	private static boolean triggerProbePending;
 	private static int waitTicks;
 	private static int cooldownTicks;
-	private static int requestId;
-	private static int awaitingRequestId;
-	private static String awaitingPrefix;
-	private static int probesSent;
+	private static final java.util.concurrent.atomic.AtomicInteger PROBE_IDS =
+		new java.util.concurrent.atomic.AtomicInteger(2_000_000);
 	private static long nextProbeAtNanos;
+	private static int awaitingRequestId;
+	private static int probesSent;
 	private static boolean active;
 	private static Phase phase = Phase.IDLE;
 	private static ScanMode activeMode = ScanMode.PACKET_PROBING;
@@ -198,7 +210,16 @@ public final class UiUtilsCommandScanner
 	private static List<String> lastFoundCommands = List.of();
 	private static String boundServerKey = "";
 	private static final List<String> manualCommandOutput = new ArrayList<>();
-	private static int manualOutputTicks;
+	private static int manualOutputCaptureTicks;
+	private static final Set<String> unavailableCommands = new HashSet<>();
+	private static final Set<String> pendingManualCommands = new HashSet<>();
+	private static final Set<String> permissionDeniedPaths = new HashSet<>();
+	private static String awaitingProbe = "";
+	private static final java.util.Map<String, Integer> probeAttempts =
+		new java.util.HashMap<>();
+	private static final Set<String> unansweredPrefixes = new TreeSet<>();
+	private static final Set<String> cappedPrefixes = new TreeSet<>();
+	private static int probeTimeouts;
 	
 	private UiUtilsCommandScanner()
 	{}
@@ -212,23 +233,33 @@ public final class UiUtilsCommandScanner
 			return "[UI-Utils] Command scanner already running.";
 		
 		active = true;
+		scanCompleted = false;
+		knownCommands.clear();
+		var dispatcher = UiUtilsServerCommands.dispatcher(mc.player.connection);
+		if(dispatcher != null)
+			for(var child : dispatcher.getRoot().getChildren())
+				knownCommands.add(child.getName());
 		scannedCommands.clear();
-		hiddenCommands.clear();
 		triggerValues.clear();
+		truncatedCommandLetters.clear();
+		scheduledProbePrefixes.clear();
+		probeAttempts.clear();
+		unansweredPrefixes.clear();
+		cappedPrefixes.clear();
+		probeTimeouts = 0;
+		commandProbeQueue.clear();
 		commandsToExecute.clear();
-		probeQueue.clear();
-		scheduledPrefixes.clear();
-		truncatedGroups.clear();
-		for(char c : LETTERS)
-			enqueuePrefix(String.valueOf(c), false);
+		unavailableCommands.clear();
+		pendingManualCommands.clear();
+		permissionDeniedPaths.clear();
 		awaitingResponse = false;
+		triggerProbePending = false;
 		waitTicks = 0;
 		cooldownTicks = 0;
-		requestId = 1;
-		awaitingRequestId = -1;
-		awaitingPrefix = null;
-		probesSent = 0;
 		nextProbeAtNanos = 0;
+		awaitingRequestId = -1;
+		probesSent = 0;
+		awaitingProbe = "";
 		phase = Phase.SCANNING;
 		activeMode = getScanMode();
 		lastStatus = "Scanning commands (" + activeMode.name() + ")...";
@@ -238,9 +269,6 @@ public final class UiUtilsCommandScanner
 		UiUtilsSuggestionCapability.bindTo(boundServerKey);
 		if(activeMode == ScanMode.CLIENT_SIDE_ENUMERATION)
 		{
-			// The client-side enumeration fallback was removed because the
-			// merged
-			// dispatcher also contains commands registered by client-side mods.
 			runClientSideEnumerationScan();
 			return "[UI-Utils] Command scanner started (CLIENT_SIDE_ENUMERATION).";
 		}
@@ -248,18 +276,18 @@ public final class UiUtilsCommandScanner
 		if(UiUtilsSuggestionCapability.isSuppressed())
 		{
 			abortForSuppressedSuggestions();
-			return "[UI-Utils] Suggestion responses suppressed; using the synced command tree.";
+			return "[UI-Utils] Active probing unavailable; using synced server tree.";
 		}
-		
+		for(char letter : LETTERS)
+			queueProbe(String.valueOf(letter), false);
 		sendNextRequest();
 		return "[UI-Utils] Command scanner started (PACKET_PROBING).";
 	}
 	
 	public static void onTick()
 	{
-		if(manualOutputTicks > 0 && --manualOutputTicks == 0)
-			addManualOutput("(No further server response received.)");
-		
+		if(manualOutputCaptureTicks > 0)
+			manualOutputCaptureTicks--;
 		Minecraft mc = Minecraft.getInstance();
 		String currentServer = currentServerKey(mc);
 		if(!boundServerKey.isEmpty() && !currentServer.equals(boundServerKey))
@@ -282,91 +310,55 @@ public final class UiUtilsCommandScanner
 		
 		if(UiUtilsSuggestionCapability.isSuppressed())
 		{
-			// Another scanner already proved the server drops responses.
 			abortForSuppressedSuggestions();
 			return;
 		}
-		
 		if(awaitingResponse)
 		{
 			waitTicks++;
 			if(waitTicks >= RESPONSE_TIMEOUT_TICKS)
 			{
-				if(triggerProbePending)
-				{
-					triggerProbePending = false;
-					awaitingResponse = false;
-					awaitingRequestId = -1;
-					finishScan();
-					return;
-				}
-				String timedOutPrefix = awaitingPrefix;
-				int timedOutId = awaitingRequestId;
+				probeTimeouts++;
+				String prefix =
+					triggerProbePending ? "trigger " : awaitingProbe;
+				boolean trigger = triggerProbePending;
 				awaitingResponse = false;
 				awaitingRequestId = -1;
-				awaitingPrefix = null;
-				if(UiUtilsSettings.get().commandScannerDebugProbe)
-					print("Probe timeout: /" + timedOutPrefix + " (id="
-						+ timedOutId + ")");
+				triggerProbePending = false;
+				awaitingProbe = "";
 				if(UiUtilsSuggestionCapability.recordUnansweredProbe())
 				{
+					unansweredPrefixes.add(prefix);
 					abortForSuppressedSuggestions();
 					return;
 				}
-				lastStatus =
-					"Scanning commands... timed out on /" + timedOutPrefix;
+				if(probeAttempts.getOrDefault(prefix, 0) < MAX_PROBE_ATTEMPTS)
+				{
+					if(!trigger)
+						commandProbeQueue.addLast(prefix);
+					print("Probe timeout: /" + prefix + "; queued retry.");
+				}else
+				{
+					unansweredPrefixes.add(prefix);
+					print("Probe unanswered after " + MAX_PROBE_ATTEMPTS
+						+ " attempts: /" + prefix);
+					if(trigger)
+					{
+						finishScan();
+						return;
+					}
+				}
+				
+				nextProbeAtNanos =
+					System.nanoTime() + UiUtilsSettings.getProbeIntervalNanos();
 			}
 			return;
 		}
 		
-		if(!probePacingElapsed())
+		if(System.nanoTime() < nextProbeAtNanos)
 			return;
 		
 		sendNextRequest();
-	}
-	
-	private static boolean probePacingElapsed()
-	{
-		return System.nanoTime() >= nextProbeAtNanos;
-	}
-	
-	private static void abortForSuppressedSuggestions()
-	{
-		String message =
-			"Server appears to suppress command-suggestion responses;"
-				+ " active enumeration unavailable.";
-		print(message);
-		lastStatus = message;
-		loadSyncedCommandTreeFallback();
-		finishScan();
-	}
-	
-	private static void loadSyncedCommandTreeFallback()
-	{
-		Minecraft mc = Minecraft.getInstance();
-		if(mc.player == null || mc.player.connection == null)
-			return;
-		CommandDispatcher<ClientSuggestionProvider> dispatcher =
-			mc.player.connection.getCommands();
-		if(dispatcher == null || dispatcher.getRoot() == null)
-			return;
-		
-		probeQueue.clear();
-		int added = 0;
-		for(CommandNode<ClientSuggestionProvider> node : dispatcher.getRoot()
-			.getChildren())
-		{
-			String command = extractRootCommand(node.getName());
-			if(command == null || command.equalsIgnoreCase("trigger")
-				|| isEssentialsCommand(command)
-				|| isVanillaOrDefaultCommand(command))
-				continue;
-			if(scannedCommands.add(command))
-				added++;
-			classifyDiscoveredCommand(command);
-		}
-		print("Synced command tree provided " + added
-			+ " command(s) without packet probing.");
 	}
 	
 	public static void onSuggestionsPacket(
@@ -379,7 +371,6 @@ public final class UiUtilsCommandScanner
 			return;
 		if(packet.id() != awaitingRequestId)
 			return;
-		
 		UiUtilsSuggestionCapability.recordResponse();
 		
 		if(triggerProbePending)
@@ -414,21 +405,23 @@ public final class UiUtilsCommandScanner
 		}
 		
 		int count = suggestions == null ? 0 : suggestions.getList().size();
-		if(UiUtilsSettings.get().commandScannerDebugProbe)
-			print("Probe response: /" + awaitingPrefix + " (id="
-				+ awaitingRequestId + ", suggestions=" + count + ")");
-		if(count >= SUGGESTION_LIMIT && awaitingPrefix != null)
+		String probe = awaitingProbe;
+		if(count >= MAX_SUGGESTIONS_PER_RESPONSE)
 		{
-			truncatedGroups.add(awaitingPrefix.charAt(0));
-			enqueueAdaptivePrefixes(awaitingPrefix);
-			lastStatus =
-				"Scanning commands... capped response on /" + awaitingPrefix;
+			if(!probe.isEmpty())
+				truncatedCommandLetters.add(probe.charAt(0));
+			queueAdaptiveProbes(probe);
 		}
+		if(UiUtilsSettings.get().commandScannerDebugProbe)
+			print("Probe response: /" + probe + " (id=" + awaitingRequestId
+				+ ", suggestions=" + count + ")");
 		
 		readSuggestions(suggestions);
 		awaitingResponse = false;
 		awaitingRequestId = -1;
-		awaitingPrefix = null;
+		awaitingProbe = "";
+		nextProbeAtNanos =
+			System.nanoTime() + UiUtilsSettings.getProbeIntervalNanos();
 	}
 	
 	public static String sendManualPacketCommands()
@@ -442,7 +435,8 @@ public final class UiUtilsCommandScanner
 			return "[UI-Utils] Packet commands list is empty.";
 		
 		manualCommandOutput.clear();
-		manualOutputTicks = MANUAL_OUTPUT_TIMEOUT_TICKS;
+		manualOutputCaptureTicks = 200; // Ten seconds of post-send chat/system
+										// output.
 		String[] parts = raw.split(",");
 		int sent = 0;
 		for(String part : parts)
@@ -452,39 +446,83 @@ public final class UiUtilsCommandScanner
 				continue;
 			if(cmd.startsWith("/"))
 				cmd = cmd.substring(1);
+			pendingManualCommands.add(normalizeCommandPath(cmd));
+			manualCommandOutput.add("> /" + cmd);
 			mc.player.connection.sendCommand(cmd);
 			sent++;
 		}
 		if(sent == 0)
-			manualOutputTicks = 0;
+			manualCommandOutput.add("No command was sent.");
 		return "[UI-Utils] Sent " + sent + " packet command(s).";
 	}
 	
-	public static void onSystemChat(Component message)
+	public static void onChatMessage(String message)
 	{
-		if(manualOutputTicks <= 0 || message == null)
+		if(manualOutputCaptureTicks <= 0 || message == null
+			|| message.isBlank())
 			return;
-		addManualOutput(message.getString().trim());
+		if(manualCommandOutput.size() >= 40)
+			manualCommandOutput.remove(0);
+		String trimmed = message.trim();
+		manualCommandOutput.add(trimmed);
+		if(isUnavailableResponse(trimmed))
+			unavailableCommands.addAll(pendingManualCommands);
 	}
 	
 	public static List<String> getManualCommandOutputSnapshot()
 	{
-		return new ArrayList<>(manualCommandOutput);
+		return List.copyOf(manualCommandOutput);
+	}
+	
+	public static boolean isCommandHiddenToUser(String command)
+	{
+		updateCommandVisibility(command);
+		return permissionDeniedPaths
+			.contains(normalizeFullCommandPath(command));
+	}
+	
+	private static String normalizeFullCommandPath(String command)
+	{
+		if(command == null)
+			return "";
+		String normalized = command.trim().toLowerCase(Locale.ROOT);
+		return normalized.startsWith("/") ? normalized.substring(1)
+			: normalized;
+	}
+	
+	public static boolean isCommandUnavailable(String command)
+	{
+		return unavailableCommands.contains(normalizeCommandPath(command));
+	}
+	
+	private static String normalizeCommandPath(String command)
+	{
+		if(command == null)
+			return "";
+		String normalized = command.trim().toLowerCase(Locale.ROOT);
+		if(normalized.startsWith("/"))
+			normalized = normalized.substring(1);
+		int argument = normalized.indexOf(' ');
+		return argument < 0 ? normalized : normalized.substring(0, argument);
+	}
+	
+	private static boolean isUnavailableResponse(String message)
+	{
+		String lower = message.toLowerCase(Locale.ROOT);
+		return lower.contains("unknown command")
+			|| lower.contains("incomplete command")
+			|| lower.contains("do not have permission")
+			|| lower.contains("don't have permission")
+			|| lower.contains("no permission")
+			|| lower.contains("not permitted") || lower.contains("not allowed")
+			|| lower.contains("not authorized");
 	}
 	
 	public static void clearManualCommandOutput()
 	{
+		pendingManualCommands.clear();
 		manualCommandOutput.clear();
-		manualOutputTicks = 0;
-	}
-	
-	private static void addManualOutput(String text)
-	{
-		if(text == null || text.isBlank())
-			return;
-		manualCommandOutput.add(text);
-		while(manualCommandOutput.size() > MAX_MANUAL_OUTPUT_LINES)
-			manualCommandOutput.remove(0);
+		manualOutputCaptureTicks = 0;
 	}
 	
 	private static void sendNextRequest()
@@ -496,15 +534,18 @@ public final class UiUtilsCommandScanner
 			return;
 		}
 		
-		String prefix = probeQueue.pollFirst();
-		if(prefix == null)
+		String probe = commandProbeQueue.pollFirst();
+		if(probe == null)
 		{
 			requestTriggerValues();
 			return;
 		}
 		
-		String input = "/" + prefix;
-		int id = requestId++;
+		String input = "/" + probe;
+		int id = PROBE_IDS.getAndIncrement();
+		probesSent++;
+		awaitingProbe = probe;
+		probeAttempts.merge(probe, 1, Integer::sum);
 		if(UiUtilsSettings.get().commandScannerDebugProbe)
 			print("Probe sent: " + input + " (id=" + id + ")");
 		
@@ -512,39 +553,9 @@ public final class UiUtilsCommandScanner
 			.send(new ServerboundCommandSuggestionPacket(id, input));
 		awaitingResponse = true;
 		awaitingRequestId = id;
-		awaitingPrefix = prefix;
-		probesSent++;
 		waitTicks = 0;
-		
-		// The next probe is due one interval after this send, so the response
-		// wait and the configured delay run concurrently instead of stacking.
 		nextProbeAtNanos =
 			System.nanoTime() + UiUtilsSettings.getProbeIntervalNanos();
-	}
-	
-	private static void enqueuePrefix(String prefix, boolean prioritize)
-	{
-		if(prefix == null || prefix.isEmpty()
-			|| prefix.length() > MAX_PREFIX_LENGTH
-			|| scheduledPrefixes.contains(prefix)
-			|| scheduledPrefixes.size() >= MAX_PROBES)
-			return;
-		scheduledPrefixes.add(prefix);
-		if(prioritize)
-			probeQueue.addFirst(prefix);
-		else
-			probeQueue.addLast(prefix);
-	}
-	
-	private static void enqueueAdaptivePrefixes(String prefix)
-	{
-		if(prefix.length() >= MAX_PREFIX_LENGTH)
-			return;
-		List<String> children = new ArrayList<>();
-		for(char c : ADAPTIVE_CHARACTERS)
-			children.add(prefix + c);
-		for(int i = children.size() - 1; i >= 0; i--)
-			enqueuePrefix(children.get(i), true);
 	}
 	
 	private static void requestTriggerValues()
@@ -555,8 +566,10 @@ public final class UiUtilsCommandScanner
 			finishScan();
 			return;
 		}
+		probeAttempts.merge("trigger ", 1, Integer::sum);
 		triggerProbePending = true;
-		int id = requestId++;
+		awaitingProbe = "";
+		int id = PROBE_IDS.getAndIncrement();
 		awaitingRequestId = id;
 		awaitingResponse = true;
 		waitTicks = 0;
@@ -584,14 +597,45 @@ public final class UiUtilsCommandScanner
 		for(Suggestion suggestion : suggestions.getList())
 		{
 			String command = extractRootCommand(suggestion.getText());
-			if(command != null && !command.equalsIgnoreCase("trigger")
-				&& !isEssentialsCommand(command)
-				&& !isVanillaOrDefaultCommand(command))
+			if(command != null)
 			{
 				scannedCommands.add(command);
-				classifyDiscoveredCommand(command);
+				updateCommandVisibility(command);
+				if(UiUtilsSettings.get().commandScannerDebugProbe)
+					UiUtils.LOGGER.info("CommandScanner /{}: {} retained ({})",
+						awaitingProbe, command, knownCommands.contains(command)
+							? "already known" : "newly discovered");
+			}else if(UiUtilsSettings.get().commandScannerDebugProbe)
+			{
+				UiUtils.LOGGER.info(
+					"CommandScanner /{}: rejected suggestion {} (empty root)",
+					awaitingProbe, suggestion.getText());
 			}
 		}
+	}
+	
+	private static void updateCommandVisibility(String command)
+	{
+		Minecraft mc = Minecraft.getInstance();
+		if(mc == null || mc.player == null || mc.player.connection == null)
+			return;
+			
+		// Packet mode only classifies commands the server returned in
+		// suggestions.
+		// Client mode enumerates the separate server-synchronized command tree.
+		var dispatcher = UiUtilsServerCommands.dispatcher(mc.player.connection);
+		if(dispatcher == null || dispatcher.getRoot() == null)
+		{
+			permissionDeniedPaths.add(normalizeFullCommandPath(command));
+			return;
+		}
+		CommandNode<ClientSuggestionProvider> node =
+			dispatcher.getRoot().getChild(normalizeCommandPath(command));
+		if(node == null
+			|| !node.canUse(mc.player.connection.getSuggestionsProvider()))
+			permissionDeniedPaths.add(normalizeFullCommandPath(command));
+		else
+			permissionDeniedPaths.remove(normalizeFullCommandPath(command));
 	}
 	
 	private static String extractRootCommand(String raw)
@@ -611,54 +655,121 @@ public final class UiUtilsCommandScanner
 		return text;
 	}
 	
-	private static boolean isEssentialsCommand(String command)
-	{
-		String normalized = command.toLowerCase(Locale.ROOT);
-		return normalized.startsWith("essentials:")
-			|| normalized.startsWith("essentialsx:")
-			|| ESSENTIALS_COMMANDS.contains(normalized);
-	}
-	
 	private static void runClientSideEnumerationScan()
 	{
-		// Client-side enumeration was a fallback for packet probing, but the
-		// merged dispatcher cannot distinguish local commands from server ones.
+		Minecraft mc = Minecraft.getInstance();
+		if(mc.player == null || mc.player.connection == null)
+		{
+			print("Could not read the server-synchronized command tree.");
+			finishScan();
+			return;
+		}
+		
+		var dispatcher = UiUtilsServerCommands.dispatcher(mc.player.connection);
+		RootCommandNode<ClientSuggestionProvider> root =
+			dispatcher == null ? null : dispatcher.getRoot();
+		if(root == null)
+		{
+			print("The server has not supplied a command tree yet.");
+			finishScan();
+			return;
+		}
+		
+		Set<CommandNode<ClientSuggestionProvider>> visiting =
+			Collections.newSetFromMap(new IdentityHashMap<>());
+		ClientSuggestionProvider source =
+			mc.player.connection.getSuggestionsProvider();
+		for(CommandNode<ClientSuggestionProvider> child : root.getChildren())
+			collectClientCommandPaths(child, "", source, visiting);
+		print("Read " + scannedCommands.size()
+			+ " command path(s) from the synced server tree without sending probes.");
 		finishScan();
+	}
+	
+	private static void collectClientCommandPaths(
+		CommandNode<ClientSuggestionProvider> node, String parentPath,
+		ClientSuggestionProvider source,
+		Set<CommandNode<ClientSuggestionProvider>> visiting)
+	{
+		if(node == null || !node.canUse(source) || !visiting.add(node))
+			return;
+		
+		String name = node instanceof ArgumentCommandNode<?, ?>
+			? "<" + node.getName() + ">" : node.getName();
+		String path = parentPath.isEmpty() ? name : parentPath + " " + name;
+		String root = path;
+		int firstSpace = root.indexOf(' ');
+		if(firstSpace >= 0)
+			root = root.substring(0, firstSpace);
+		if(!root.isBlank())
+			scannedCommands.add(path);
+		
+		for(CommandNode<ClientSuggestionProvider> child : node.getChildren())
+			collectClientCommandPaths(child, path, source, visiting);
+		// Redirect nodes are aliases. Expand their target's children beneath
+		// the
+		// alias path, while the identity-based visiting set prevents redirect
+		// cycles.
+		if(node.getRedirect() != null)
+			collectClientRedirectChildren(node.getRedirect(), path, source,
+				visiting);
+		visiting.remove(node);
+	}
+	
+	private static void collectClientRedirectChildren(
+		CommandNode<ClientSuggestionProvider> target, String aliasPath,
+		ClientSuggestionProvider source,
+		Set<CommandNode<ClientSuggestionProvider>> visiting)
+	{
+		if(target == null || !target.canUse(source) || !visiting.add(target))
+			return;
+		for(CommandNode<ClientSuggestionProvider> child : target.getChildren())
+			collectClientCommandPaths(child, aliasPath, source, visiting);
+		if(target.getRedirect() != null)
+			collectClientRedirectChildren(target.getRedirect(), aliasPath,
+				source, visiting);
+		visiting.remove(target);
 	}
 	
 	private static void finishScan()
 	{
+		scanCompleted = true;
 		List<String> results = new ArrayList<>(scannedCommands);
 		for(String value : triggerValues)
 			results.add("trigger (" + value + ")");
-		print("Command scanner found " + results.size() + " commands"
-			+ (UiUtilsSuggestionCapability.isSuppressed()
-				? " (synced command tree only)." : "."));
+		print("Command scanner found " + results.size() + " commands.");
 		lastFoundCommands = results;
-		if(UiUtilsSuggestionCapability.isSuppressed())
-			lastStatus = "Suggestion responses suppressed; found "
-				+ results.size() + " commands in the synced tree.";
-		else
-			lastStatus = "Found " + results.size() + " commands.";
+		lastStatus = "Found " + results.size() + " commands ("
+			+ getKnownCommandsSnapshot().size() + " already known, "
+			+ getNewCommandsSnapshot().size() + " newly discovered).";
 		UiUtilsScanHistory.recordCommands(boundServerKey,
-			UiUtilsSuggestionCapability.isSuppressed() ? "command_synced_tree"
-				: "command_" + activeMode.name().toLowerCase(Locale.ROOT),
-			lastFoundCommands);
+			"command_" + activeMode.name().toLowerCase(Locale.ROOT),
+			lastFoundCommands, getDiagnosticsSnapshot());
+		if(!unansweredPrefixes.isEmpty() || !cappedPrefixes.isEmpty())
+			lastStatus += " Partial: unanswered=" + unansweredPrefixes.size()
+				+ ", capped=" + cappedPrefixes.size() + ".";
 		if(results.isEmpty())
 		{
 			finish();
 			return;
 		}
 		
-		if(UiUtilsSettings.get().commandScannerRunFoundCommands)
+		if(activeMode == ScanMode.PACKET_PROBING
+			&& !UiUtilsSuggestionCapability.isSuppressed()
+			&& UiUtilsSettings.get().commandScannerRunFoundCommands)
 		{
 			commandsToExecute.clear();
+			unavailableCommands.clear();
+			pendingManualCommands.clear();
 			Set<String> denyTerms = parseDenyTerms(
 				UiUtilsSettings.get().commandScannerDontSendFilter);
 			for(String cmd : scannedCommands)
 			{
 				String lower = cmd.toLowerCase(Locale.ROOT);
-				if(VANILLA_COMMANDS.contains(lower))
+				// Discovery is complete; automatic execution retains its
+				// conservative exclusions.
+				if(isVanillaOrDefaultCommand(lower)
+					|| isIgnoredEssentialsCommand(lower))
 					continue;
 				boolean blocked = false;
 				for(String deny : denyTerms)
@@ -742,38 +853,15 @@ public final class UiUtilsCommandScanner
 		}
 	}
 	
-	private static void classifyDiscoveredCommand(String command)
+	public static List<String> filterVisibleCommands(List<String> commands,
+		boolean showVanilla)
 	{
-		Minecraft mc = Minecraft.getInstance();
-		if(mc.player == null || mc.player.connection == null)
-		{
-			hiddenCommands.add(command);
-			return;
-		}
-		CommandDispatcher<ClientSuggestionProvider> dispatcher =
-			mc.player.connection.getCommands();
-		if(dispatcher == null || dispatcher.getRoot() == null)
-		{
-			hiddenCommands.add(command);
-			return;
-		}
-		var commandNode = dispatcher.getRoot().getChild(command);
-		if(commandNode == null || !commandNode
-			.canUse(mc.player.connection.getSuggestionsProvider()))
-			hiddenCommands.add(command);
-	}
-	
-	public static boolean isClientVisibleCommand(String raw)
-	{
-		String command = extractRootCommand(raw);
-		if(command == null)
-			return false;
-		if(hiddenCommands.contains(command))
-			return false;
-		if(scannedCommands.contains(command))
-			return true;
-		classifyDiscoveredCommand(command);
-		return !hiddenCommands.contains(command);
+		return commands.stream().filter(
+			command -> !UiUtilsSettings.get().commandScannerExcludeEssentials
+				|| !isIgnoredEssentialsCommand(normalizeCommandPath(command)))
+			.filter(command -> showVanilla
+				|| !isVanillaOrDefaultCommand(normalizeCommandPath(command)))
+			.toList();
 	}
 	
 	public static boolean isVanillaOrDefaultCommand(String raw)
@@ -810,40 +898,85 @@ public final class UiUtilsCommandScanner
 		active = false;
 		awaitingResponse = false;
 		awaitingRequestId = -1;
-		awaitingPrefix = null;
 		phase = Phase.IDLE;
 		cooldownTicks = 0;
 		waitTicks = 0;
-		nextProbeAtNanos = 0;
-		probeQueue.clear();
-		scheduledPrefixes.clear();
-		probesSent = 0;
+		awaitingProbe = "";
 	}
 	
-	private static void resetForServerChange()
+	private static void queueProbe(String rawPrefix, boolean prioritize)
 	{
+		if(rawPrefix == null || rawPrefix.isBlank())
+			return;
+		String prefix = rawPrefix.trim().toLowerCase(Locale.ROOT);
+		if(prefix.length() > MAX_ADAPTIVE_PREFIX_LENGTH
+			|| !scheduledProbePrefixes.add(prefix))
+			return;
+		if(scheduledProbePrefixes.size() > MAX_ADAPTIVE_PROBES)
+		{
+			scheduledProbePrefixes.remove(prefix);
+			cappedPrefixes.add(prefix);
+			return;
+		}
+		if(prioritize)
+			commandProbeQueue.addFirst(prefix);
+		else
+			commandProbeQueue.addLast(prefix);
+	}
+	
+	private static void queueAdaptiveProbes(String prefix)
+	{
+		if(prefix == null || prefix.isEmpty()
+			|| prefix.length() >= MAX_ADAPTIVE_PREFIX_LENGTH)
+			return;
+		for(char suffix : PROBE_SUFFIXES)
+			queueProbe(prefix + suffix, false);
+	}
+	
+	private static boolean isIgnoredEssentialsCommand(String value)
+	{
+		if(value == null)
+			return false;
+		String command = value.trim().toLowerCase(Locale.ROOT);
+		if(command.startsWith("/"))
+			command = command.substring(1);
+		int colon = command.indexOf(':');
+		if(colon > 0 && (command.startsWith("essentials:")
+			|| command.startsWith("essentialsx:")))
+			return true;
+		return ESSENTIALS_COMMANDS.contains(command);
+	}
+	
+	public static void resetForServerChange()
+	{
+		scanCompleted = false;
+		knownCommands.clear();
 		active = false;
 		awaitingResponse = false;
 		awaitingRequestId = -1;
-		awaitingPrefix = null;
 		phase = Phase.IDLE;
 		cooldownTicks = 0;
 		waitTicks = 0;
 		nextProbeAtNanos = 0;
-		requestId = 1;
 		scannedCommands.clear();
-		hiddenCommands.clear();
-		commandsToExecute.clear();
 		triggerValues.clear();
-		probeQueue.clear();
-		scheduledPrefixes.clear();
-		truncatedGroups.clear();
-		probesSent = 0;
+		truncatedCommandLetters.clear();
+		scheduledProbePrefixes.clear();
+		probeAttempts.clear();
+		unansweredPrefixes.clear();
+		cappedPrefixes.clear();
+		probeTimeouts = 0;
+		commandProbeQueue.clear();
+		commandsToExecute.clear();
+		unavailableCommands.clear();
+		pendingManualCommands.clear();
+		permissionDeniedPaths.clear();
 		lastFoundCommands = List.of();
 		recentEvents.clear();
 		lastStatus = "Cleared due to server change.";
+		probesSent = 0;
+		awaitingProbe = "";
 		boundServerKey = currentServerKey(Minecraft.getInstance());
-		UiUtilsSuggestionCapability.bindTo(boundServerKey);
 	}
 	
 	private static String currentServerKey(Minecraft mc)
@@ -872,27 +1005,60 @@ public final class UiUtilsCommandScanner
 	public static String getStatusLine()
 	{
 		if(active && phase == Phase.SCANNING)
-			return lastStatus + " [probe " + probesSent + "/" + MAX_PROBES
-				+ "]";
+			return lastStatus + " [probes " + probesSent + ", queued "
+				+ commandProbeQueue.size() + "]";
 		if(active && phase == Phase.EXECUTING)
 			return lastStatus + " [remaining " + commandsToExecute.size() + "]";
+		if(!UiUtilsPluginScanner.getObservedCommandsSnapshot().isEmpty()
+			&& lastFoundCommands.isEmpty())
+			return "Commands collected during plugin scan.";
 		return lastStatus;
-	}
-	
-	public static boolean hasTruncatedResults()
-	{
-		return !truncatedGroups.isEmpty();
-	}
-	
-	public static boolean isLetterGroupTruncated(char letter)
-	{
-		return truncatedGroups.contains(Character.toLowerCase(letter));
 	}
 	
 	public static boolean hasResultsForCurrentServer()
 	{
-		return !lastFoundCommands.isEmpty()
+		return scanCompleted
 			&& boundServerKey.equals(currentServerKey(Minecraft.getInstance()));
+	}
+	
+	private static boolean isKnownRoot(String command)
+	{
+		refreshKnownCommandsFromServer();
+		String root = normalizeCommandPath(command).split(" ", 2)[0];
+		var connection = Minecraft.getInstance().getConnection();
+		return knownCommands.contains(root) || (connection != null
+			&& UiUtilsServerCommands.dispatcher(connection) != null
+			&& UiUtilsServerCommands.dispatcher(connection).getRoot()
+				.getChild(root) != null);
+	}
+	
+	public static List<String> getKnownCommandsSnapshot()
+	{
+		return getFoundCommandsSnapshot().stream()
+			.filter(UiUtilsCommandScanner::isKnownRoot).toList();
+	}
+	
+	public static List<String> getNewCommandsSnapshot()
+	{
+		return getFoundCommandsSnapshot().stream()
+			.filter(cmd -> !isKnownRoot(cmd)).toList();
+	}
+	
+	public static void stopScan()
+	{
+		if(!active)
+			return;
+		finish();
+		commandProbeQueue.clear();
+		commandsToExecute.clear();
+		pendingManualCommands.clear();
+		triggerProbePending = false;
+		scanCompleted = true;
+		lastFoundCommands = new ArrayList<>(scannedCommands);
+		for(String value : triggerValues)
+			lastFoundCommands.add("trigger (" + value + ")");
+		lastStatus = "Command scan stopped; partial results retained.";
+		print(lastStatus);
 	}
 	
 	public static boolean isActive()
@@ -902,7 +1068,13 @@ public final class UiUtilsCommandScanner
 	
 	public static List<String> getFoundCommandsSnapshot()
 	{
-		return new ArrayList<>(lastFoundCommands);
+		Set<String> commands =
+			new java.util.TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+		commands.addAll(lastFoundCommands);
+		if(active && phase == Phase.SCANNING)
+			commands.addAll(scannedCommands);
+		commands.addAll(UiUtilsPluginScanner.getObservedCommandsSnapshot());
+		return List.copyOf(commands);
 	}
 	
 	public static List<String> getRecentEventsSnapshot()
@@ -910,38 +1082,122 @@ public final class UiUtilsCommandScanner
 		return new ArrayList<>(recentEvents);
 	}
 	
-	/**
-	 * Clears the results shown in the UI, including the shared
-	 * suggestion-capability verdict so the next scan probes again.
-	 */
-	public static void clearResultsForUi()
+	public static java.util.Map<String, Object> getDiagnosticsSnapshot()
 	{
-		clearResultsInternal();
-		UiUtilsSuggestionCapability.clear();
+		return java.util.Map.of("probesSent", probesSent, "probeTimeouts",
+			probeTimeouts, "probeAttempts",
+			new java.util.TreeMap<>(probeAttempts), "unansweredPrefixes",
+			List.copyOf(unansweredPrefixes), "cappedPrefixes",
+			List.copyOf(cappedPrefixes), "truncatedLetters",
+			List.copyOf(truncatedCommandLetters), "probeResponseTimeoutTicks",
+			RESPONSE_TIMEOUT_TICKS, "maxProbeAttempts", MAX_PROBE_ATTEMPTS,
+			"probesPerSecond", UiUtilsSettings.getProbesPerSecond());
 	}
 	
-	private static void clearResultsInternal()
+	public static boolean hasTruncatedResponses()
 	{
+		return !truncatedCommandLetters.isEmpty()
+			|| !unansweredPrefixes.isEmpty() || !cappedPrefixes.isEmpty();
+	}
+	
+	public static boolean wasResponseTruncated(char letter)
+	{
+		return truncatedCommandLetters.contains(Character.toLowerCase(letter));
+	}
+	
+	public static void clearResultsForUi()
+	{
+		UiUtilsSuggestionCapability.clear();
+		scanCompleted = false;
+		knownCommands.clear();
 		active = false;
 		awaitingResponse = false;
 		awaitingRequestId = -1;
-		awaitingPrefix = null;
 		phase = Phase.IDLE;
 		scannedCommands.clear();
-		hiddenCommands.clear();
-		commandsToExecute.clear();
 		triggerValues.clear();
+		truncatedCommandLetters.clear();
+		scheduledProbePrefixes.clear();
+		probeAttempts.clear();
+		unansweredPrefixes.clear();
+		cappedPrefixes.clear();
+		probeTimeouts = 0;
+		commandProbeQueue.clear();
+		commandsToExecute.clear();
+		unavailableCommands.clear();
+		pendingManualCommands.clear();
 		lastFoundCommands = List.of();
 		recentEvents.clear();
 		lastStatus = "Cleared.";
-		requestId = 1;
+		nextProbeAtNanos = 0;
 		cooldownTicks = 0;
 		waitTicks = 0;
-		probeQueue.clear();
-		scheduledPrefixes.clear();
-		truncatedGroups.clear();
 		probesSent = 0;
-		nextProbeAtNanos = 0;
+		awaitingProbe = "";
+	}
+	
+	private static void abortForSuppressedSuggestions()
+	{
+		awaitingResponse = false;
+		awaitingRequestId = -1;
+		triggerProbePending = false;
+		commandProbeQueue.clear();
+		print(
+			"Suggestion probing unavailable; reading the synced server tree.");
+		runClientSideEnumerationScan();
+	}
+	
+	public static void onSystemChat(Component message)
+	{
+		if(message != null)
+			onChatMessage(message.getString());
+	}
+	
+	public static void refreshKnownCommandsFromServer()
+	{
+		var connection = Minecraft.getInstance().getConnection();
+		var dispatcher = connection == null ? null
+			: UiUtilsServerCommands.dispatcher(connection);
+		if(dispatcher != null)
+			for(var child : dispatcher.getRoot().getChildren())
+				knownCommands.add(child.getName());
+	}
+	
+	public static boolean isClientVisibleCommand(String raw)
+	{
+		return !isCommandHiddenToUser(raw);
+	}
+	
+	public static boolean hasTruncatedResults()
+	{
+		return hasTruncatedResponses();
+	}
+	
+	public static boolean isLetterGroupTruncated(char letter)
+	{
+		return wasResponseTruncated(letter);
+	}
+	
+	public static List<String> getKnownFoundCommandsSnapshot(
+		boolean showVanilla)
+	{
+		return filterVisibleCommands(getKnownCommandsSnapshot(), showVanilla);
+	}
+	
+	public static List<String> getNewFoundCommandsSnapshot(boolean showVanilla)
+	{
+		return filterVisibleCommands(getNewCommandsSnapshot(), showVanilla);
+	}
+	
+	public static List<String> getVisibleFoundCommandsSnapshot(String filter,
+		boolean showVanilla)
+	{
+		return "KNOWN".equalsIgnoreCase(filter)
+			? getKnownFoundCommandsSnapshot(showVanilla)
+			: "NEW".equalsIgnoreCase(filter)
+				? getNewFoundCommandsSnapshot(showVanilla)
+				: filterVisibleCommands(getFoundCommandsSnapshot(),
+					showVanilla);
 	}
 	
 	public enum ScanMode

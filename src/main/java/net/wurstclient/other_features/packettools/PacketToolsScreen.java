@@ -38,6 +38,7 @@ public final class PacketToolsScreen extends Screen
 	private Button outsideGameButton;
 	private Button delayMinusButton;
 	private Button delayPlusButton;
+	private int delayLabelY;
 	
 	private boolean holdingDelayMinus;
 	private boolean holdingDelayPlus;
@@ -140,6 +141,30 @@ public final class PacketToolsScreen extends Screen
 			}).bounds(panelX + (third + gap) * 2, y, third, 20).build());
 		
 		y += 24;
+		addRenderableWidget(
+			Button
+				.builder(
+					enabledLabel("Verbose",
+						packetTools.getVerboseEnabledSetting().isChecked()),
+					b -> {
+						boolean value =
+							!packetTools.getVerboseEnabledSetting().isChecked();
+						packetTools.getVerboseEnabledSetting()
+							.setChecked(value);
+						b.setMessage(enabledLabel("Verbose", value));
+					})
+				.bounds(panelX, y, third, 20).build());
+		addRenderableWidget(Button.builder(
+			enabledLabel("Human log",
+				packetTools.getVerboseHumanReadableSetting().isChecked()),
+			b -> {
+				boolean value =
+					!packetTools.getVerboseHumanReadableSetting().isChecked();
+				packetTools.getVerboseHumanReadableSetting().setChecked(value);
+				b.setMessage(enabledLabel("Human log", value));
+			}).bounds(panelX + third + gap, y, third, 20).build());
+		
+		y += 24;
 		
 		int controlWidth = 70;
 		addRenderableWidget(Button
@@ -167,9 +192,10 @@ public final class PacketToolsScreen extends Screen
 		delayPlusButton = addRenderableWidget(
 			Button.builder(Component.literal("+"), b -> changeDelay(1))
 				.bounds(delayCenter + 46, y, 20, 20).build());
+		delayLabelY = y;
 		
 		y += 24;
-		int selectorHeight = (height - y - 56) / 2 - 4;
+		int selectorHeight = Math.max(40, (height - y - 56) / 2 - 4);
 		
 		s2cSelector = new DualPacketListWidget(panelX, y, panelWidth,
 			selectorHeight, "S2C Packets (Server -> Client)",
@@ -230,7 +256,8 @@ public final class PacketToolsScreen extends Screen
 		
 		String delayLabel =
 			"Delay ticks: " + packetTools.getDelayTicksSetting().getValueI();
-		context.centeredText(font, delayLabel, width / 2, 76, 0xFFFFFFFF);
+		context.centeredText(font, delayLabel, width / 2, delayLabelY,
+			0xFFFFFFFF);
 	}
 	
 	@Override

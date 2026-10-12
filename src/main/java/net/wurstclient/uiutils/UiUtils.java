@@ -78,7 +78,9 @@ public final class UiUtils
 		WurstClient.INSTANCE.getEventManager().add(UpdateListener.class,
 			new RestoreScreenHandler());
 		UiUtilsSettings.load();
+		WurstClient.INSTANCE.getHax().serverIntelHack.initDupeDbSettings();
 		UiUtilsVulnerablePlugins.init();
+		UiUtilsDupeDbUpdater.startOnce(UiUtilsSettings.get().dupeDbApiKey);
 		UiUtilsPluginScanner.init();
 		UiUtilsLegacyPluginScanner.init();
 		
@@ -216,6 +218,11 @@ public final class UiUtils
 	{
 		UiUtilsState.delayUiPackets = false;
 		UiUtilsState.delayedUiPackets.clear();
+		UiUtilsCommandScanner.resetForServerChange();
+		UiUtilsCommandScanner.clearManualCommandOutput();
+		UiUtilsPluginScanner.resetForServerChange();
+		UiUtilsLegacyPluginScanner.clearResultsForUi();
+		UiUtilsSuggestionCapability.clear();
 	}
 	
 	private static void refreshQueueCounterButtons()
@@ -1149,6 +1156,7 @@ public final class UiUtils
 			refreshQueueCounterButtons();
 			Minecraft scannerMc = Minecraft.getInstance();
 			UiUtilsServerFingerprintCollector.onClientTick(scannerMc);
+			UiUtilsDupeDbUpdater.onClientTick(scannerMc);
 			UiUtilsPluginScanner.onTick();
 			UiUtilsLegacyPluginScanner.onTick();
 			UiUtilsCommandScanner.onTick();
