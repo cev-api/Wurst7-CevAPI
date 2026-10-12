@@ -30,6 +30,8 @@ public final class TextFieldSetting extends Setting
 	private final String defaultValue;
 	private final Predicate<String> validator;
 	private int maxLength = Integer.MAX_VALUE;
+	private boolean masked;
+	private java.util.function.Consumer<String> changeListener = value -> {};
 	
 	public TextFieldSetting(String name, WText description, String defaultValue,
 		Predicate<String> validator)
@@ -103,7 +105,28 @@ public final class TextFieldSetting extends Setting
 			return;
 		
 		this.value = value;
+		changeListener.accept(value);
 		WurstClient.INSTANCE.saveSettings();
+	}
+	
+	public void setChangeListener(java.util.function.Consumer<String> listener)
+	{
+		changeListener = Objects.requireNonNull(listener);
+	}
+	
+	public void setMasked(boolean masked)
+	{
+		this.masked = masked;
+	}
+	
+	public boolean isMasked()
+	{
+		return masked;
+	}
+	
+	public String getDisplayValue()
+	{
+		return masked ? "*".repeat(value.length()) : value;
 	}
 	
 	public boolean isValidValue(String value)
@@ -130,6 +153,7 @@ public final class TextFieldSetting extends Setting
 	public void resetToDefault()
 	{
 		value = defaultValue;
+		changeListener.accept(value);
 		WurstClient.INSTANCE.saveSettings();
 	}
 	
@@ -142,6 +166,9 @@ public final class TextFieldSetting extends Setting
 	@Override
 	public void fromJson(JsonElement json)
 	{
+		// Older API-key buttons persisted null before becoming inline fields.
+		if(masked && (json == null || json.isJsonNull()))
+			return;
 		try
 		{
 			String newValue = JsonUtils.getAsString(json);
@@ -149,6 +176,7 @@ public final class TextFieldSetting extends Setting
 				throw new JsonException();
 			
 			value = newValue;
+			changeListener.accept(value);
 			
 		}catch(JsonException e)
 		{

@@ -7,40 +7,31 @@
  */
 package net.wurstclient.uiutils;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.Reader;
-import java.io.Writer;
+import com.google.gson.*;
+import java.io.*;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
+import java.nio.file.*;
+import java.util.*;
 import net.fabricmc.loader.api.FabricLoader;
 
 public final class UiUtilsVulnerablePlugins
 {
-	private static final Gson GSON =
-		new GsonBuilder().setPrettyPrinting().create();
 	private static final String DEFAULT_RESOURCE =
 		"/assets/wurst/vulnerable_plugins.json";
 	private static final String CONFIG_FILE_NAME =
 		"ui-utils-vulnerable-plugins.json";
-	
 	private static volatile boolean initialized;
 	private static volatile Map<String, VulnerableEntry> entriesByKey =
 		Map.of();
+	private static volatile UiUtilsDupeDbDatabase.Data database =
+		UiUtilsDupeDbDatabase.empty();
+	
+	private static Map<String, UiUtilsDupeDbDatabase.Exploit> exploitsById =
+		Map.of();
+	private static final Map<String, List<Finding>> pluginFindingCache =
+		new HashMap<>();
+	private static final Map<String, List<Finding>> serverFindingCache =
+		new HashMap<>();
 	
 	private UiUtilsVulnerablePlugins()
 	{}
@@ -55,9 +46,85 @@ public final class UiUtilsVulnerablePlugins
 	
 	public static synchronized void reload()
 	{
-		Path target = configPath();
-		ensureExternalJsonExists(target);
-		entriesByKey = Collections.unmodifiableMap(readEntries(target));
+		UiUtilsDupeDbDatabase.Data bundled = readBundled();
+		Path target =
+			FabricLoader.getInstance().getConfigDir().resolve(CONFIG_FILE_NAME);
+		if(!Files.exists(target))
+			try
+			{
+				Files.createDirectories(target.getParent());
+				Files.writeString(target, UiUtilsDupeDbDatabase.json(bundled),
+					StandardCharsets.UTF_8);
+			}catch(IOException e)
+			{
+				UiUtils.LOGGER.warn(
+					"Failed to initialize local vulnerability database ({})",
+					e.getClass().getSimpleName());
+			}
+		UiUtilsDupeDbDatabase.Data merged =
+			UiUtilsDupeDbDatabase.merge(bundled, readFile(target), false);
+		Path online = target.resolveSibling("ui-utils-dupedb-plugins.json");
+		if(UiUtilsSettings.get().dupeDbEnabled && Files.exists(online))
+			merged =
+				UiUtilsDupeDbDatabase.merge(merged, readFile(online), true);
+		Map<String, VulnerableEntry> entries = new LinkedHashMap<>();
+		for(var plugin : merged.plugins())
+		{
+			String key = normalizeKey(plugin.name());
+			if(key.isEmpty())
+				continue;
+			VulnerableEntry entry = entries.computeIfAbsent(key,
+				ignored -> new VulnerableEntry(plugin.name()));
+			if(plugin.version() != null && !plugin.version().isBlank())
+				entry.versions.add(plugin.version());
+		}
+		database = merged;
+		Map<String, UiUtilsDupeDbDatabase.Exploit> exploits = new HashMap<>();
+		for(var exploit : merged.exploits())
+			exploits.put(exploit.id(), exploit);
+		exploitsById = Map.copyOf(exploits);
+		pluginFindingCache.clear();
+		serverFindingCache.clear();
+		entriesByKey = Collections.unmodifiableMap(entries);
+	}
+	
+	public static UiUtilsDupeDbDatabase.Data readFile(Path path)
+	{
+		if(!Files.exists(path))
+			return UiUtilsDupeDbDatabase.empty();
+		try(Reader r = Files.newBufferedReader(path, StandardCharsets.UTF_8))
+		{
+			return UiUtilsDupeDbDatabase.read(JsonParser.parseReader(r));
+		}catch(IOException | RuntimeException e)
+		{
+			UiUtils.LOGGER.warn(
+				"Could not read DupeDB cache {}; using remaining data ({})",
+				path, e.getClass().getSimpleName());
+			return UiUtilsDupeDbDatabase.empty();
+		}
+	}
+	
+	private static UiUtilsDupeDbDatabase.Data readBundled()
+	{
+		try(InputStream in = UiUtilsVulnerablePlugins.class
+			.getResourceAsStream(DEFAULT_RESOURCE))
+		{
+			if(in == null)
+				return UiUtilsDupeDbDatabase.empty();
+			return UiUtilsDupeDbDatabase.read(JsonParser.parseReader(
+				new InputStreamReader(in, StandardCharsets.UTF_8)));
+		}catch(IOException | RuntimeException e)
+		{
+			UiUtils.LOGGER.warn(
+				"Could not read bundled vulnerability database ({})",
+				e.getClass().getSimpleName());
+			return UiUtilsDupeDbDatabase.empty();
+		}
+	}
+	
+	public static UiUtilsDupeDbDatabase.Data database()
+	{
+		return database;
 	}
 	
 	public static Set<String> keys()
@@ -74,108 +141,122 @@ public final class UiUtilsVulnerablePlugins
 	{
 		if(raw == null)
 			return "";
-		String lower = raw.toLowerCase(Locale.ROOT);
-		StringBuilder sb = new StringBuilder(lower.length());
-		for(int i = 0; i < lower.length(); i++)
-		{
-			char c = lower.charAt(i);
-			if(Character.isLetterOrDigit(c))
-				sb.append(c);
-		}
-		return sb.toString();
+		StringBuilder b = new StringBuilder();
+		raw = raw.toLowerCase(Locale.ROOT);
+		for(int i = 0; i < raw.length(); i++)
+			if(Character.isLetterOrDigit(raw.charAt(i)))
+				b.append(raw.charAt(i));
+		return b.toString();
 	}
 	
-	private static Path configPath()
+	public static int patchColor(Boolean patched)
 	{
-		return FabricLoader.getInstance().getConfigDir()
-			.resolve(CONFIG_FILE_NAME);
+		return patched == null ? 0xFFD8D8D8 : patched ? 0xFFFF7A7A : 0xFF93F7A4;
 	}
 	
-	private static void ensureExternalJsonExists(Path target)
+	public static int patchDetailColor(String text, int fallback)
 	{
-		if(Files.exists(target))
-			return;
-		try
-		{
-			Files.createDirectories(target.getParent());
-			JsonArray defaults = readDefaultArray();
-			try(Writer writer =
-				Files.newBufferedWriter(target, StandardCharsets.UTF_8))
+		String line = text.trim();
+		if(line.equals("Globally marked patched: no")
+			|| line.equals("Server patch status: reported not patched"))
+			return patchColor(false);
+		if(line.equals("Globally marked patched: yes")
+			|| line.equals("Server patch status: patched")
+			|| line.equals("Exploit status: patched")
+			|| line.startsWith("Exploit patched: ")
+			|| line.startsWith("Server patched: "))
+			return patchColor(true);
+		return fallback;
+	}
+	
+	public record Finding(String title, String url, List<String> details,
+		Boolean patched)
+	{}
+	
+	public static synchronized List<Finding> pluginFindings(String name)
+	{
+		return pluginFindingCache.computeIfAbsent(normalizeKey(name),
+			ignored -> buildPluginFindings(name));
+	}
+	
+	private static List<Finding> buildPluginFindings(String name)
+	{
+		Map<String, Finding> results = new LinkedHashMap<>();
+		String key = normalizeKey(name);
+		for(var plugin : database.plugins())
+			if(key.equals(normalizeKey(plugin.name()))
+				&& plugin.exploitId() != null)
 			{
-				GSON.toJson(defaults, writer);
+				var e = exploit(plugin.exploitId());
+				if(e == null)
+					continue;
+				results.put(e.id(),
+					new Finding(e.title(),
+						UiUtilsDupeDbDatabase.safeUrl(e.url()),
+						exploitDetails(e), e.patched()));
 			}
-		}catch(Throwable t)
-		{
-			UiUtils.LOGGER.warn(
-				"Failed to write default vulnerable plugin JSON to {}", target,
-				t);
-		}
+		return List.copyOf(results.values());
 	}
 	
-	private static JsonArray readDefaultArray()
+	public static synchronized List<Finding> serverFindings(String address)
 	{
-		try(InputStream in = UiUtilsVulnerablePlugins.class
-			.getResourceAsStream(DEFAULT_RESOURCE))
-		{
-			if(in == null)
-				return new JsonArray();
-			try(Reader reader =
-				new InputStreamReader(in, StandardCharsets.UTF_8))
+		return serverFindingCache.computeIfAbsent(
+			UiUtilsDupeDbDatabase.normalizeAddress(address),
+			ignored -> buildServerFindings(address));
+	}
+	
+	private static List<Finding> buildServerFindings(String address)
+	{
+		String key = UiUtilsDupeDbDatabase.normalizeAddress(address);
+		if(key.isEmpty())
+			return List.of();
+		List<Finding> results = new ArrayList<>();
+		for(var server : database.servers())
+			if(key.equals(
+				UiUtilsDupeDbDatabase.normalizeAddress(server.address())))
 			{
-				JsonElement parsed = JsonParser.parseReader(reader);
-				return parsed != null && parsed.isJsonArray()
-					? parsed.getAsJsonArray() : new JsonArray();
+				var e = exploit(server.exploitId());
+				if(e == null)
+					continue;
+				List<String> details = new ArrayList<>(exploitDetails(e));
+				details.add("Server evidence: " + server.source());
+				details.add("Server reported: " + date(server.reportedAt()));
+				details.add("Server patch status: " + (server.patched() == null
+					? "not provided"
+					: server.patched() ? "patched" : "reported not patched"));
+				if(Boolean.TRUE.equals(server.patched()))
+					details.add("Server patched: " + date(server.patchedAt()));
+				results.add(new Finding(e.title(),
+					UiUtilsDupeDbDatabase.safeUrl(e.url()),
+					List.copyOf(details), server.patched()));
 			}
-		}catch(Throwable t)
-		{
-			UiUtils.LOGGER
-				.warn("Failed to read bundled vulnerable plugin JSON.", t);
-			return new JsonArray();
-		}
+		return List.copyOf(results);
 	}
 	
-	private static Map<String, VulnerableEntry> readEntries(Path target)
+	private static UiUtilsDupeDbDatabase.Exploit exploit(String id)
 	{
-		JsonArray source = new JsonArray();
-		try(Reader reader =
-			Files.newBufferedReader(target, StandardCharsets.UTF_8))
-		{
-			JsonElement parsed = JsonParser.parseReader(reader);
-			if(parsed != null && parsed.isJsonArray())
-				source = parsed.getAsJsonArray();
-		}catch(IOException e)
-		{
-			UiUtils.LOGGER.warn("Failed to read vulnerable plugin JSON from {}",
-				target, e);
-		}
-		
-		Map<String, VulnerableEntry> map = new LinkedHashMap<>();
-		for(JsonElement element : source)
-		{
-			if(element == null || !element.isJsonObject())
-				continue;
-			JsonObject obj = element.getAsJsonObject();
-			String name = getStringOrNull(obj, "name");
-			String key = normalizeKey(name);
-			if(key.isEmpty())
-				continue;
-			VulnerableEntry entry =
-				map.computeIfAbsent(key, ignored -> new VulnerableEntry(
-					name == null || name.isBlank() ? key : name.trim()));
-			String version = getStringOrNull(obj, "version");
-			if(version != null && !version.isBlank())
-				entry.versions().add(version.trim());
-		}
-		return map;
+		return exploitsById.get(id);
 	}
 	
-	private static String getStringOrNull(JsonObject obj, String key)
+	private static List<String> exploitDetails(UiUtilsDupeDbDatabase.Exploit e)
 	{
-		if(obj == null || key == null || !obj.has(key)
-			|| obj.get(key).isJsonNull())
-			return null;
-		JsonElement element = obj.get(key);
-		return element.isJsonPrimitive() ? element.getAsString() : null;
+		List<String> details = new ArrayList<>();
+		details.add("Submitted: " + date(e.dateSubmitted()));
+		details.add("Published: " + date(e.datePublished()));
+		if(e.dateDiscovered() != null)
+			details.add("Discovered: " + date(e.dateDiscovered()));
+		details.add("Exploit status: "
+			+ Objects.requireNonNullElse(e.status(), "unknown"));
+		details.add("Globally marked patched: "
+			+ (e.patched() == null ? "unknown" : e.patched() ? "yes" : "no"));
+		if(Boolean.TRUE.equals(e.patched()))
+			details.add("Exploit patched: " + date(e.patchedAt()));
+		return List.copyOf(details);
+	}
+	
+	private static String date(String date)
+	{
+		return date == null || date.isBlank() ? "unavailable" : date;
 	}
 	
 	public static final class VulnerableEntry
@@ -183,9 +264,9 @@ public final class UiUtilsVulnerablePlugins
 		private final String displayName;
 		private final Set<String> versions = new LinkedHashSet<>();
 		
-		private VulnerableEntry(String displayName)
+		private VulnerableEntry(String name)
 		{
-			this.displayName = displayName;
+			displayName = name;
 		}
 		
 		public String displayName()

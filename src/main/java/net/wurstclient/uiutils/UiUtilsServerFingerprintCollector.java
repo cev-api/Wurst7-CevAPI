@@ -8,13 +8,13 @@
 package net.wurstclient.uiutils;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.lang.reflect.Method;
 import net.minecraft.advancements.AdvancementHolder;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.RegistrySynchronization.PackedRegistryEntry;
@@ -99,21 +99,21 @@ public final class UiUtilsServerFingerprintCollector
 	private UiUtilsServerFingerprintCollector()
 	{}
 	
-	// Called before packet-tool cancellation; never observes
-	// outgoing client packets.
+	// Called before packet-tool cancellation; never observes outgoing client
+	// packets.
 	public static void onIncomingPacket(Connection connection, Packet<?> packet)
 	{
 		if(packet == null)
 			return;
-		// Ignore server-list/status connections entirely; they
-		// are not joined-server evidence.
+		// Ignore server-list/status connections entirely; they are not
+		// joined-server evidence.
 		PacketListener listener = connection.getPacketListener();
 		if(!(listener instanceof ClientLoginPacketListener
 			|| listener instanceof ClientConfigurationPacketListener
 			|| listener instanceof ClientGamePacketListener))
 			return;
-		// A new joined-server Netty Connection is an unambiguous
-		// cache boundary.
+		// A new joined-server Netty Connection is an unambiguous cache
+		// boundary.
 		if(activeConnection != connection)
 		{
 			synchronized(LOCK)
@@ -163,7 +163,7 @@ public final class UiUtilsServerFingerprintCollector
 		}
 		if(packet instanceof ClientboundUpdateAdvancementsPacket advancementsPacket)
 		{
-			captureAdvancements(advancementsPacket.getAdded());
+			captureAdvancements(advancementsPacket);
 			return;
 		}
 		if(packet instanceof ClientboundCustomChatCompletionsPacket completions)
@@ -189,8 +189,8 @@ public final class UiUtilsServerFingerprintCollector
 	
 	public static void onClientTick(Minecraft minecraft)
 	{
-		// Do not clear configuration evidence during the
-		// configuration -> play hand-off.
+		// Configuration evidence is kept across the configuration to play
+		// hand-off.
 		if(minecraft == null || minecraft.getConnection() == null)
 		{
 			synchronized(LOCK)
@@ -301,43 +301,17 @@ public final class UiUtilsServerFingerprintCollector
 			return;
 		Identifier id = payload.type().id();
 		String rawId = id.toString();
-		String namespace = id.getNamespace();
-		String path = id.getPath();
-		String source = describeChannelSource(namespace, path);
+		String phase;
 		synchronized(LOCK)
 		{
-			String phase =
+			phase =
 				configurationCaptured && !serverConfig.containsKey("maxPlayers")
 					? "CONFIGURATION" : "PLAY";
-			ChannelInfo existing = payloads.get(rawId);
-			if(existing == null)
-				payloads.put(rawId,
-					new ChannelInfo(rawId, namespace, path, phase, source));
-			else if("custom payload".equals(existing.source())
-				&& !"custom payload".equals(source))
-				payloads.put(rawId, new ChannelInfo(rawId, namespace, path,
-					existing.phase(), source));
+			payloads.putIfAbsent(rawId, new ChannelInfo(rawId,
+				id.getNamespace(), id.getPath(), phase, "custom payload"));
 			if(payload instanceof BrandPayload brandPayload)
 				brand = brandPayload.brand();
 		}
-	}
-	
-	/**
-	 * Distinguishes the vanilla registration handshake from real traffic, since
-	 * a registration event proves the server manages plugin channels even when
-	 * no traffic follows.
-	 */
-	private static String describeChannelSource(String namespace, String path)
-	{
-		if(!"minecraft".equals(namespace))
-			return "custom payload";
-		return switch(path)
-		{
-			case "register" -> "channel registration";
-			case "unregister" -> "channel unregistration";
-			case "brand" -> "server brand";
-			default -> "custom payload";
-		};
 	}
 	
 	private static void captureRegistry(ClientboundRegistryDataPacket packet)
@@ -369,6 +343,8 @@ public final class UiUtilsServerFingerprintCollector
 				Integer.toString(packet.chunkRadius()));
 			serverConfig.put("simulationDistance",
 				Integer.toString(packet.simulationDistance()));
+			serverConfig.put("onlineMode", Boolean
+				.toString(loginBoolean(packet, "onlineMode", "isOnlineMode")));
 			serverConfig.put("enforcesSecureChat",
 				Boolean.toString(packet.enforcesSecureChat()));
 			serverConfig.put("gameMode",
@@ -382,16 +358,68 @@ public final class UiUtilsServerFingerprintCollector
 		}
 	}
 	
-	private static void captureAdvancements(Collection<AdvancementHolder> added)
+	private static void captureAdvancements(
+		ClientboundUpdateAdvancementsPacket packet)
 	{
+		Object added = null;
+		try
+		{
+			Method method = packet.getClass().getMethod("added");
+			added = method.invoke(packet);
+		}catch(ReflectiveOperationException ignored)
+		{
+			try
+			{
+				Method method = packet.getClass().getMethod("getAdded");
+				added = method.invoke(packet);
+			}catch(ReflectiveOperationException ignoredAgain)
+			{}
+		}
+		if(!(added instanceof Iterable<?> entries))
+			return;
 		synchronized(LOCK)
 		{
-			for(AdvancementHolder holder : added)
+			for(Object entry : entries)
 			{
+				AdvancementHolder holder =
+					entry instanceof AdvancementHolder direct ? direct
+						: advancementHolder(entry);
+				if(holder == null)
+					continue;
 				Identifier id = holder.id();
 				if(!"minecraft".equals(id.getNamespace()))
 					addBounded(advancements, id.toString());
 			}
+		}
+	}
+	
+	private static boolean loginBoolean(ClientboundLoginPacket packet,
+		String... names)
+	{
+		for(String name : names)
+		{
+			try
+			{
+				Method method = packet.getClass().getMethod(name);
+				Object value = method.invoke(packet);
+				if(value instanceof Boolean result)
+					return result;
+			}catch(ReflectiveOperationException ignored)
+			{}
+		}
+		return false;
+	}
+	
+	private static AdvancementHolder advancementHolder(Object positioned)
+	{
+		try
+		{
+			Method method = positioned.getClass().getMethod("advancement");
+			Object result = method.invoke(positioned);
+			return result instanceof AdvancementHolder holder ? holder : null;
+		}catch(ReflectiveOperationException ignored)
+		{
+			return null;
 		}
 	}
 	

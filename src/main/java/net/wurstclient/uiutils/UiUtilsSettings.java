@@ -87,11 +87,16 @@ public final class UiUtilsSettings
 		public static final int MAX_PROBES_PER_SECOND = 30;
 		public static final int DEFAULT_PROBES_PER_SECOND = 10;
 		
+		public int uiScalePercent = 0;
+		public boolean uiDebugBounds = false;
 		public int uiButtonColor = 0x4A90E2;
 		public int uiButtonTextColor = 0xFFFFFF;
 		public String commandScannerMode = "PACKET_PROBING";
 		public boolean commandScannerDebugProbe = false;
 		public boolean commandScannerRunFoundCommands = false;
+		public boolean commandScannerShowVanilla = false;
+		public boolean commandScannerExcludeEssentials = false;
+		public String commandScannerResultFilter = "ALL";
 		public String commandScannerDontSendFilter = "";
 		public String commandScannerPacketCommands = "";
 		public int scannerProbesPerSecond = DEFAULT_PROBES_PER_SECOND;
@@ -105,5 +110,10 @@ public final class UiUtilsSettings
 		 * on value is discarded on load.
 		 */
 		public boolean pluginScanVersionOracle = false;
+		public boolean pluginScanOracleDictionary = false;
+		public String dupeDbApiKey = "";
+		public boolean dupeDbEnabled = false;
+		public boolean dupeDbScanOnLaunch = true;
+		public boolean dupeDbCheckServerIp = true;
 	}
 }

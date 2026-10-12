@@ -230,6 +230,17 @@ public final class UiUtilsLegacyPluginScanner
 		return lastStatus;
 	}
 	
+	public static void stopScan()
+	{
+		if(!scanning)
+			return;
+		scanning = false;
+		requestId = -1;
+		ticksSinceStart = 0;
+		lastStatus = "Legacy plugin scan stopped.";
+		print(lastStatus);
+	}
+	
 	public static boolean isActive()
 	{
 		return scanning;

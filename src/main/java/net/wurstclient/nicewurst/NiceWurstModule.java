@@ -108,15 +108,14 @@ public final class NiceWurstModule
 		
 		ALLOWED_HACKS.put(Category.RENDER,
 			Set.of("AntiFov", "BarrierESP", "DurabilityHUD", "Fullbright",
-				"HealthTags",
-				"MobHealth", "NameTags", "NoBackground", "NoFireOverlay",
-				"NameProtect", "NoVignette", "NoFog", "NoHurtcam", "NoOverlay",
-				"NoPumpkin", "NoWeather", "NoShieldOverlay", "OpenWaterESP",
-				"Freecam", "SpawnRadius", "Trajectories",
-				"TrialSpawnerESP", "Waypoints", "ElytraInfo", "RoofESP",
-				"RenderAdjust", "Viewmodel", "MobOwners", "StasisDetector",
-				"PotESP", "SkyBuildESP", "DamageESP", "ProjectileESP",
-				"BlockOverlay", "SpawnerESP", "SoundMute"));
+				"HealthTags", "MobHealth", "NameTags", "NoBackground",
+				"NoFireOverlay", "NameProtect", "NoVignette", "NoFog",
+				"NoHurtcam", "NoOverlay", "NoPumpkin", "NoWeather",
+				"NoShieldOverlay", "OpenWaterESP", "Freecam", "SpawnRadius",
+				"Trajectories", "TrialSpawnerESP", "Waypoints", "ElytraInfo",
+				"RoofESP", "RenderAdjust", "Viewmodel", "MobOwners",
+				"StasisDetector", "PotESP", "SkyBuildESP", "DamageESP",
+				"ProjectileESP", "BlockOverlay", "SpawnerESP", "SoundMute"));
 		
 		ALLOWED_HACKS.put(Category.INTEL,
 			Set.of("Breadcrumbs", "LogoutSpots", "NewChunks", "NewerNewChunks",
@@ -138,9 +137,8 @@ public final class NiceWurstModule
 			Set.of("AntiAFK", "Antisocial", "AutoFish", "AutoLibrarian",
 				"AutoReconnect", "AutoTrader", "ClickGUI", "FeedAura",
 				"Navigator", "Panic", "PortalGUI", "SafeTP", "TooManyHax",
-				"DamageDetect", "GlobalToggle",
-				"WebhookAlert", "RemoteEChest", "ShearAura", "AirMiner",
-				"VaultRoll", "VillagerRoll"));
+				"DamageDetect", "GlobalToggle", "WebhookAlert", "RemoteEChest",
+				"ShearAura", "AirMiner", "VaultRoll", "VillagerRoll"));
 		
 		ALLOWED_HACKS.put(Category.ITEMS,
 			Set.of("AntiDrop", "AutoDisenchant", "AutoDrop", "AutoEat",

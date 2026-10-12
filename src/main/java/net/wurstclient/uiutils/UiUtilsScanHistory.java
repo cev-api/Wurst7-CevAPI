@@ -195,6 +195,12 @@ public final class UiUtilsScanHistory
 	public static void recordCommands(String serverKey, String scanType,
 		List<String> commands)
 	{
+		recordCommands(serverKey, scanType, commands, null);
+	}
+	
+	public static void recordCommands(String serverKey, String scanType,
+		List<String> commands, Map<String, Object> diagnostics)
+	{
 		Map<String, Entry> current = new LinkedHashMap<>();
 		for(String command : commands)
 		{
@@ -203,11 +209,17 @@ public final class UiUtilsScanHistory
 			String name = command.trim();
 			current.put(normalize(name), new Entry(name, null, List.of()));
 		}
-		record(serverKey, scanType, current);
+		record(serverKey, scanType, current, diagnostics);
 	}
 	
 	private static synchronized void record(String serverKey, String scanType,
 		Map<String, Entry> current)
+	{
+		record(serverKey, scanType, current, null);
+	}
+	
+	private static synchronized void record(String serverKey, String scanType,
+		Map<String, Entry> current, Map<String, Object> diagnostics)
 	{
 		String resolvedServerKey = serverKey == null || serverKey.isBlank()
 			? "singleplayer" : serverKey;
@@ -263,6 +275,8 @@ public final class UiUtilsScanHistory
 		snapshot.addProperty("timestamp", Instant.now().toString());
 		snapshot.addProperty("type", scanType);
 		snapshot.add("entries", snapshotEntries);
+		if(diagnostics != null)
+			snapshot.add("diagnostics", GSON.toJsonTree(diagnostics));
 		retained.add(snapshot);
 		root.addProperty("server", resolvedServerKey);
 		root.add("scans", retained);
