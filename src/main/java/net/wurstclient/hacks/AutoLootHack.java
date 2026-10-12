@@ -46,7 +46,7 @@ public final class AutoLootHack extends Hack
 	implements UpdateListener, PlayerAttacksEntityListener
 {
 	private static final long KILL_WINDOW_MS = 2 * 60 * 1000L;
-	private static final long MIN_ACTION_DELAY_MS = 150L;
+	private static final long MIN_ACTION_DELAY_MS = 50L;
 	
 	private enum Mode
 	{
@@ -114,8 +114,8 @@ public final class AutoLootHack extends Hack
 		"Maximum distance to collect valuable dropped items.", 6, 1, 32, 1,
 		ValueDisplay.INTEGER);
 	private final SliderSetting delay = new SliderSetting("Action delay",
-		"Delay between loot actions to avoid sending a burst of clicks.", 250,
-		50, 1000, 50, ValueDisplay.INTEGER.withSuffix("ms"));
+		"Delay between inventory actions.", 50, 50, 1000, 50,
+		ValueDisplay.INTEGER.withSuffix("ms"));
 	
 	private Entity pendingKill;
 	private ItemEntity movingTo;
@@ -520,7 +520,9 @@ public final class AutoLootHack extends Hack
 	
 	private boolean isLootable(ItemStack stack)
 	{
-		return !stack.isEmpty() && keepItems.contains(stack.getItem())
+		return !stack.isEmpty()
+			&& (keepItems.contains(stack.getItem())
+				|| stack.has(DataComponents.CUSTOM_NAME))
 			&& (!useAutoDrop.isChecked() || !isJunk(stack));
 	}
 	
@@ -606,7 +608,7 @@ public final class AutoLootHack extends Hack
 	{
 		pendingActionCheck = check;
 		pendingActionDescription = description;
-		actionCheckAt = System.currentTimeMillis() + 500;
+		actionCheckAt = System.currentTimeMillis() + 100;
 	}
 	
 	public boolean shouldAllowPickup(ItemEntity entity)
