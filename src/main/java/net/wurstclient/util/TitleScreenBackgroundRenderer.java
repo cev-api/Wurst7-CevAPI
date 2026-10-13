@@ -24,7 +24,7 @@ public enum TitleScreenBackgroundRenderer
 	;
 	private static final String CONTROLS_HINT =
 		"X: X-Ray, ESC: Change Realm, CTRL: Fly";
-	private static final long HINT_DURATION_MS = 2_000L;
+	private static final long HINT_DURATION_MS = 3_500L;
 	private static final long HINT_FADE_MS = 250L;
 	private static boolean cameraMoving;
 	private static boolean leftControlDown;
