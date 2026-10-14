@@ -2194,6 +2194,7 @@
     "Pin ItemESP special to top": true,
     "Show nearby signs": true,
     "Detect named entities": true,
+    "Named entity chat alerts": false,
     "Detect crafted entities": true,
     "Detect owned entities": true,
     "Respect ItemESP ignored items": true,

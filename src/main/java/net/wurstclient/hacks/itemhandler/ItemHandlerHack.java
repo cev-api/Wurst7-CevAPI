@@ -19,6 +19,8 @@ import java.util.Collection;
 import java.util.Deque;
 import java.util.List;
 import java.util.Locale;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.LinkedHashSet;
@@ -144,6 +146,8 @@ public class ItemHandlerHack extends Hack
 	
 	private final List<GroundItem> trackedItems = new ArrayList<>();
 	private final List<NearbyLabel> trackedLabels = new ArrayList<>();
+	private final Map<UUID, String> reportedNamedEntities =
+		new LinkedHashMap<>();
 	private int signScanCooldown;
 	private final Int2IntOpenHashMap pickupWhitelist = new Int2IntOpenHashMap();
 	private final Deque<Integer> pickupQueue = new ArrayDeque<>();
@@ -193,6 +197,10 @@ public class ItemHandlerHack extends Hack
 	private final CheckboxSetting detectNamedEntities =
 		new CheckboxSetting("Detect named entities",
 			"Detects custom-named entities (e.g. pets and mobs).", true);
+	private final CheckboxSetting namedEntityChatAlerts = new CheckboxSetting(
+		"Named entity chat alerts",
+		"Reports named entities and entities with a known player owner, including their coordinates, in chat.",
+		false);
 	
 	private final CheckboxSetting detectCraftedEntities = new CheckboxSetting(
 		"Detect crafted entities",
@@ -268,6 +276,7 @@ public class ItemHandlerHack extends Hack
 		addSetting(showSignsInHud);
 		addSetting(detectWallHeads);
 		addSetting(detectNamedEntities);
+		addSetting(namedEntityChatAlerts);
 		addSetting(detectCraftedEntities);
 		addSetting(detectOwnedEntities);
 		addSetting(respectItemEspIgnores);
@@ -294,6 +303,7 @@ public class ItemHandlerHack extends Hack
 		prevInventoryCounts.clear();
 		trackedItems.clear();
 		trackedLabels.clear();
+		reportedNamedEntities.clear();
 		pickupWhitelist.clear();
 		pickupQueue.clear();
 	}
@@ -325,6 +335,7 @@ public class ItemHandlerHack extends Hack
 			endPickFilterSession();
 			prevInventoryCounts.clear();
 			trackedLabels.clear();
+			reportedNamedEntities.clear();
 			pickupWhitelist.clear();
 			pickupQueue.clear();
 			stopAutoWalk();
@@ -925,11 +936,13 @@ public class ItemHandlerHack extends Hack
 				String customName = readCustomName(entity);
 				if(customName.isEmpty())
 					continue;
-				if(isIgnoredNamedEntityByItemEsp(customName))
-					continue;
 				Vec3 p = entity.position();
 				double distSq = p.distanceToSqr(centerVec);
 				if(!infinite && distSq > rangeSq)
+					continue;
+				reportNamedEntity(entity, customName,
+					getKnownPlayerOwnerName(entity));
+				if(isIgnoredNamedEntityByItemEsp(customName))
 					continue;
 				
 				trackedLabels.add(new NearbyLabel(p, entity.getBoundingBox(),
@@ -987,6 +1000,11 @@ public class ItemHandlerHack extends Hack
 					: OwnerResolver.lookupPlayerName(ownerUuid);
 				if(owner == null && !hasResolvableOwnerName(ownerName))
 					continue;
+				if(ownerName == null)
+					ownerName = getKnownPlayerOwnerName(entity);
+				if(hasResolvableOwnerName(ownerName))
+					reportNamedEntity(entity, readCustomName(entity),
+						ownerName);
 				
 				boolean ownedByMe = MC.player != null && ownerUuid != null
 					&& ownerUuid.equals(MC.player.getUUID())
@@ -1008,6 +1026,55 @@ public class ItemHandlerHack extends Hack
 		int max = signMax.getValueI();
 		if(trackedLabels.size() > max)
 			trackedLabels.subList(max, trackedLabels.size()).clear();
+	}
+	
+	private void reportNamedEntity(Entity entity, String customName,
+		String ownerName)
+	{
+		String entityName =
+			customName.isEmpty() ? ownedEntityLabel(entity) : customName;
+		String reportKey =
+			entityName + "\u0000" + (ownerName == null ? "" : ownerName);
+		String previousName =
+			reportedNamedEntities.put(entity.getUUID(), reportKey);
+		if(reportKey.equals(previousName))
+			return;
+		
+		// Bound this session cache in case the player explores continuously.
+		while(reportedNamedEntities.size() > 512)
+			reportedNamedEntities
+				.remove(reportedNamedEntities.keySet().iterator().next());
+		
+		if(!namedEntityChatAlerts.isChecked())
+			return;
+		
+		BlockPos pos = entity.blockPosition();
+		String type =
+			customName.isEmpty() ? "owned entity " : "named entity \"";
+		String displayName =
+			customName.isEmpty() ? entityName : customName + "\"";
+		String attribution = ownerName == null ? " (namer unavailable)"
+			: " (owner: " + ownerName + ")";
+		ChatUtils.message("ItemHandler: " + type + displayName + attribution
+			+ " at " + pos.getX() + ", " + pos.getY() + ", " + pos.getZ());
+	}
+	
+	private String getKnownPlayerOwnerName(Entity entity)
+	{
+		UUID ownerUuid = getEntityOwnerUuid(entity);
+		if(ownerUuid != null)
+		{
+			if(MC.player != null && ownerUuid.equals(MC.player.getUUID()))
+				return MC.player.getName().getString();
+			String name = OwnerResolver.lookupPlayerName(ownerUuid);
+			if(hasResolvableOwnerName(name))
+				return name;
+		}
+		
+		Entity owner = getEntityOwner(entity);
+		if(owner instanceof Player player)
+			return player.getName().getString();
+		return null;
 	}
 	
 	private void addPlayerHeadLabels(Vec3 centerVec, double range,
