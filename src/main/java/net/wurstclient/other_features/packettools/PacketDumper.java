@@ -114,6 +114,78 @@ public final class PacketDumper
 		return json;
 	}
 	
+	/**
+	 * Full diagnostic packet snapshot that deliberately bypasses ordinary
+	 * packet selection and JSON-line filters. Used only by opt-in forensics.
+	 */
+	public String dumpForensicsRecord(Packet<?> packet,
+		boolean includeFullContent, int maxContentBytes)
+	{
+		Map<String, Object> root = new LinkedHashMap<>();
+		root.put("schemaVersion", 1);
+		root.put("timestamp", LocalDateTime.now().format(ISO_FORMAT));
+		root.put("class", packet.getClass().getName());
+		root.put("packetId", PacketCatalog.formatPacketName(packet));
+		Map<String, Object> fields = dumpFields(packet);
+		root.put("fields", summarizeLargeValues(fields,
+			includeFullContent ? maxContentBytes : 4096));
+		return GSON.toJson(root);
+	}
+	
+	static Object summarizeLargeValues(Object value, int maxContentBytes)
+	{
+		if(value instanceof String string && string.getBytes(
+			java.nio.charset.StandardCharsets.UTF_8).length > maxContentBytes)
+			return largeValueSummary(string,
+				string.getBytes(java.nio.charset.StandardCharsets.UTF_8).length,
+				-1, maxContentBytes);
+		if(value instanceof Collection<?> collection)
+		{
+			String json = GSON.toJson(collection);
+			int jsonBytes =
+				json.getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
+			if(jsonBytes > maxContentBytes)
+				return largeValueSummary(json,
+					json.getBytes(
+						java.nio.charset.StandardCharsets.UTF_8).length,
+					collection.size(), maxContentBytes);
+			List<Object> out = new ArrayList<>(collection.size());
+			for(Object item : collection)
+				out.add(summarizeLargeValues(item, maxContentBytes));
+			return out;
+		}
+		if(value instanceof Map<?, ?> map)
+		{
+			Map<String, Object> out = new LinkedHashMap<>();
+			map.forEach((key, item) -> out.put(String.valueOf(key),
+				summarizeLargeValues(item, maxContentBytes)));
+			return out;
+		}
+		return value;
+	}
+	
+	private static Map<String, Object> largeValueSummary(String value,
+		int bytes, int itemCount, int maxContentBytes)
+	{
+		Map<String, Object> summary = new LinkedHashMap<>();
+		summary.put("_contentOmitted", true);
+		summary.put("reason",
+			"value exceeded the configured forensic content limit");
+		summary.put("serializedBytes", bytes);
+		summary.put("configuredLimitBytes", maxContentBytes);
+		if(itemCount >= 0)
+			summary.put("itemCount", itemCount);
+		try
+		{
+			byte[] digest =
+				java.security.MessageDigest.getInstance("SHA-256").digest(
+					value.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+			summary.put("sha256", java.util.HexFormat.of().formatHex(digest));
+		}catch(java.security.NoSuchAlgorithmException ignored)
+		{}
+		return summary;
+	}
+	
 	public List<String> dumpRecursive(Packet<?> packet, String direction,
 		String bundlePath)
 	{

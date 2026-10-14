@@ -62,6 +62,7 @@ import net.wurstclient.events.PacketOutputListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.other_feature.OtherFeature;
 import net.wurstclient.other_features.packettools.EntityLifecycleTracker;
+import net.wurstclient.other_features.packettools.ItemInventoryForensics;
 import net.wurstclient.other_features.packettools.PacketDecodeCoverage;
 import net.wurstclient.other_features.packettools.PacketDumper;
 import net.wurstclient.other_features.packettools.PacketFilter;
@@ -140,6 +141,57 @@ public final class PacketToolsOtf extends OtherFeature
 		new ButtonSetting("Show coverage report", this::printCoverageReport);
 	private final ButtonSetting showEntitySummary =
 		new ButtonSetting("Show entity summary", this::printEntitySummary);
+	private final CheckboxSetting itemForensicsEnabled = new CheckboxSetting(
+		"Enable Item & Inventory Forensics",
+		"Captures item packets and client inventory changes to a separate JSONL session, independent of packet filters and normal logging.",
+		false);
+	private final CheckboxSetting forensicTrackInventory =
+		new CheckboxSetting("Track player inventory", true);
+	private final CheckboxSetting forensicTrackContainers =
+		new CheckboxSetting("Track opened containers", true);
+	private final CheckboxSetting forensicTrackEquipment =
+		new CheckboxSetting("Track equipment and armour", true);
+	private final CheckboxSetting forensicTrackDroppedItems =
+		new CheckboxSetting("Track nearby item entities", true);
+	private final CheckboxSetting forensicTrackComponents =
+		new CheckboxSetting("Track item data components", true);
+	private final CheckboxSetting forensicFullContent = new CheckboxSetting(
+		"Export full item content",
+		"Includes full component payloads in forensic records. Large books and container contents can use substantial disk space.",
+		false);
+	private final SliderSetting forensicMaxContentKiB =
+		new SliderSetting("Max full content per value (KiB)", 1024, 64, 16384,
+			64, ValueDisplay.INTEGER);
+	private final CheckboxSetting forensicTrackInteractions =
+		new CheckboxSetting("Track item interaction packets", true);
+	private final CheckboxSetting forensicExtendedCorrelation =
+		new CheckboxSetting("Enable extended packet correlation", true);
+	private final CheckboxSetting forensicAutoAnomalyDetection =
+		new CheckboxSetting("Enable automatic anomaly detection",
+			"Marks inventory changes close in time to a server inventory packet as candidates; this does not establish cause.",
+			true);
+	private final SliderSetting forensicCorrelationTimeout =
+		new SliderSetting("Forensics correlation timeout (ms)", 2000, 100,
+			30000, 100, ValueDisplay.INTEGER);
+	private final SliderSetting forensicRadius = new SliderSetting(
+		"Forensics item radius", 16, 2, 64, 1, ValueDisplay.INTEGER);
+	private final SliderSetting forensicSnapshotFrequency = new SliderSetting(
+		"Forensics snapshot frequency", 2, 1, 20, 1, ValueDisplay.INTEGER);
+	private final SliderSetting forensicCaptureLimit =
+		new SliderSetting("Forensics total record limit", 50000, 1000, 200000,
+			1000, ValueDisplay.INTEGER);
+	private final SliderSetting forensicPendingLimit =
+		new SliderSetting("Forensics pending event limit", 4096, 128, 8192, 128,
+			ValueDisplay.INTEGER);
+	private final SliderSetting forensicMaxSessionMiB =
+		new SliderSetting("Forensics max session size (MiB)", 256, 16, 2048, 16,
+			ValueDisplay.INTEGER);
+	private final CheckboxSetting forensicRedactServerAddress =
+		new CheckboxSetting("Redact server address in report",
+			"Omits the server address from the exported session summary.",
+			true);
+	private final ButtonSetting exportForensicsSummary = new ButtonSetting(
+		"Export forensics session summary", this::exportForensicsSummary);
 	
 	private final PacketDecodeCoverage decodeCoverage =
 		new PacketDecodeCoverage();
@@ -147,10 +199,23 @@ public final class PacketToolsOtf extends OtherFeature
 		new EntityLifecycleTracker();
 	private final PacketFilter packetFilter = new PacketFilter();
 	private PacketDumper packetDumper;
+	private final PacketDumper forensicPacketDumper =
+		new PacketDumper(new PacketDecodeCoverage(), new PacketFilter(),
+			new EntityLifecycleTracker());
+	private final ItemInventoryForensics itemForensics =
+		new ItemInventoryForensics();
 	
 	private Path currentVerboseJsonlFile;
 	private Path currentVerboseHumanFile;
 	private Path currentUdpJsonlFile;
+	private Path currentForensicsJsonlFile;
+	private final ArrayList<String> forensicJsonlBuffer = new ArrayList<>(512);
+	private static final int MAX_FORENSIC_BUFFER_LINES = 2048;
+	private static final long MAX_FORENSIC_BUFFER_BYTES = 64L * 1024 * 1024;
+	private long forensicBufferedBytes;
+	private long forensicOutputDroppedRecords;
+	private int forensicsFlushTickCounter;
+	private boolean lastItemForensicsState;
 	
 	// Batched write buffers – flushed in onUpdate() to avoid per-packet disk
 	// I/O
@@ -207,6 +272,25 @@ public final class PacketToolsOtf extends OtherFeature
 		addSetting(verboseFlushInterval);
 		addSetting(showCoverageReport);
 		addSetting(showEntitySummary);
+		addSetting(itemForensicsEnabled);
+		addSetting(forensicTrackInventory);
+		addSetting(forensicTrackContainers);
+		addSetting(forensicTrackEquipment);
+		addSetting(forensicTrackDroppedItems);
+		addSetting(forensicTrackComponents);
+		addSetting(forensicFullContent);
+		addSetting(forensicMaxContentKiB);
+		addSetting(forensicTrackInteractions);
+		addSetting(forensicExtendedCorrelation);
+		addSetting(forensicAutoAnomalyDetection);
+		addSetting(forensicCorrelationTimeout);
+		addSetting(forensicRadius);
+		addSetting(forensicSnapshotFrequency);
+		addSetting(forensicCaptureLimit);
+		addSetting(forensicPendingLimit);
+		addSetting(forensicMaxSessionMiB);
+		addSetting(forensicRedactServerAddress);
+		addSetting(exportForensicsSummary);
 		
 		loadSelectionConfig();
 		
@@ -214,6 +298,7 @@ public final class PacketToolsOtf extends OtherFeature
 		lastLoggingState = loggingEnabled.isChecked();
 		lastDenyEnabledState = denyEnabled.isChecked();
 		lastUdpMonitoringState = monitorUdp.isChecked();
+		lastItemForensicsState = itemForensicsEnabled.isChecked();
 		
 		EVENTS.add(PacketInputListener.class, this);
 		EVENTS.add(PacketOutputListener.class, this);
@@ -251,6 +336,13 @@ public final class PacketToolsOtf extends OtherFeature
 	public void onReceivedPacket(PacketInputEvent event)
 	{
 		Packet<?> packet = event.getPacket();
+		if(itemForensicsEnabled.isChecked()
+			&& forensicTrackInteractions.isChecked())
+			itemForensics.recordPacket(packet, "S2C", "INBOUND_PACKET_EVENT",
+				List.of(), forensicPacketDumper,
+				forensicFullContent.isChecked(), getForensicMaxContentBytes(),
+				forensicExtendedCorrelation.isChecked(),
+				forensicCorrelationTimeout.getValueI());
 		String name = net.wurstclient.other_features.packettools.PacketCatalog
 			.formatPacketName(packet);
 		discoveredS2C.add(name);
@@ -282,6 +374,14 @@ public final class PacketToolsOtf extends OtherFeature
 	public void onSentPacket(PacketOutputEvent event)
 	{
 		Packet<?> packet = event.getPacket();
+		if(itemForensicsEnabled.isChecked()
+			&& forensicTrackInteractions.isChecked())
+			itemForensics.recordPacket(packet, "C2S",
+				"CLIENT_PACKET_OUTPUT_EVENT", event.getDebugTrace(),
+				forensicPacketDumper, forensicFullContent.isChecked(),
+				getForensicMaxContentBytes(),
+				forensicExtendedCorrelation.isChecked(),
+				forensicCorrelationTimeout.getValueI());
 		if(bypassOutput.remove(packet))
 			return;
 		
@@ -321,6 +421,14 @@ public final class PacketToolsOtf extends OtherFeature
 	@Override
 	public void onSentConnectionPacket(ConnectionPacketOutputEvent event)
 	{
+		if(itemForensicsEnabled.isChecked()
+			&& forensicTrackInteractions.isChecked())
+			itemForensics.recordPacket(event.getPacket(), "C2S",
+				"CONNECTION_SEND_INTERCEPTION", event.getDebugTrace(),
+				forensicPacketDumper, forensicFullContent.isChecked(),
+				getForensicMaxContentBytes(),
+				forensicExtendedCorrelation.isChecked(),
+				forensicCorrelationTimeout.getValueI());
 		if(!shouldVerboseExternalMonitoring())
 			return;
 		
@@ -343,7 +451,9 @@ public final class PacketToolsOtf extends OtherFeature
 		boolean previousLoggingState = lastLoggingState;
 		boolean previousDelayState = lastDelayEnabledState;
 		boolean previousUdpMonitoringState = lastUdpMonitoringState;
+		boolean previousItemForensicsState = lastItemForensicsState;
 		boolean udpMonitoringState = monitorUdp.isChecked();
+		boolean itemForensicsState = itemForensicsEnabled.isChecked();
 		announceToggleChange("Logging", loggingState, previousLoggingState);
 		announceToggleChange("Blocking", denyState, lastDenyEnabledState);
 		announceToggleChange("Delaying", delayState, previousDelayState);
@@ -351,6 +461,45 @@ public final class PacketToolsOtf extends OtherFeature
 		lastDenyEnabledState = denyState;
 		lastDelayEnabledState = delayState;
 		lastUdpMonitoringState = udpMonitoringState;
+		lastItemForensicsState = itemForensicsState;
+		if(itemForensicsState)
+		{
+			if(!previousItemForensicsState)
+			{
+				currentForensicsJsonlFile = null;
+				itemForensics.startNewSession();
+			}
+			itemForensics
+				.setMaxCaptureRecords((long)forensicCaptureLimit.getValueI());
+			itemForensics.setMaxPendingEvents(forensicPendingLimit.getValueI());
+			itemForensics.setMaxCaptureBytes(
+				(long)forensicMaxSessionMiB.getValueI() * 1024 * 1024);
+			itemForensics.setCorrelationTimeoutMs(
+				forensicCorrelationTimeout.getValueI());
+			itemForensics.tick(forensicTrackInventory.isChecked(),
+				forensicTrackContainers.isChecked(),
+				forensicTrackEquipment.isChecked(),
+				forensicTrackDroppedItems.isChecked(),
+				forensicTrackComponents.isChecked(),
+				forensicFullContent.isChecked(),
+				forensicAutoAnomalyDetection.isChecked(),
+				getForensicMaxContentBytes(), forensicRadius.getValueI(),
+				forensicSnapshotFrequency.getValueI());
+			bufferForensicLines(itemForensics.drain(512));
+			forensicsFlushTickCounter++;
+			if(forensicsFlushTickCounter >= 10
+				|| forensicJsonlBuffer.size() >= 512)
+				flushForensicsBuffer();
+		}else if(previousItemForensicsState)
+		{
+			List<String> remaining;
+			do
+			{
+				remaining = itemForensics.drain(4096);
+				bufferForensicLines(remaining);
+			}while(!remaining.isEmpty());
+			flushForensicsBuffer();
+		}
 		
 		boolean delayActive = delayState && delayTicks.getValueI() > 0;
 		if(!delayActive && previousDelayState)
@@ -406,6 +555,148 @@ public final class PacketToolsOtf extends OtherFeature
 		
 		ChatUtils.message(
 			"[PacketTools] " + name + (current ? " activated." : " disabled."));
+	}
+	
+	private void exportForensicsSummary()
+	{
+		List<String> remaining;
+		do
+		{
+			remaining = itemForensics.drain(4096);
+			bufferForensicLines(remaining);
+		}while(!remaining.isEmpty());
+		flushForensicsBuffer();
+		remaining = itemForensics.drain(4096);
+		bufferForensicLines(remaining);
+		flushForensicsBuffer();
+		try
+		{
+			Path directory = LOG_DIR.resolve("item-forensics");
+			Files.createDirectories(directory);
+			Path report = directory
+				.resolve("session-" + itemForensics.getSessionId() + ".json");
+			Map<String, Object> captureSettings = new LinkedHashMap<>();
+			captureSettings.put("trackPlayerInventory",
+				forensicTrackInventory.isChecked());
+			captureSettings.put("trackOpenedContainers",
+				forensicTrackContainers.isChecked());
+			captureSettings.put("trackEquipment",
+				forensicTrackEquipment.isChecked());
+			captureSettings.put("trackNearbyItemEntities",
+				forensicTrackDroppedItems.isChecked());
+			captureSettings.put("trackDataComponents",
+				forensicTrackComponents.isChecked());
+			captureSettings.put("includeFullContent",
+				forensicFullContent.isChecked());
+			captureSettings.put("maxFullContentPerValueKiB",
+				forensicMaxContentKiB.getValueI());
+			captureSettings.put("trackInteractionPackets",
+				forensicTrackInteractions.isChecked());
+			captureSettings.put("extendedCorrelation",
+				forensicExtendedCorrelation.isChecked());
+			captureSettings.put("automaticAnomalyDetection",
+				forensicAutoAnomalyDetection.isChecked());
+			captureSettings.put("correlationTimeoutMs",
+				forensicCorrelationTimeout.getValueI());
+			captureSettings.put("monitoringRadius", forensicRadius.getValueI());
+			captureSettings.put("snapshotFrequencyTicks",
+				forensicSnapshotFrequency.getValueI());
+			captureSettings.put("recordLimit",
+				forensicCaptureLimit.getValueI());
+			captureSettings.put("pendingEventLimit",
+				forensicPendingLimit.getValueI());
+			captureSettings.put("maxSessionSizeMiB",
+				forensicMaxSessionMiB.getValueI());
+			Files.writeString(report,
+				itemForensics.buildSummary(
+					forensicRedactServerAddress.isChecked(), captureSettings),
+				java.nio.charset.StandardCharsets.UTF_8,
+				StandardOpenOption.CREATE,
+				StandardOpenOption.TRUNCATE_EXISTING);
+			Path markdown = directory
+				.resolve("session-" + itemForensics.getSessionId() + ".md");
+			Files.writeString(markdown,
+				itemForensics.buildMarkdownSummary(
+					forensicRedactServerAddress.isChecked(), captureSettings),
+				java.nio.charset.StandardCharsets.UTF_8,
+				StandardOpenOption.CREATE,
+				StandardOpenOption.TRUNCATE_EXISTING);
+			ChatUtils.message("PacketTools: forensic summary exported to "
+				+ report.getFileName() + " and " + markdown.getFileName()
+				+ ".");
+		}catch(IOException e)
+		{
+			LOGGER.warn("Failed to export item forensics summary", e);
+			ChatUtils.error("PacketTools: failed to export forensic summary.");
+		}
+	}
+	
+	private void flushForensicsBuffer()
+	{
+		if(forensicJsonlBuffer.isEmpty())
+		{
+			if(forensicOutputDroppedRecords > 0)
+			{
+				itemForensics.recordOutputDrops(forensicOutputDroppedRecords);
+				forensicOutputDroppedRecords = 0;
+			}
+			return;
+		}
+		try
+		{
+			Path file = getCurrentForensicsJsonlFile();
+			StringBuilder output = new StringBuilder();
+			for(String line : forensicJsonlBuffer)
+				output.append(line).append('\n');
+			Files.writeString(file, output.toString(),
+				java.nio.charset.StandardCharsets.UTF_8,
+				StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+			forensicJsonlBuffer.clear();
+			forensicBufferedBytes = 0;
+			forensicsFlushTickCounter = 0;
+			if(forensicOutputDroppedRecords > 0)
+			{
+				itemForensics.recordOutputDrops(forensicOutputDroppedRecords);
+				forensicOutputDroppedRecords = 0;
+			}
+		}catch(IOException e)
+		{
+			LOGGER.warn("Failed to write item forensics JSONL", e);
+		}
+	}
+	
+	private void bufferForensicLines(List<String> lines)
+	{
+		for(String line : lines)
+		{
+			long bytes =
+				line.getBytes(java.nio.charset.StandardCharsets.UTF_8).length
+					+ 1L;
+			if(forensicJsonlBuffer.size() >= MAX_FORENSIC_BUFFER_LINES
+				|| forensicBufferedBytes + bytes > MAX_FORENSIC_BUFFER_BYTES)
+			{
+				forensicOutputDroppedRecords++;
+				continue;
+			}
+			forensicJsonlBuffer.add(line);
+			forensicBufferedBytes += bytes;
+		}
+	}
+	
+	private Path getCurrentForensicsJsonlFile() throws IOException
+	{
+		if(currentForensicsJsonlFile != null)
+			return currentForensicsJsonlFile;
+		Path directory = LOG_DIR.resolve("item-forensics");
+		Files.createDirectories(directory);
+		currentForensicsJsonlFile = directory
+			.resolve("session-" + itemForensics.getSessionId() + ".jsonl");
+		return currentForensicsJsonlFile;
+	}
+	
+	private int getForensicMaxContentBytes()
+	{
+		return forensicMaxContentKiB.getValueI() * 1024;
 	}
 	
 	private boolean lastVerboseState;
@@ -1311,6 +1602,16 @@ public final class PacketToolsOtf extends OtherFeature
 	public CheckboxSetting getVerboseEnabledSetting()
 	{
 		return verboseEnabled;
+	}
+	
+	public CheckboxSetting getItemForensicsEnabledSetting()
+	{
+		return itemForensicsEnabled;
+	}
+	
+	public void exportItemForensicsSummary()
+	{
+		exportForensicsSummary();
 	}
 	
 	public CheckboxSetting getVerboseOutsideGamePacketsSetting()

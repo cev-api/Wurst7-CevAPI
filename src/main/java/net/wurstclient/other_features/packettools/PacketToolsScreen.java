@@ -161,7 +161,21 @@ public final class PacketToolsScreen extends Screen
 				packetTools.getVerboseHumanReadableSetting().setChecked(value);
 				b.setMessage(enabledLabel("Human log", value));
 			}).bounds(panelX + third + gap, y, third, 20).build());
+		addRenderableWidget(Button.builder(
+			enabledLabel("Item forensics",
+				packetTools.getItemForensicsEnabledSetting().isChecked()),
+			b -> {
+				boolean value =
+					!packetTools.getItemForensicsEnabledSetting().isChecked();
+				packetTools.getItemForensicsEnabledSetting().setChecked(value);
+				b.setMessage(enabledLabel("Item forensics", value));
+			}).bounds(panelX + (third + gap) * 2, y, third, 20).build());
 		
+		y += 24;
+		addRenderableWidget(Button
+			.builder(Component.literal("Export forensics report"),
+				b -> packetTools.exportItemForensicsSummary())
+			.bounds(panelX, y, third, 20).build());
 		y += 24;
 		
 		int controlWidth = 70;

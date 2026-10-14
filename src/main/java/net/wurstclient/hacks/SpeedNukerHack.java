@@ -108,7 +108,7 @@ public final class SpeedNukerHack extends Hack
 	{
 		return countdown.isChecked()
 			&& MovementPacketCompat.isConnectedToCurrentProtocol()
-			? MiningStateCompat.getMiningReadiness().text() : null;
+				? MiningStateCompat.getMiningReadiness().text() : null;
 	}
 	
 	@Override
