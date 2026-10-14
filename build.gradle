@@ -664,3 +664,15 @@ tasks.named("test") {
 tasks.named("check") {
     dependsOn tasks.named("villagerDupeRegressionTest")
 }
+
+tasks.register("itemForensicsRegressionTest", JavaExec) {
+    dependsOn tasks.named("testClasses")
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = "net.wurstclient.other_features.packettools.ItemForensicsRegressionTest"
+}
+tasks.named("test") {
+    exclude "net/wurstclient/other_features/packettools/ItemForensicsRegressionTest*"
+}
+tasks.named("check") {
+    dependsOn tasks.named("itemForensicsRegressionTest")
+}

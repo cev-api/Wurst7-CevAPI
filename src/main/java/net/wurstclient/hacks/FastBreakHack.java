@@ -78,7 +78,7 @@ public final class FastBreakHack extends Hack
 	{
 		return !countdown.isChecked() || legitMode.isChecked()
 			|| !MovementPacketCompat.isConnectedToCurrentProtocol() ? null
-			: MiningStateCompat.getMiningReadiness().text();
+				: MiningStateCompat.getMiningReadiness().text();
 	}
 	
 	@Override
