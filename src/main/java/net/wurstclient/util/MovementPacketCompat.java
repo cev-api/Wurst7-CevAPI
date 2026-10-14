@@ -40,6 +40,20 @@ public final class MovementPacketCompat
 	{
 		return sendingSyntheticTickEnd.get();
 	}
+
+	/** Returns whether the active connection targets this client's protocol. */
+	public static synchronized boolean isConnectedToCurrentProtocol()
+	{
+		if(WurstClient.MC == null || WurstClient.MC.getConnection() == null
+			|| WurstClient.MC.getConnection().getConnection() == null)
+			return false;
+
+		Connection connection =
+			WurstClient.MC.getConnection().getConnection();
+		ProtocolTarget target = getRemoteProtocol(connection, getState(connection));
+		return target.protocol != null
+			&& target.protocol == currentProtocol();
+	}
 	
 	public static synchronized void beforePacketSend(Connection connection,
 		Packet<?> packet)

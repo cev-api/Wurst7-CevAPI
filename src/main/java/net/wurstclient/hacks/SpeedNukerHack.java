@@ -35,6 +35,7 @@ import net.wurstclient.settings.SliderSetting.ValueDisplay;
 import net.wurstclient.util.BlockUtils;
 import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.MiningStateCompat;
+import net.wurstclient.util.MovementPacketCompat;
 import net.wurstclient.util.MiningTunnel;
 import net.wurstclient.util.RotationUtils;
 
@@ -105,6 +106,7 @@ public final class SpeedNukerHack extends Hack
 	public String getStatusText()
 	{
 		return countdown.isChecked()
+			&& MovementPacketCompat.isConnectedToCurrentProtocol()
 			? MiningStateCompat.getMiningReadiness().text() : null;
 	}
 	
