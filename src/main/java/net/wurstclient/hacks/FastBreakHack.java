@@ -22,6 +22,7 @@ import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
 import net.wurstclient.util.BlockUtils;
 import net.wurstclient.util.MiningStateCompat;
+import net.wurstclient.util.MovementPacketCompat;
 
 @SearchTags({"FastMine", "SpeedMine", "SpeedyGonzales", "fast break",
 	"fast mine", "speed mine", "speedy gonzales", "NoBreakDelay",
@@ -75,7 +76,8 @@ public final class FastBreakHack extends Hack
 	@Override
 	public String getStatusText()
 	{
-		return !countdown.isChecked() || legitMode.isChecked() ? null
+		return !countdown.isChecked() || legitMode.isChecked()
+			|| !MovementPacketCompat.isConnectedToCurrentProtocol() ? null
 			: MiningStateCompat.getMiningReadiness().text();
 	}
 	

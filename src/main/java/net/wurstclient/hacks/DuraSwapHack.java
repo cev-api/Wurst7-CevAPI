@@ -78,6 +78,9 @@ public final class DuraSwapHack extends Hack
 			+ " decides drops from the item you hold when the block breaks."
 			+ " Prevents losing Silk Touch, Fortune, and ore drops.",
 		true);
+
+	private final CheckboxSetting chatMessages = new CheckboxSetting(
+		"Chat messages", "Shows DuraSwap status changes in chat.", true);
 	
 	private BlockPos trackedPos;
 	private int ticksBreaking;
@@ -93,6 +96,7 @@ public final class DuraSwapHack extends Hack
 		addSetting(minDurability);
 		addSetting(preferFree);
 		addSetting(keepDrops);
+		addSetting(chatMessages);
 	}
 	
 	@Override
@@ -227,6 +231,8 @@ public final class DuraSwapHack extends Hack
 			return;
 		
 		sacrificeAvailable = available;
+		if(!chatMessages.isChecked())
+			return;
 		if(available)
 			ChatUtils.message(
 				"DuraSwap: OK - viable sacrificial tool found in hotbar slot "
