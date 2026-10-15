@@ -67,6 +67,7 @@ import net.wurstclient.other_features.packettools.ItemInventoryForensics;
 import net.wurstclient.other_features.packettools.PacketDecodeCoverage;
 import net.wurstclient.other_features.packettools.PacketDumper;
 import net.wurstclient.other_features.packettools.PacketFilter;
+import net.wurstclient.other_features.packettools.ServerUpdatePhaseEstimator;
 import net.minecraft.client.multiplayer.chat.report.ReportType;
 import net.wurstclient.settings.ButtonSetting;
 import net.wurstclient.settings.CheckboxSetting;
@@ -182,6 +183,8 @@ public final class PacketToolsOtf extends OtherFeature
 	private final PacketFilter packetFilter = new PacketFilter();
 	private PacketDumper packetDumper;
 	private volatile ForensicActivation activeForensics;
+	private final ServerUpdatePhaseEstimator bookBotPhaseEstimator =
+		new ServerUpdatePhaseEstimator();
 	private final java.util.concurrent.ConcurrentLinkedQueue<net.wurstclient.other_features.packettools.ForensicSessionWriter> endingForensics =
 		new java.util.concurrent.ConcurrentLinkedQueue<>();
 	private boolean forensicsLifecycleReady;
@@ -604,7 +607,7 @@ public final class PacketToolsOtf extends OtherFeature
 		String stage)
 	{
 		if(packet instanceof net.minecraft.network.protocol.game.ClientboundBundlePacket bundle
-			&& (stage.equals("INBOUND_CONNECTION")
+			&& (stage.equals("DECODED") || stage.equals("INBOUND_CONNECTION")
 				|| stage.equals("CLIENT_DISPATCH")))
 		{
 			for(Packet<?> child : bundle.subPackets())
@@ -612,6 +615,9 @@ public final class PacketToolsOtf extends OtherFeature
 			return;
 		}
 		ForensicActivation a = activeForensics;
+		if(packet instanceof net.minecraft.network.protocol.game.ClientboundSetTimePacket
+			&& direction.equals("S2C") && stage.equals("DECODED"))
+			bookBotPhaseEstimator.observe(System.nanoTime());
 		if(packet.type()
 			.flow() != (direction.equals("S2C")
 				? net.minecraft.network.protocol.PacketFlow.CLIENTBOUND
@@ -883,6 +889,11 @@ public final class PacketToolsOtf extends OtherFeature
 		recordForensicsExternalEvent("block_interaction_method_completed",
 			actionContext.get());
 		actionContext.set(previous);
+	}
+	
+	public Map<String, Object> getBookBotPeriodicPhase()
+	{
+		return bookBotPhaseEstimator.snapshot(System.nanoTime());
 	}
 	
 	public String beginBookBotForensicAttempt()

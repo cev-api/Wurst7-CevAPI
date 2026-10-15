@@ -149,6 +149,15 @@ public abstract class ClientPacketListenerMixin
 			.onInventoryPacketApplied(packet);
 	}
 	
+	@Inject(method = "handleSetEntityData", at = @At("TAIL"))
+	private void wurst$bookBotDropEntityData(
+		net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket packet,
+		CallbackInfo ci)
+	{
+		WurstClient.INSTANCE.getHax().bookBotHack
+			.onItemEntityDataApplied(packet);
+	}
+	
 	@Inject(method = "handleBlockEntityData", at = @At("TAIL"))
 	private void wurst$bookBotShelfDataApplied(
 		net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket packet,
