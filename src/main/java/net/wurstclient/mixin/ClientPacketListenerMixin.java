@@ -51,6 +51,8 @@ import net.wurstclient.uiutils.UiUtilsLegacyPluginScanner;
 import net.wurstclient.uiutils.UiUtilsPluginScanner;
 import net.wurstclient.uiutils.UiUtilsServerCommands;
 import net.minecraft.network.protocol.game.ClientboundMapItemDataPacket;
+import net.minecraft.network.protocol.game.ClientboundContainerSetContentPacket;
+import net.minecraft.network.protocol.game.ClientboundContainerSetSlotPacket;
 import net.minecraft.network.protocol.game.ClientboundOpenSignEditorPacket;
 import net.minecraft.world.level.block.entity.SignTextSlot;
 import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
@@ -77,6 +79,19 @@ public abstract class ClientPacketListenerMixin
 	@Unique
 	private RootCommandNode<ClientSuggestionProvider> wurst$serverCommandRoot;
 	
+	@Inject(method = "<init>", at = @At("RETURN"))
+	private void wurst$startPlayCapture(CallbackInfo ci)
+	{
+		WurstClient.INSTANCE.getOtfs().packetToolsOtf.onPlayConnectionCreated();
+	}
+	
+	@Inject(method = {"handleLogin", "handleRespawn"}, at = @At("TAIL"))
+	private void wurst$telemetryDimension(CallbackInfo ci)
+	{
+		WurstClient.INSTANCE.getOtfs().packetToolsOtf
+			.recordForensicWorldContext();
+	}
+	
 	@Inject(method = "handleCommands",
 		at = @At(value = "INVOKE",
 			target = "Lcom/mojang/brigadier/CommandDispatcher;<init>(Lcom/mojang/brigadier/tree/RootCommandNode;)V"))
@@ -89,6 +104,63 @@ public abstract class ClientPacketListenerMixin
 			net.minecraft.commands.CommandBuildContext.simple(
 				connection.registryAccess(), connection.enabledFeatures()),
 			COMMAND_NODE_BUILDER);
+	}
+	
+	@Inject(method = "handleContainerSetSlot", at = @At("TAIL"))
+	private void wurst$recordSetSlotApplied(
+		ClientboundContainerSetSlotPacket packet, CallbackInfo ci)
+	{
+		WurstClient.INSTANCE.getOtfs().packetToolsOtf
+			.recordForensicsPostApplication(packet);
+		WurstClient.INSTANCE.getHax().bookBotHack
+			.onInventoryPacketApplied(packet);
+	}
+	
+	@Inject(method = "handleContainerSetSlot", at = @At("HEAD"))
+	private void wurst$recordSetSlotBeforeApply(
+		ClientboundContainerSetSlotPacket packet, CallbackInfo ci)
+	{
+		WurstClient.INSTANCE.getOtfs().packetToolsOtf
+			.recordForensicsPreApplication(packet);
+	}
+	
+	@Inject(method = "handleContainerContent", at = @At("TAIL"))
+	private void wurst$recordContainerContentApplied(
+		ClientboundContainerSetContentPacket packet, CallbackInfo ci)
+	{
+		WurstClient.INSTANCE.getOtfs().packetToolsOtf
+			.recordForensicsPostApplication(packet);
+		WurstClient.INSTANCE.getHax().bookBotHack
+			.onInventoryPacketApplied(packet);
+	}
+	
+	@Inject(method = "handleSetPlayerInventory", at = @At("TAIL"))
+	private void wurst$bookBotPlayerInventoryApplied(
+		net.minecraft.network.protocol.game.ClientboundSetPlayerInventoryPacket packet,
+		CallbackInfo ci)
+	{
+		WurstClient.INSTANCE.getOtfs().packetToolsOtf
+			.recordForensicsPostApplication(packet);
+		WurstClient.INSTANCE.getHax().bookBotHack
+			.onInventoryPacketApplied(packet);
+	}
+	
+	@Inject(method = "handleBlockEntityData", at = @At("TAIL"))
+	private void wurst$bookBotShelfDataApplied(
+		net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket packet,
+		CallbackInfo ci)
+	{
+		WurstClient.INSTANCE.getOtfs().packetToolsOtf
+			.recordForensicsPostApplication(packet);
+		WurstClient.INSTANCE.getHax().bookBotHack.onShelfDataApplied(packet);
+	}
+	
+	@Inject(method = "handleContainerContent", at = @At("HEAD"))
+	private void wurst$recordContainerContentBeforeApply(
+		ClientboundContainerSetContentPacket packet, CallbackInfo ci)
+	{
+		WurstClient.INSTANCE.getOtfs().packetToolsOtf
+			.recordForensicsPreApplication(packet);
 	}
 	
 	@Override
