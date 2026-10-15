@@ -257,8 +257,6 @@ public abstract class MinecraftMixin
 	private void onDisconnect(net.minecraft.client.gui.screens.Screen screen,
 		boolean transferring, boolean keepResourcePacks, CallbackInfo ci)
 	{
-		WurstClient.INSTANCE.getOtfs().packetToolsOtf
-			.closeForensicSession("client_disconnect");
 		net.wurstclient.util.MiningStateCompat.reset();
 		net.wurstclient.util.RenderUtils.cleanupEspBuffers();
 	}

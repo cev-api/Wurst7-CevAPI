@@ -41,6 +41,7 @@ public final class MultiAuraHack extends Hack
 	private Entity pendingMaceTarget;
 	private final ArrayList<Entity> pendingMaceBurst = new ArrayList<>();
 	private final ArrayDeque<Integer> maceTargetQueue = new ArrayDeque<>();
+	private boolean autoEatPaused;
 	private final SliderSetting range =
 		new SliderSetting("Range", 5, 1, 6, 0.05, ValueDisplay.DECIMAL);
 	
@@ -121,6 +122,7 @@ public final class MultiAuraHack extends Hack
 		pendingMaceTarget = null;
 		pendingMaceBurst.clear();
 		maceTargetQueue.clear();
+		autoEatPaused = false;
 		currentTargets.clear();
 		lastTargets.clear();
 	}
@@ -135,9 +137,19 @@ public final class MultiAuraHack extends Hack
 			return;
 		}
 		
-		if(pauseForAutoEat.isChecked()
-			&& WURST.getHax().autoEatHack.shouldPauseOtherActions())
+		if(shouldPauseForAutoEat())
+		{
+			autoEatPaused = true;
+			pendingMaceTarget = null;
+			pendingMaceBurst.clear();
 			return;
+		}
+		
+		if(autoEatPaused)
+		{
+			autoEatPaused = false;
+			speed.resetTimer();
+		}
 		
 		speed.updateTimer();
 		if(!speed.isTimeToAttack())
@@ -247,6 +259,14 @@ public final class MultiAuraHack extends Hack
 	@Override
 	public void onHandleInput()
 	{
+		if(shouldPauseForAutoEat())
+		{
+			autoEatPaused = true;
+			pendingMaceTarget = null;
+			pendingMaceBurst.clear();
+			return;
+		}
+		
 		if(!pendingMaceBurst.isEmpty())
 		{
 			ArrayList<Entity> burst = new ArrayList<>(pendingMaceBurst);
@@ -331,5 +351,11 @@ public final class MultiAuraHack extends Hack
 	{
 		return maceDmg.isAuraSupportReady()
 			&& WURST.getHax().attributeSwapHack.isEnabled();
+	}
+	
+	private boolean shouldPauseForAutoEat()
+	{
+		return pauseForAutoEat.isChecked()
+			&& WURST.getHax().autoEatHack.shouldPauseOtherActions();
 	}
 }

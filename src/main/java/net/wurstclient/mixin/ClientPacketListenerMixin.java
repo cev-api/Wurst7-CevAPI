@@ -82,7 +82,8 @@ public abstract class ClientPacketListenerMixin
 	@Inject(method = "<init>", at = @At("RETURN"))
 	private void wurst$startPlayCapture(CallbackInfo ci)
 	{
-		WurstClient.INSTANCE.getOtfs().packetToolsOtf.onPlayConnectionCreated();
+		WurstClient.INSTANCE.getOtfs().packetToolsOtf
+			.onPlayConnectionCreated((ClientPacketListener)(Object)this);
 	}
 	
 	@Inject(method = {"handleLogin", "handleRespawn"}, at = @At("TAIL"))
@@ -143,15 +144,6 @@ public abstract class ClientPacketListenerMixin
 			.recordForensicsPostApplication(packet);
 		WurstClient.INSTANCE.getHax().bookBotHack
 			.onInventoryPacketApplied(packet);
-	}
-	
-	@Inject(method = "handleSetEntityData", at = @At("TAIL"))
-	private void wurst$bookBotDropEntityData(
-		net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket packet,
-		CallbackInfo ci)
-	{
-		WurstClient.INSTANCE.getHax().bookBotHack
-			.onItemEntityDataApplied(packet);
 	}
 	
 	@Inject(method = "handleBlockEntityData", at = @At("TAIL"))

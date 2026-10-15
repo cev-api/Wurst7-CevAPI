@@ -18,6 +18,11 @@ public final class ServerUpdatePhaseEstimator
 {
 	private final ArrayDeque<Long> arrivals = new ArrayDeque<>();
 	
+	public synchronized void reset()
+	{
+		arrivals.clear();
+	}
+	
 	public synchronized void observe(long receiveNs)
 	{
 		if(!arrivals.isEmpty() && receiveNs <= arrivals.getLast())
@@ -66,8 +71,11 @@ public final class ServerUpdatePhaseEstimator
 		long next = latest + (cycles + 1) * period;
 		long phaseNs = elapsed % period;
 		// Arrival-path jitter and small period drift grow with extrapolation.
-		double uncertaintyMs = Math.max(15,
-			(jitter * 2.0 + cycles * Math.max(jitter, 2_000_000L)) / 1e6);
+		double arrivalJitterMs = jitter * 2.0 / 1e6;
+		double extrapolationUncertaintyMs =
+			cycles * Math.max(jitter, 2_000_000L) / 1e6;
+		double uncertaintyMs =
+			Math.max(15, arrivalJitterMs + extrapolationUncertaintyMs);
 		out.put("phaseAvailable", true);
 		out.put("phaseReason", "AVAILABLE_WITH_CLIENT_NETWORK_UNCERTAINTY");
 		out.put("periodicUpdateCycleNs", period);
@@ -75,6 +83,8 @@ public final class ServerUpdatePhaseEstimator
 		out.put("estimatedNextPeriodicUpdateNs", next);
 		out.put("latestPeriodicUpdateReceiveNs", latest);
 		out.put("timingUncertaintyMs", uncertaintyMs);
+		out.put("arrivalJitterUncertaintyMs", arrivalJitterMs);
+		out.put("extrapolationUncertaintyMs", extrapolationUncertaintyMs);
 		out.put("cadenceMedianAbsoluteDeviationMs", jitter / 1e6);
 		out.put("phaseAgeMs", elapsed / 1e6);
 		return out;
