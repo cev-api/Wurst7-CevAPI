@@ -128,6 +128,10 @@ public final class ServerTelemetryRegressionTest
 		e.dimensionChanged("minecraft:the_nether", now + 1);
 		check(!e.snapshot(now + 1).containsKey("estimatedTps5s"),
 			"Dimension continuity resets immediately");
+		check(
+			number(e.periodicPhaseSnapshot(now + 1),
+				"periodicUpdateSampleCount") == 0,
+			"Dimension transitions clear the old periodic phase anchor");
 		e.control(20, true, false, now + 2);
 		var frozen = e.sample(2000, now + 1_000_000_000L,
 			"minecraft:the_nether", 1, "freeze");
@@ -135,9 +139,33 @@ public final class ServerTelemetryRegressionTest
 			frozen.stream().anyMatch(
 				row -> "TICK_FREEZE_OR_STEP".equals(row.get("invalidReason"))),
 			"Frozen sample rejected");
-		e.step(now + 2_000_000_000L);
+		e.step(now + 2_000_000_000L, 5);
 		check(!e.snapshot(now + 2_000_000_000L).containsKey("estimatedTps5s"),
 			"Stepping never looks like sustained tick progression");
+		check(
+			Boolean.TRUE
+				.equals(e.snapshot(now + 2_000_000_000L).get("tickStepping")),
+			"Positive step count is reported as active stepping");
+		e.step(now + 2_000_000_001L, 0);
+		check(
+			Boolean.FALSE
+				.equals(e.snapshot(now + 2_000_000_001L).get("tickStepping")),
+			"Zero remaining steps clear stepping state");
+		var stepped = estimator();
+		stepped.sample(100, BASE, "minecraft:overworld", 0, "step-base");
+		stepped.step(BASE + 1, 2);
+		stepped.sample(101, BASE + 1_000_000_000L, "minecraft:overworld", 1,
+			"step-one");
+		check(
+			Boolean.TRUE.equals(
+				stepped.snapshot(BASE + 1_000_000_000L).get("tickStepping")),
+			"Requested steps remain active until game time advances enough");
+		stepped.sample(102, BASE + 2_000_000_000L, "minecraft:overworld", 2,
+			"step-two");
+		check(
+			Boolean.FALSE.equals(
+				stepped.snapshot(BASE + 2_000_000_000L).get("tickStepping")),
+			"Completed step count automatically clears stepping state");
 		e.control(10, false, false, now + 3_000_000_000L);
 		long start = now + 4_000_000_000L;
 		for(int i = 0; i < 40; i++)
@@ -159,6 +187,15 @@ public final class ServerTelemetryRegressionTest
 			"Nonstandard counter rates rejected, not clamped to 20");
 		check(number(e.summary(), "invalidWindowEstimates") > 0,
 			"Invalid counter windows counted");
+		var cadenceOnly = estimator();
+		for(int i = 0; i < 6; i++)
+			cadenceOnly.sample(500, BASE + i * 1_000_000_000L,
+				"minecraft:overworld", i, "cadence-only" + i);
+		check(
+			Boolean.TRUE
+				.equals(cadenceOnly.periodicPhaseSnapshot(BASE + 5_000_000_000L)
+					.get("phaseAvailable")),
+			"Periodic phase remains available independently of a TPS estimate");
 	}
 	
 	static Map<String, Object> authoritative(long tick, double mspt, double tps)
@@ -443,12 +480,13 @@ public final class ServerTelemetryRegressionTest
 				&& health.get("droppedObservationJobs").getAsLong() == 0
 				&& health.get("writerCompletedSuccessfully").getAsBoolean(),
 			"Writer completion, diagnostic errors and capture loss are distinct");
-		check(
-			!health.get("captureComplete").getAsBoolean() && Files
-				.readString(directory
-					.resolve("session-" + model.getSessionId() + ".md"))
-				.contains("Capture complete: false"),
-			"Markdown and JSON agree about incomplete diagnostics");
+		check(!health.get("captureComplete").getAsBoolean(),
+			"JSON summary reports incomplete diagnostics");
+		try(var files = Files.list(directory))
+		{
+			check(files.count() == 2,
+				"A completed capture writes one event stream and one summary");
+		}
 	}
 	
 	static void testProtocol()

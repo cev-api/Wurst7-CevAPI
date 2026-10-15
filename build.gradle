@@ -740,15 +740,14 @@ tasks.named("test") { exclude "net/wurstclient/other_features/packettools/Server
 tasks.named("check") { dependsOn tasks.named("serverTelemetryRegressionTest") }
 
 
-// Adaptive BookBot phase timing is deterministic and needs no live server.
-tasks.register("bookBotPhaseLockRegressionTest", JavaExec) {
+tasks.register("autoEatCombatRegressionTest", JavaExec) {
  dependsOn tasks.named("testClasses")
  classpath = sourceSets.test.runtimeClasspath
- mainClass = "net.wurstclient.hacks.BookBotPhaseLockRegressionTest"
+ mainClass = "net.wurstclient.hacks.AutoEatCombatRegressionTest"
 }
 tasks.named("test") {
- exclude "net/wurstclient/hacks/BookBotPhaseLockRegressionTest*"
+ exclude "net/wurstclient/hacks/AutoEatCombatRegressionTest*"
 }
 tasks.named("check") {
- dependsOn tasks.named("bookBotPhaseLockRegressionTest")
+ dependsOn tasks.named("autoEatCombatRegressionTest")
 }

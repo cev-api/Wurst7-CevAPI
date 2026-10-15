@@ -23,6 +23,9 @@ public final class ServerTickEstimator
 		new ServerUpdatePhaseEstimator();
 	private Double configured;
 	private boolean frozen, stepping;
+	private int stepsRemaining;
+	private long stepStartGameTime = -1;
+	private long lastObservedGameTime = -1;
 	private String dimension;
 	private long samples, invalid, invalidWindows, lastValidNs, lastReceiveNs;
 	private boolean lowActive;
@@ -59,6 +62,8 @@ public final class ServerTickEstimator
 		configured = rate;
 		frozen = freeze;
 		stepping = step;
+		stepsRemaining = step ? Math.max(1, stepsRemaining) : 0;
+		stepStartGameTime = -1;
 		return events;
 	}
 	
@@ -70,18 +75,28 @@ public final class ServerTickEstimator
 		dimension = next;
 		points.clear();
 		estimates = Map.of();
+		frozen = false;
+		stepping = false;
+		stepsRemaining = 0;
+		stepStartGameTime = -1;
+		lastObservedGameTime = -1;
+		periodicPhase.reset();
 		reason = "DIMENSION_CONTINUITY_UNKNOWN";
 		return List.of(irregular(reason, now), unavailable(reason, now));
 	}
 	
-	public synchronized List<Map<String, Object>> step(long now)
+	public synchronized List<Map<String, Object>> step(long now,
+		int requestedSteps)
 	{
-		stepping = true;
+		stepsRemaining = Math.max(0, requestedSteps);
+		stepping = stepsRemaining > 0;
+		stepStartGameTime = stepping ? lastObservedGameTime : -1;
 		points.clear();
 		estimates = Map.of();
-		reason = "TICK_FREEZE_OR_STEP";
-		return List.of(irregular("TICK_STEPPING", now),
-			unavailable(reason, now));
+		reason = stepping ? "TICK_FREEZE_OR_STEP" : "STEP_COUNT_ZERO";
+		return stepping
+			? List.of(irregular("TICK_STEPPING", now), unavailable(reason, now))
+			: List.of(event("server_tick_step_cleared", now));
 	}
 	
 	public synchronized List<Map<String, Object>> sample(long gameTime,
@@ -89,6 +104,8 @@ public final class ServerTickEstimator
 	{
 		List<Map<String, Object>> out = new ArrayList<>();
 		samples++;
+		if(!Objects.equals(dimension, dim))
+			periodicPhase.reset();
 		periodicPhase.observe(now);
 		Map<String, Object> e = event("server_tick_sample", now);
 		e.putAll(periodicPhase.snapshot(now));
@@ -105,12 +122,29 @@ public final class ServerTickEstimator
 				out.add(irregular("DIMENSION_CONTINUITY_UNKNOWN", now));
 			points.clear();
 			estimates = Map.of();
+			lastObservedGameTime = -1;
 			dimension = dim;
 			reason = "DIMENSION_BASELINE";
 		}
 		lastReceiveNs = now;
 		staleReported = false;
 		Point previous = points.peekLast();
+		if(stepping && stepStartGameTime < 0 && gameTime >= 0)
+			stepStartGameTime = gameTime;
+		if(stepping && stepStartGameTime >= 0 && gameTime > stepStartGameTime)
+		{
+			long advanced = gameTime - stepStartGameTime;
+			stepsRemaining = (int)Math.max(0, stepsRemaining - advanced);
+			stepStartGameTime = gameTime;
+			if(stepsRemaining == 0)
+			{
+				stepping = false;
+				stepStartGameTime = -1;
+				points.clear();
+				previous = null;
+				reason = "STEP_COMPLETED";
+			}
+		}
 		String invalidReason = null;
 		if(gameTime < 0)
 			invalidReason = "NEGATIVE_NONSTANDARD_GAME_TIME";
@@ -133,6 +167,8 @@ public final class ServerTickEstimator
 			reason = invalidReason;
 			if(!frozen && !stepping)
 				points.add(new Point(gameTime, now));
+			if(gameTime >= 0)
+				lastObservedGameTime = gameTime;
 			out.add(unavailable(reason, now));
 			return out;
 		}
@@ -158,6 +194,7 @@ public final class ServerTickEstimator
 			lastValidNs = now;
 		}
 		points.addLast(new Point(gameTime, now));
+		lastObservedGameTime = gameTime;
 		while(points.size() > 256 || (!points.isEmpty()
 			&& now - points.peekFirst().ns > 65_000_000_000L))
 			points.removeFirst();

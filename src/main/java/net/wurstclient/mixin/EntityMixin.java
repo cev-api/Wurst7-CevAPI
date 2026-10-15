@@ -10,6 +10,7 @@ package net.wurstclient.mixin;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
@@ -21,6 +22,8 @@ import net.minecraft.world.Nameable;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.entity.EntityAccess;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.WurstClient;
@@ -31,6 +34,24 @@ import net.wurstclient.util.MovementMutationTracker;
 public abstract class EntityMixin
 	implements Nameable, EntityAccess, CommandSource
 {
+	@ModifyVariable(
+		method = "makeStuckInBlock(Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/world/phys/Vec3;)V",
+		at = @At("HEAD"),
+		argsOnly = true,
+		ordinal = 0)
+	private Vec3 noWeb$cancelCobwebSlowdown(Vec3 multiplier, BlockState state,
+		Vec3 originalMultiplier)
+	{
+		if(!state.is(Blocks.COBWEB))
+			return multiplier;
+		
+		if(!WurstClient.INSTANCE.getHax().noWebHack
+			.shouldCancelCobwebSlowdown((Entity)(Object)this))
+			return multiplier;
+		
+		return Vec3.ZERO;
+	}
+	
 	/**
 	 * Prevents fluid currents from pushing the local player while AntiWaterPush
 	 * is enabled.

@@ -65,8 +65,8 @@ public abstract class ConnectionMixin
 		Packet<?> packet, CallbackInfo ci)
 	{
 		Connection connection = (Connection)(Object)this;
-		WurstClient.INSTANCE.getOtfs().packetToolsOtf
-			.recordForensicTiming(packet, "S2C", "INBOUND_CONNECTION");
+		WurstClient.INSTANCE.getOtfs().packetToolsOtf.recordForensicTiming(
+			packet, "S2C", "INBOUND_CONNECTION", connection);
 		UiUtilsServerFingerprintCollector.onIncomingPacket(connection, packet);
 		VanillaSpoofOtf.onIncomingPacket(connection, packet);
 	}
@@ -223,7 +223,8 @@ public abstract class ConnectionMixin
 	
 	@Inject(method = "disconnect(Lnet/minecraft/network/chat/Component;)V",
 		at = @At("HEAD"))
-	private void wurst$resetMovementPacketCompat(CallbackInfo ci)
+	private void wurst$resetMovementPacketCompat(
+		net.minecraft.network.chat.Component reason, CallbackInfo ci)
 	{
 		Connection connection = (Connection)(Object)this;
 		if(connection
@@ -231,7 +232,10 @@ public abstract class ConnectionMixin
 			&& connection.getPacketListener() == net.minecraft.client.Minecraft
 				.getInstance().getConnection())
 			WurstClient.INSTANCE.getOtfs().packetToolsOtf
-				.closeForensicSession("connection_disconnect");
+				.onConnectionDisconnecting(
+					(net.minecraft.client.multiplayer.ClientPacketListener)connection
+						.getPacketListener(),
+					reason.getString());
 		MovementPacketCompat.reset(connection);
 		VanillaSpoofOtf.onDisconnect(connection);
 	}
@@ -248,7 +252,10 @@ public abstract class ConnectionMixin
 			&& connection.getPacketListener() == net.minecraft.client.Minecraft
 				.getInstance().getConnection())
 			WurstClient.INSTANCE.getOtfs().packetToolsOtf
-				.closeForensicSession("connection_disconnect");
+				.onConnectionDisconnecting(
+					(net.minecraft.client.multiplayer.ClientPacketListener)connection
+						.getPacketListener(),
+					details.reason().getString());
 		MovementPacketCompat.reset(connection);
 		VanillaSpoofOtf.onDisconnect(connection);
 	}

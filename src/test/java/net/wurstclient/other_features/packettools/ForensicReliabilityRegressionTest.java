@@ -101,7 +101,7 @@ public final class ForensicReliabilityRegressionTest
 		testTiming();
 		testFiles();
 		System.out.println(
-			"Forensic reliability: unchanged 5000 ticks, same-tick update/removal, immutable stacks, timing, overflow/recovery, rotation, failures and session isolation passed.");
+			"Forensic reliability: unchanged 5000 ticks, same-tick update/removal, immutable stacks, timing, overflow/recovery, single-file sessions, failures and session isolation passed.");
 	}
 	
 	static ForensicSnapshots.State state(ItemStack stack, long tick,
@@ -222,9 +222,9 @@ public final class ForensicReliabilityRegressionTest
 		var a = new ItemInventoryForensics();
 		var b = new ItemInventoryForensics();
 		var wa = new ForensicSessionWriter(directory, a, Map.of(),
-			new PacketTimingTracker(a.getSessionId()), 4, 65536, 10);
+			new PacketTimingTracker(a.getSessionId()), 4, 65536);
 		var wb = new ForensicSessionWriter(directory, b, Map.of(),
-			new PacketTimingTracker(b.getSessionId()), 100, 65536, 10);
+			new PacketTimingTracker(b.getSessionId()), 100, 65536);
 		CountDownLatch entered = new CountDownLatch(1),
 			release = new CountDownLatch(1);
 		wa.submit("blocked", System.nanoTime(), 1, () -> {
@@ -248,6 +248,8 @@ public final class ForensicReliabilityRegressionTest
 					() -> b.recordObservation(
 						Map.of("eventType", "probe", "owner", "B"))),
 				"Sustained rotated writer keeps accepting records");
+		wb.requestSummary();
+		wb.requestSummary();
 		wa.finish("logging_disabled");
 		wb.finish("disconnect");
 		release.countDown();
@@ -285,14 +287,27 @@ public final class ForensicReliabilityRegressionTest
 				.getAsJsonObject().getAsJsonObject("forensics")
 				.get("captureComplete").getAsBoolean(),
 			"Automatic model summary cannot call a lossy capture complete");
-		check(bEvents == 50, "Rotation never becomes a lifetime capture quota");
+		check(bEvents == 50, "Sustained writer accepts the full capture");
+		try(var files = Files.list(directory))
+		{
+			List<String> names =
+				files.map(p -> p.getFileName().toString()).toList();
+			check(names.stream().filter(n -> n.endsWith(".jsonl")).count() == 2,
+				"Each forensic session has exactly one JSONL event stream");
+			check(names.stream().filter(n -> n.endsWith(".json")).count() == 2,
+				"Summary exports update one JSON file per session");
+			check(
+				names.stream().noneMatch(
+					n -> n.contains(".part-") || n.contains(".snapshot-")),
+				"Capture must not create rotated parts or snapshot files");
+		}
 		check(((Number)wa.health().get("droppedObservationJobs"))
 			.longValue() == 36, "All dropped jobs reported");
 		check(Boolean.FALSE.equals(wa.health().get("captureComplete")),
 			"Loss cannot be called complete");
 		var c = new ItemInventoryForensics();
 		var wc = new ForensicSessionWriter(directory, c, Map.of(),
-			new PacketTimingTracker(c.getSessionId()), 2, 65536, 100);
+			new PacketTimingTracker(c.getSessionId()), 2, 65536);
 		CountDownLatch started = new CountDownLatch(1),
 			unblock = new CountDownLatch(1);
 		wc.submit("blocking", System.nanoTime(), 1, () -> {

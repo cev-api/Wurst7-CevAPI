@@ -44,6 +44,7 @@ import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.client.User;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.Connection;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.network.protocol.game.ServerboundChatAckPacket;
@@ -67,7 +68,6 @@ import net.wurstclient.other_features.packettools.ItemInventoryForensics;
 import net.wurstclient.other_features.packettools.PacketDecodeCoverage;
 import net.wurstclient.other_features.packettools.PacketDumper;
 import net.wurstclient.other_features.packettools.PacketFilter;
-import net.wurstclient.other_features.packettools.ServerUpdatePhaseEstimator;
 import net.minecraft.client.multiplayer.chat.report.ReportType;
 import net.wurstclient.settings.ButtonSetting;
 import net.wurstclient.settings.CheckboxSetting;
@@ -101,7 +101,6 @@ public final class PacketToolsOtf extends OtherFeature
 			@Override
 			public void update()
 			{
-				forensicsDisconnected = false;
 				syncForensicsState();
 			}
 		};
@@ -159,7 +158,6 @@ public final class PacketToolsOtf extends OtherFeature
 		@Override
 		public void update()
 		{
-			forensicsDisconnected = false;
 			syncForensicsState();
 		}
 	};
@@ -183,12 +181,9 @@ public final class PacketToolsOtf extends OtherFeature
 	private final PacketFilter packetFilter = new PacketFilter();
 	private PacketDumper packetDumper;
 	private volatile ForensicActivation activeForensics;
-	private final ServerUpdatePhaseEstimator bookBotPhaseEstimator =
-		new ServerUpdatePhaseEstimator();
 	private final java.util.concurrent.ConcurrentLinkedQueue<net.wurstclient.other_features.packettools.ForensicSessionWriter> endingForensics =
 		new java.util.concurrent.ConcurrentLinkedQueue<>();
 	private boolean forensicsLifecycleReady;
-	private boolean forensicsDisconnected;
 	private volatile long diagnosticClientTick;
 	private volatile long recentTickDurationNs;
 	private volatile Map<String, Object> performanceContext = Map.of();
@@ -493,7 +488,7 @@ public final class PacketToolsOtf extends OtherFeature
 					itemForensicsEnabled.isChecked());
 		if(!wanted && activeForensics != null)
 			endForensics("logging_disabled");
-		else if(wanted && activeForensics == null && !forensicsDisconnected)
+		else if(wanted && activeForensics == null)
 		{
 			ItemInventoryForensics model = new ItemInventoryForensics();
 			model.startNewSession();
@@ -539,8 +534,6 @@ public final class PacketToolsOtf extends OtherFeature
 	private void tickForensics()
 	{
 		diagnosticClientTick++;
-		if(MC.player != null)
-			forensicsDisconnected = false;
 		syncForensicsState();
 		endingForensics.removeIf(
 			net.wurstclient.other_features.packettools.ForensicSessionWriter::isFinished);
@@ -549,11 +542,17 @@ public final class PacketToolsOtf extends OtherFeature
 			return;
 		if(a.sawWorld && (MC.player == null || MC.level == null))
 		{
-			forensicsDisconnected = true;
-			endForensics("disconnected");
+			if(!a.disconnected)
+			{
+				a.disconnected = true;
+				recordForensicsExternalEvent("world_disconnected",
+					Map.of("sessionContinues", true));
+			}
 			return;
 		}
 		a.sawWorld |= MC.player != null;
+		if(MC.player != null)
+			a.disconnected = false;
 		Map<String, Object> performance = new LinkedHashMap<>();
 		performance.put("contextObservedNs", System.nanoTime());
 		performance.put("fps", MC.getFps());
@@ -614,18 +613,21 @@ public final class PacketToolsOtf extends OtherFeature
 	public void recordForensicTiming(Packet<?> packet, String direction,
 		String stage)
 	{
+		recordForensicTiming(packet, direction, stage, null);
+	}
+	
+	public void recordForensicTiming(Packet<?> packet, String direction,
+		String stage, Connection sourceConnection)
+	{
 		if(packet instanceof net.minecraft.network.protocol.game.ClientboundBundlePacket bundle
 			&& (stage.equals("DECODED") || stage.equals("INBOUND_CONNECTION")
 				|| stage.equals("CLIENT_DISPATCH")))
 		{
 			for(Packet<?> child : bundle.subPackets())
-				recordForensicTiming(child, direction, stage);
+				recordForensicTiming(child, direction, stage, sourceConnection);
 			return;
 		}
 		ForensicActivation a = activeForensics;
-		if(packet instanceof net.minecraft.network.protocol.game.ClientboundSetTimePacket
-			&& direction.equals("S2C") && stage.equals("DECODED"))
-			bookBotPhaseEstimator.observe(System.nanoTime());
 		if(packet.type()
 			.flow() != (direction.equals("S2C")
 				? net.minecraft.network.protocol.PacketFlow.CLIENTBOUND
@@ -653,7 +655,9 @@ public final class PacketToolsOtf extends OtherFeature
 					events = a.telemetry.passive.control(control.tickRate(),
 						control.isFrozen(), false, now);
 				else
-					events = a.telemetry.passive.step(now);
+					events = a.telemetry.passive.step(now,
+						((net.minecraft.network.protocol.game.ClientboundTickingStepPacket)packet)
+							.tickSteps());
 				a.emitTickEvents(events, trace);
 				return;
 			}
@@ -900,11 +904,6 @@ public final class PacketToolsOtf extends OtherFeature
 		actionContext.set(previous);
 	}
 	
-	public Map<String, Object> getBookBotPeriodicPhase()
-	{
-		return bookBotPhaseEstimator.snapshot(System.nanoTime());
-	}
-	
 	public String beginBookBotForensicAttempt()
 	{
 		return activeForensics == null ? null
@@ -1011,26 +1010,43 @@ public final class PacketToolsOtf extends OtherFeature
 	
 	public void recordForensicWorldContext()
 	{
-		ForensicActivation a = activeForensics;
-		if(a == null || MC.level == null || !MC.isSameThread())
+		if(MC.level == null || !MC.isSameThread())
 			return;
-		a.dimension = MC.level.dimension().identifier().toString();
+		String dimension = MC.level.dimension().identifier().toString();
+		ForensicActivation a = activeForensics;
+		if(a == null)
+			return;
+		a.dimension = dimension;
 		a.emitTickEvents(a.telemetry.passive.dimensionChanged(a.dimension,
 			System.nanoTime()), Map.of());
 	}
 	
-	public synchronized void onPlayConnectionCreated()
+	public synchronized void onPlayConnectionCreated(
+		ClientPacketListener connection)
 	{
-		if(activeForensics != null && activeForensics.sawWorld)
-			endForensics("play_connection_replaced");
-		forensicsDisconnected = false;
+		if(activeForensics != null)
+		{
+			activeForensics.dimension = "UNOBSERVED";
+			activeForensics.disconnected = false;
+			recordForensicsExternalEvent("play_connection_created",
+				Map.of("captureSessionContinues", true));
+		}
 		syncForensicsState();
 	}
 	
 	public void closeForensicSession(String reason)
 	{
-		forensicsDisconnected = true;
 		endForensics(reason);
+	}
+	
+	public void onConnectionDisconnecting(ClientPacketListener connection,
+		String reason)
+	{
+		if(connection != MC.getConnection())
+			return;
+		String safeReason = redactDisconnectReason(reason);
+		recordForensicsExternalEvent("connection_disconnect_observed",
+			Map.of("disconnectReason", safeReason));
 	}
 	
 	public void shutdownLogging()
@@ -1129,6 +1145,7 @@ public final class PacketToolsOtf extends OtherFeature
 		final List<java.lang.ref.WeakReference<Packet<?>>> nextTickPackets =
 			new ArrayList<>();
 		boolean sawWorld;
+		boolean disconnected;
 		
 		ForensicActivation(ItemInventoryForensics model,
 			net.wurstclient.other_features.packettools.ForensicSessionWriter writer,
@@ -1434,7 +1451,7 @@ public final class PacketToolsOtf extends OtherFeature
 	 * Turns off packet delay and drops packets that were waiting for release
 	 * when the server connection ends.
 	 */
-	public void onDisconnected()
+	public void onDisconnected(Object connection, String disconnectReason)
 	{
 		// ### ADDED ### Preserve buffered packet observations across
 		// disconnects.
@@ -1444,6 +1461,18 @@ public final class PacketToolsOtf extends OtherFeature
 		delayedIncoming.clear();
 		delayedOutgoing.clear();
 		bypassOutput.clear();
+	}
+	
+	private static String redactDisconnectReason(String reason)
+	{
+		if(reason == null || reason.isBlank())
+			return "UNSPECIFIED";
+		String redacted = reason
+			.replaceAll("(?i)\\b(?:[0-9]{1,3}\\.){3}[0-9]{1,3}(?::[0-9]+)?\\b",
+				"<address>")
+			.replaceAll("(?i)\\b[a-z0-9-]+(?:\\.[a-z0-9-]+)+\\b", "<host>")
+			.replaceAll("[\\p{Cntrl}]", " ").trim();
+		return redacted.length() <= 120 ? redacted : redacted.substring(0, 120);
 	}
 	
 	public CheckboxSetting getFileOutputSetting()

@@ -14,6 +14,7 @@ import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.core.component.DataComponents;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
@@ -37,6 +38,7 @@ import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
+import net.wurstclient.mixinterface.IKeyBinding;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
@@ -104,6 +106,10 @@ public final class AutoEatHack extends Hack implements UpdateListener
 			"description.wurst.setting.autoeat.allow_chorus", false);
 	
 	private int oldSlot = -1;
+	private int selectedFoodSlot = -1;
+	private boolean startedUsingFood;
+	private InteractionHand autoEatUseHand;
+	private ItemStack autoEatUseStack = ItemStack.EMPTY;
 	
 	public AutoEatHack()
 	{
@@ -189,8 +195,15 @@ public final class AutoEatHack extends Hack implements UpdateListener
 	 */
 	public boolean shouldPauseOtherActions()
 	{
+		if(manualAttackHasPriority(
+			IKeyBinding.get(MC.options.keyAttack).isActuallyDown()))
+			return false;
+		
 		if(isEating())
 			return true;
+		
+		if(MC.player == null || MC.player.isUsingItem())
+			return false;
 		
 		if(!shouldEat())
 			return false;
@@ -218,6 +231,16 @@ public final class AutoEatHack extends Hack implements UpdateListener
 	private void eat(int maxPoints)
 	{
 		Inventory inventory = MC.player.getInventory();
+		if(MC.player.isUsingItem())
+		{
+			if(!startedUsingFood || !isUsingAutoEatFood())
+				stopEating();
+			
+			return;
+		}
+		if(startedUsingFood && !MC.player.isUsingItem())
+			startedUsingFood = false;
+		
 		int foodSlot = findBestFoodSlot(maxPoints);
 		
 		if(foodSlot == -1)
@@ -231,27 +254,42 @@ public final class AutoEatHack extends Hack implements UpdateListener
 		// select food
 		if(foodSlot < 9)
 		{
-			if(!isEating())
+			if(oldSlot == -1)
 				oldSlot = inventory.getSelectedSlot();
 			
+			selectedFoodSlot = foodSlot;
 			inventory.setSelectedSlot(foodSlot);
 			
 		}else if(foodSlot == 40)
 		{
-			if(!isEating())
+			if(oldSlot == -1)
 				oldSlot = inventory.getSelectedSlot();
+			selectedFoodSlot = -1;
 			
 			// off-hand slot, no need to select anything
 			
 		}else
 		{
+			if(oldSlot == -1)
+				oldSlot = inventory.getSelectedSlot();
+			selectedFoodSlot = -1;
 			InventoryUtils.selectItem(foodSlot);
 			return;
 		}
 		
-		// eat food
+		// Keep the use binding held, but submit the use action only once.
 		MC.options.keyUse.setDown(true);
-		IMC.getGameMode().rightClickItem();
+		if(shouldStartFoodUse(startedUsingFood, MC.player.isUsingItem()))
+		{
+			autoEatUseHand = foodSlot == 40 ? InteractionHand.OFF_HAND
+				: InteractionHand.MAIN_HAND;
+			autoEatUseStack = MC.player.getItemInHand(autoEatUseHand).copy();
+			if(autoEatUseHand == InteractionHand.OFF_HAND)
+				MC.gameMode.useItem(MC.player, autoEatUseHand);
+			else
+				IMC.getGameMode().rightClickItem();
+			startedUsingFood = true;
+		}
 	}
 	
 	private int findBestFoodSlot(int maxPoints)
@@ -301,6 +339,10 @@ public final class AutoEatHack extends Hack implements UpdateListener
 	
 	private boolean shouldEat()
 	{
+		if(MC.player == null || MC.level == null || manualAttackHasPriority(
+			IKeyBinding.get(MC.options.keyAttack).isActuallyDown()))
+			return false;
+		
 		if(MC.player.getAbilities().instabuild)
 			return false;
 		
@@ -327,9 +369,41 @@ public final class AutoEatHack extends Hack implements UpdateListener
 	
 	private void stopEating()
 	{
-		MC.options.keyUse.setDown(false);
-		MC.player.getInventory().setSelectedSlot(oldSlot);
+		if(MC.player != null)
+		{
+			if(startedUsingFood && isUsingAutoEatFood() && MC.gameMode != null)
+				MC.gameMode.releaseUsingItem(MC.player);
+			
+			IKeyBinding.get(MC.options.keyUse).resetDownState();
+			if(selectedFoodSlot >= 0 && MC.player.getInventory()
+				.getSelectedSlot() == selectedFoodSlot)
+				MC.player.getInventory().setSelectedSlot(oldSlot);
+		}
+		selectedFoodSlot = -1;
+		startedUsingFood = false;
+		autoEatUseHand = null;
+		autoEatUseStack = ItemStack.EMPTY;
 		oldSlot = -1;
+	}
+	
+	private boolean isUsingAutoEatFood()
+	{
+		return MC.player != null && MC.player.isUsingItem()
+			&& autoEatUseHand != null
+			&& MC.player.getUsedItemHand() == autoEatUseHand
+			&& ItemStack.isSameItemSameComponents(MC.player.getUseItem(),
+				autoEatUseStack);
+	}
+	
+	static boolean shouldStartFoodUse(boolean alreadyStarted,
+		boolean playerUsingItem)
+	{
+		return !alreadyStarted && !playerUsingItem;
+	}
+	
+	static boolean manualAttackHasPriority(boolean attackKeyDown)
+	{
+		return attackKeyDown;
 	}
 	
 	private boolean isAllowedFood(Consumable consumable)
