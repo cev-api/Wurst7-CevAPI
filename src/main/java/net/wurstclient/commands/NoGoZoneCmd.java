@@ -26,8 +26,8 @@ public final class NoGoZoneCmd extends Command
 		super("nogozone",
 			"Manages NoGoZones - areas you cannot re-enter after leaving.\n"
 				+ "Use when NoGoZone hack is enabled.",
-			".nogozone", ".nogozone add [x z [radius]]", ".nogozone list",
-			".nogozone remove <id>", ".nogozone clear");
+			".nogozone", ".nogozone add [x z [dimension] [radius]]",
+			".nogozone list", ".nogozone remove <id>", ".nogozone clear");
 	}
 	
 	@Override
@@ -71,29 +71,65 @@ public final class NoGoZoneCmd extends Command
 			ChatUtils.error("You must be in a world to add a NoGoZone.");
 			return;
 		}
-		if(args.length != 1 && args.length != 3 && args.length != 4)
-			throw new CmdError("Usage: .nogozone add [x z [radius]]");
+		if(args.length != 1 && (args.length < 3 || args.length > 5))
+			throw new CmdError(
+				"Usage: .nogozone add [x z [dimension] [radius]]");
 		
 		// Read the effective render distance (capped by server view distance).
 		int renderDistance = MC.options.getEffectiveRenderDistance();
 		int chunkRadius = Math.max(2, renderDistance) + 1;
 		
-		BlockPos zonePos = args.length == 3
-			? parseXZ(args[1], args[2], MC.player.blockPosition().getY())
-			: MC.player.blockPosition();
-		if(args.length == 4)
-		{
+		BlockPos zonePos = MC.player.blockPosition();
+		String dimension = MC.level.dimension().identifier().toString();
+		if(args.length >= 3)
 			zonePos =
 				parseXZ(args[1], args[2], MC.player.blockPosition().getY());
-			chunkRadius = blocksToChunks(parseRadius(args[3]));
+		if(args.length == 4)
+		{
+			if(isInteger(args[3]))
+				chunkRadius = blocksToChunks(parseRadius(args[3]));
+			else
+				dimension = parseDimension(args[3]);
+		}else if(args.length == 5)
+		{
+			dimension = parseDimension(args[3]);
+			chunkRadius = blocksToChunks(parseRadius(args[4]));
 		}
 		
-		int id = NoGoZoneHack.addZone(zonePos, chunkRadius);
-		WURST.getHax().noGoZoneHack.setEnabled(true);
+		NoGoZoneHack hack = WURST.getHax().noGoZoneHack;
+		hack.enableWithoutCapturingCurrentChunk();
+		int id = NoGoZoneHack.addZone(zonePos, chunkRadius, dimension);
 		
 		ChatUtils.message("NoGoZone #" + id + " created at " + zonePos.getX()
-			+ " " + zonePos.getY() + " " + zonePos.getZ() + " with radius "
-			+ chunkRadius + " chunks.");
+			+ " " + zonePos.getY() + " " + zonePos.getZ() + " in " + dimension
+			+ " with radius " + chunkRadius + " chunks.");
+	}
+	
+	private String parseDimension(String value) throws CmdError
+	{
+		String dimension = switch(value.toLowerCase())
+		{
+			case "overworld" -> "minecraft:overworld";
+			case "nether", "the_nether" -> "minecraft:the_nether";
+			case "end", "the_end" -> "minecraft:the_end";
+			default -> value.toLowerCase();
+		};
+		if(!dimension.matches("[a-z0-9_.-]+:[a-z0-9/._-]+"))
+			throw new CmdError("Invalid dimension: " + value
+				+ " (use overworld, nether, end, or namespace:path).");
+		return dimension;
+	}
+	
+	private boolean isInteger(String value)
+	{
+		try
+		{
+			Integer.parseInt(value);
+			return true;
+		}catch(NumberFormatException e)
+		{
+			return false;
+		}
 	}
 	
 	private int blocksToChunks(int blockRadius)
@@ -144,7 +180,8 @@ public final class NoGoZoneCmd extends Command
 		{
 			ChatUtils.message("  #" + zone.id + " | XYZ: " + zone.center.getX()
 				+ " " + zone.center.getY() + " " + zone.center.getZ()
-				+ " | Radius: " + zone.getBlockRadius() + " blocks");
+				+ " | Dimension: " + zone.dimension + " | Radius: "
+				+ zone.getBlockRadius() + " blocks");
 		}
 	}
 	

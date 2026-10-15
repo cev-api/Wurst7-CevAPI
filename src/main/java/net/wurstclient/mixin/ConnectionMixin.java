@@ -42,8 +42,10 @@ public abstract class ConnectionMixin
 	private void serverIntel$captureFingerprint(ChannelHandlerContext context,
 		Packet<?> packet, CallbackInfo ci)
 	{
-		UiUtilsServerFingerprintCollector
-			.onIncomingPacket((Connection)(Object)this, packet);
+		Connection connection = (Connection)(Object)this;
+		WurstClient.INSTANCE.getOtfs().packetToolsOtf
+			.recordForensicTiming(packet, "S2C", "INBOUND_CONNECTION");
+		UiUtilsServerFingerprintCollector.onIncomingPacket(connection, packet);
 	}
 	
 	@Inject(
@@ -60,6 +62,9 @@ public abstract class ConnectionMixin
 		
 		if(event.isCancelled())
 			ci.cancel();
+		else
+			WurstClient.INSTANCE.getOtfs().packetToolsOtf
+				.recordForensicTiming(packet, "S2C", "CLIENT_DISPATCH");
 	}
 	
 	@WrapMethod(
@@ -68,6 +73,8 @@ public abstract class ConnectionMixin
 		@Nullable ChannelFutureListener listener, boolean flush,
 		Operation<Void> original)
 	{
+		WurstClient.INSTANCE.getOtfs().packetToolsOtf
+			.recordForensicTiming(packet, "C2S", "SEND_REQUESTED");
 		if(MovementPacketCompat.isSendingSyntheticTickEnd())
 			return;
 		
@@ -126,6 +133,16 @@ public abstract class ConnectionMixin
 		MovementPacketCompat.beforePacketSend((Connection)(Object)this,
 			finalPacket);
 		original.call(finalPacket, listener, flush);
+	}
+	
+	@Inject(
+		method = "send(Lnet/minecraft/network/protocol/Packet;Lio/netty/channel/ChannelFutureListener;Z)V",
+		at = @At("HEAD"))
+	private void wurst$passed(Packet<?> packet, ChannelFutureListener listener,
+		boolean flush, CallbackInfo ci)
+	{
+		WurstClient.INSTANCE.getOtfs().packetToolsOtf
+			.recordForensicTiming(packet, "C2S", "SEND_CHECKS_PASSED");
 	}
 	
 	@Inject(method = "disconnect(Lnet/minecraft/network/chat/Component;)V",

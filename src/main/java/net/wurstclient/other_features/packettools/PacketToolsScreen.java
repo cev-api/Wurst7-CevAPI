@@ -25,6 +25,7 @@ public final class PacketToolsScreen extends Screen
 {
 	private final Screen parent;
 	private final PacketToolsOtf packetTools;
+	private Button forensicsStatusButton;
 	
 	private PacketMode editMode = PacketMode.LOG;
 	
@@ -161,14 +162,13 @@ public final class PacketToolsScreen extends Screen
 				packetTools.getVerboseHumanReadableSetting().setChecked(value);
 				b.setMessage(enabledLabel("Human log", value));
 			}).bounds(panelX + third + gap, y, third, 20).build());
-		addRenderableWidget(Button.builder(
-			enabledLabel("Item forensics",
-				packetTools.getItemForensicsEnabledSetting().isChecked()),
-			b -> {
+		forensicsStatusButton = addRenderableWidget(Button
+			.builder(Component.literal(packetTools.getForensicsStatus()), b -> {
 				boolean value =
 					!packetTools.getItemForensicsEnabledSetting().isChecked();
 				packetTools.getItemForensicsEnabledSetting().setChecked(value);
-				b.setMessage(enabledLabel("Item forensics", value));
+				b.setMessage(
+					Component.literal(packetTools.getForensicsStatus()));
 			}).bounds(panelX + (third + gap) * 2, y, third, 20).build());
 		
 		y += 24;
@@ -243,6 +243,9 @@ public final class PacketToolsScreen extends Screen
 	public void render(GuiGraphics context, int mouseX, int mouseY,
 		float partialTicks)
 	{
+		if(forensicsStatusButton != null)
+			forensicsStatusButton.setMessage(
+				Component.literal(packetTools.getForensicsStatus()));
 		renderBackground(context, mouseX, mouseY, partialTicks);
 		
 		int panelWidth = Math.min(560, width - 30);

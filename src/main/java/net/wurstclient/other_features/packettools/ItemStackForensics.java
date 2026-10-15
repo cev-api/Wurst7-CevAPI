@@ -46,6 +46,16 @@ public final class ItemStackForensics
 	public static Snapshot capture(ItemStack stack, boolean includeComponents,
 		boolean includeFullContent, int maxContentBytes)
 	{
+		Minecraft mc = Minecraft.getInstance();
+		return capture(stack, includeComponents, includeFullContent,
+			maxContentBytes, mc == null || mc.player == null ? null
+				: mc.player.registryAccess());
+	}
+	
+	public static Snapshot capture(ItemStack stack, boolean includeComponents,
+		boolean includeFullContent, int maxContentBytes,
+		net.minecraft.core.HolderLookup.Provider registries)
+	{
 		if(stack == null || stack.isEmpty())
 		{
 			Map<String, Object> empty = new LinkedHashMap<>();
@@ -75,8 +85,6 @@ public final class ItemStackForensics
 		{
 			try
 			{
-				var registries = Minecraft.getInstance().player == null ? null
-					: Minecraft.getInstance().player.registryAccess();
 				for(TypedDataComponent<?> component : stack.getComponents())
 				{
 					String id = BuiltInRegistries.DATA_COMPONENT_TYPE
@@ -85,6 +93,10 @@ public final class ItemStackForensics
 					value.put("state", "PRESENT");
 					value.put("runtimeType",
 						component.value().getClass().getName());
+					Map<String, Object> bookSummary =
+						BookContentSummaries.fromComponent(component.value());
+					if(bookSummary != null)
+						value.put("bookContentSummary", bookSummary);
 					if(registries == null)
 						value.put("state", "UNAVAILABLE");
 					else
@@ -124,7 +136,23 @@ public final class ItemStackForensics
 			}
 		}
 		details.put("components", components);
-		String canonical = GSON.toJson(normalize(details));
+		// ### MODIFIED ### Hash semantic item data, not logging representation.
+		Map<String, Object> semantic = new LinkedHashMap<>();
+		semantic.put("itemId", itemId);
+		semantic.put("count", stack.getCount());
+		// Display names, decoded previews and diagnostics are not semantic
+		// state. Damage, names, enchantments, etc. are covered by components.
+		Map<String, Object> componentFingerprints = new TreeMap<>();
+		components.forEach((id, value) -> {
+			if(!(value instanceof Map<?, ?> component))
+				return;
+			Map<String, Object> comparable = new LinkedHashMap<>();
+			comparable.put("state", component.get("state"));
+			comparable.put("valueSha256", component.get("valueSha256"));
+			componentFingerprints.put(id, comparable);
+		});
+		semantic.put("components", componentFingerprints);
+		String canonical = GSON.toJson(normalize(semantic));
 		String itemFingerprint = sha256(itemId);
 		String fingerprint = sha256(canonical);
 		String content = "";
@@ -178,7 +206,7 @@ public final class ItemStackForensics
 		return value;
 	}
 	
-	private static String sha256(String value)
+	static String sha256(String value)
 	{
 		try
 		{

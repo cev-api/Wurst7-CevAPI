@@ -226,6 +226,9 @@ public enum RegistryDecoder
 		m.put("item",
 			BuiltInRegistries.ITEM.getKey(stack.getItem()).toString());
 		m.put("count", stack.getCount());
+		Map<String, Object> bookSummary = BookContentSummaries.fromStack(stack);
+		if(bookSummary != null)
+			m.put("bookContentSummary", bookSummary);
 		m.put("displayName", stack.getHoverName().getString());
 		
 		Map<String, Object> styledName = ComponentSerializer

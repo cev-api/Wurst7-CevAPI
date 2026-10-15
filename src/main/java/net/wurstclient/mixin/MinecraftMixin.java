@@ -248,6 +248,7 @@ public abstract class MinecraftMixin
 	@Inject(at = @At("HEAD"), method = "close()V")
 	private void onClose(CallbackInfo ci)
 	{
+		WurstClient.INSTANCE.getOtfs().packetToolsOtf.shutdownLogging();
 		GlobalEspManager.getInstance().cleanup();
 	}
 	
@@ -256,7 +257,27 @@ public abstract class MinecraftMixin
 	private void onDisconnect(net.minecraft.client.gui.screens.Screen screen,
 		boolean transferring, boolean keepResourcePacks, CallbackInfo ci)
 	{
+		WurstClient.INSTANCE.getOtfs().packetToolsOtf
+			.closeForensicSession("client_disconnect");
 		net.wurstclient.util.MiningStateCompat.reset();
+	}
+	
+	@org.spongepowered.asm.mixin.Unique
+	private long wurst$tickStartNs;
+	
+	@Inject(method = "tick", at = @At("HEAD"))
+	private void wurst$tickStart(CallbackInfo ci)
+	{
+		wurst$tickStartNs = System.nanoTime();
+		WurstClient.INSTANCE.getOtfs().packetToolsOtf
+			.recordClientTickStart(wurst$tickStartNs);
+	}
+	
+	@Inject(method = "tick", at = @At("TAIL"))
+	private void wurst$tickEnd(CallbackInfo ci)
+	{
+		WurstClient.INSTANCE.getOtfs().packetToolsOtf
+			.recordClientTickDuration(System.nanoTime() - wurst$tickStartNs);
 	}
 	
 	@Override
