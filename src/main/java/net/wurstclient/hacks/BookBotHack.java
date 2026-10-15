@@ -139,6 +139,9 @@ public final class BookBotHack extends Hack implements UpdateListener
 	private final EnumSetting<AfterWrite> afterWrite = new EnumSetting<>(
 		"After writing", "What to do with each completed book.",
 		AfterWrite.values(), AfterWrite.KEEP);
+	private final CheckboxSetting phaseLock = new CheckboxSetting("PhaseLock",
+		"Waits for learned client-observed server update timing before writing.",
+		false);
 	private final EnumSetting<ShelfTransferStrategy> shelfTransferStrategy =
 		new EnumSetting<>("Shelf transfer strategy",
 			"Immediate attempts placement after submitting the edit. Confirmed waits for matching server-supplied content.",
@@ -195,6 +198,7 @@ public final class BookBotHack extends Hack implements UpdateListener
 	private BlockPos transferShelfPos;
 	private int transferShelfSlot = -1;
 	private long editSubmittedNanos;
+	private String shelfAttemptDimension;
 	private String forensicTransactionId;
 	private long forensicPayloadBytes;
 	private boolean transferAttempted;
@@ -204,10 +208,47 @@ public final class BookBotHack extends Hack implements UpdateListener
 	private long interactionRequestedNanos;
 	private String lastShelfRejection = "No nearby shelf was loaded.";
 	private ShelfTransferStrategy activeShelfStrategy;
+	private final BookBotPhaseLock phaseController = new BookBotPhaseLock();
+	private PendingWrite pendingPhaseWrite;
+	private String displayedPhaseState;
+	private String lastPendingPhaseLogSignature;
+	private final Map<String, OutputVerification> outputVerifications =
+		new LinkedHashMap<>();
 	
 	private record BookFileData(List<String> pages, String title,
 		boolean signed)
 	{}
+	
+	private record PendingWrite(List<String> pages, String title, int slot,
+		boolean signed, AfterWrite output, ShelfTransferStrategy strategy,
+		String dimension, long generatedNs, String transactionId,
+		long payloadBytes, String expectedHash, ItemStack originalStack)
+	{}
+	
+	private static final class OutputVerification
+	{
+		final String transactionId, mode, hash;
+		final int slot, pageCount;
+		final boolean signed;
+		final String dimension;
+		final long submittedNs;
+		long contentNs, stableAfterNs, deadlineNs;
+		boolean contentConfirmed;
+		
+		OutputVerification(String transactionId, String mode, String hash,
+			int slot, int pageCount, boolean signed, String dimension,
+			long submittedNs)
+		{
+			this.transactionId = transactionId;
+			this.mode = mode;
+			this.hash = hash;
+			this.slot = slot;
+			this.pageCount = pageCount;
+			this.signed = signed;
+			this.dimension = dimension;
+			this.submittedNs = submittedNs;
+		}
+	}
 	
 	public BookBotHack()
 	{
@@ -222,6 +263,7 @@ public final class BookBotHack extends Hack implements UpdateListener
 		addSetting(sign);
 		addSetting(afterWrite);
 		addSetting(shelfTransferStrategy);
+		addSetting(phaseLock);
 		addSetting(autoCraft);
 		addSetting(name);
 		addSetting(appendCount);
@@ -262,11 +304,31 @@ public final class BookBotHack extends Hack implements UpdateListener
 		unsignedWrittenSlots.clear();
 		// ### ADDED ### Disabling cancels pending automation without retrying.
 		clearShelfTransfer();
+		if(pendingPhaseWrite != null)
+			logPhaseLock("phase_lock_cancelled", pendingPhaseWrite,
+				Map.of("cancellationReason", "BOOKBOT_DISABLED"), null);
+		pendingPhaseWrite = null;
+		outputVerifications.clear();
 	}
 	
 	@Override
 	public void onUpdate()
 	{
+		if(MC.player == null || MC.level == null || MC.getConnection() == null)
+		{
+			if(pendingPhaseWrite != null)
+				cancelPendingPhaseWrite(pendingPhaseWrite, "DISCONNECTED");
+			outputVerifications.clear();
+			if(shelfTransferState != ShelfTransferState.IDLE)
+				clearShelfTransfer();
+			return;
+		}
+		if(pendingPhaseWrite != null)
+		{
+			progressPhaseLockedWrite();
+			return;
+		}
+		progressOutputVerifications();
 		if(shelfTransferState != ShelfTransferState.IDLE)
 		{
 			progressShelfTransfer();
@@ -606,20 +668,20 @@ public final class BookBotHack extends Hack implements UpdateListener
 		if(MC.getConnection() == null)
 			return;
 		
-		pages = clampPages(pages);
+		pages = List.copyOf(clampPages(pages));
 		long generatedObservedNs = System.nanoTime();
-		forensicTransactionId = WurstClient.INSTANCE.getOtfs().packetToolsOtf
+		String transactionId = WurstClient.INSTANCE.getOtfs().packetToolsOtf
 			.beginBookBotForensicAttempt();
-		forensicPayloadBytes = 0;
+		if(transactionId == null)
+			transactionId = "BookBot.phase-" + java.util.UUID.randomUUID();
+		long payloadBytes = 0;
 		if(WurstClient.INSTANCE.getOtfs().packetToolsOtf
 			.getItemForensicsEnabledSetting().isChecked()
 			&& WurstClient.INSTANCE.getOtfs().packetToolsOtf
 				.getLoggingEnabledSetting().isChecked())
 			for(String page : pages)
-				forensicPayloadBytes +=
-					page.getBytes(StandardCharsets.UTF_8).length;
+				payloadBytes += page.getBytes(StandardCharsets.UTF_8).length;
 			
-		// Title
 		String title = titleOverride != null ? titleOverride : name.getValue();
 		if(title == null || title.isBlank())
 			title = "Untitled";
@@ -631,23 +693,74 @@ public final class BookBotHack extends Hack implements UpdateListener
 			&& mode.getSelected() == Mode.RANDOM
 			&& randomType.getSelected() == RandomType.UTF8)
 			title = randomMaxPayloadTitle();
-		
 		title = clampToJavaChars(title, MAX_TITLE_JAVA_CHARS);
-		
-		// ### MODIFIED ### Do not predict server-confirmed written-book content
-		// locally.
-		int writtenSlot = MC.player.getInventory().getSelectedSlot();
-		
+		int slot = MC.player.getInventory().getSelectedSlot();
+		AfterWrite selectedOutput = afterWrite.getSelected();
+		String expectedHash =
+			phaseLock.isChecked() && selectedOutput == AfterWrite.PLACE_ON_SHELF
+				? (String)BookContentSummaries
+					.fromStrings(pages, title,
+						MC.player.getGameProfile().name(),
+						signedOverride ? "SIGNED" : "UNSIGNED", true)
+					.get("combinedContentSha256")
+				: null;
+		PendingWrite write = new PendingWrite(pages, title, slot,
+			signedOverride, selectedOutput, shelfTransferStrategy.getSelected(),
+			MC.level.dimension().identifier().toString(), generatedObservedNs,
+			transactionId, payloadBytes, expectedHash,
+			MC.player.getInventory().getItem(slot).copy());
 		logBookPayloadEstimate(pages, title, signedOverride);
+		if(!phaseLock.isChecked())
+			saveBookToFile(pages, title, signedOverride);
+		if(phaseLock.isChecked())
+		{
+			Map<String, Object> phase = currentPeriodicPhase();
+			BookBotPhaseLock.Decision decision = phaseController
+				.evaluate(write.output().name(), phase, System.nanoTime());
+			showPhaseLockState(decision.state());
+			logPhaseLock("phase_lock_decision", write, phase, decision);
+			if(!decision.submitNow())
+			{
+				pendingPhaseWrite = write;
+				return;
+			}
+			submitPreparedBook(write, phase, decision);
+			return;
+		}
+		submitPreparedBook(write, Map.of(), null);
+	}
+	
+	private void submitPreparedBook(PendingWrite write,
+		Map<String, Object> phase, BookBotPhaseLock.Decision decision)
+	{
+		if(MC.player == null || MC.level == null || MC.getConnection() == null
+			|| MC.player.getInventory().getSelectedSlot() != write.slot()
+			|| write.slot() >= MC.player.getInventory().getContainerSize()
+			|| !ItemStack.isSameItemSameComponents(
+				MC.player.getInventory().getItem(write.slot()),
+				write.originalStack())
+			|| !MC.player.getInventory().getItem(write.slot())
+				.is(Items.WRITABLE_BOOK)
+			|| !MC.level.dimension().identifier().toString()
+				.equals(write.dimension()))
+		{
+			logPhaseLock("phase_lock_cancelled", write,
+				Map.of("cancellationReason", "SUBMISSION_PREREQUISITE_CHANGED"),
+				null);
+			return;
+		}
+		forensicTransactionId = write.transactionId();
+		forensicPayloadBytes = write.payloadBytes();
+		List<String> pages = write.pages();
+		String title = write.title();
+		boolean signedOverride = write.signed();
+		int writtenSlot = write.slot();
+		AfterWrite output = write.output();
+		activeShelfStrategy = write.strategy();
 		
-		saveBookToFile(pages, title, signedOverride);
-		
-		boolean shelfOutput =
-			afterWrite.getSelected() == AfterWrite.PLACE_ON_SHELF;
-		// Prepare the target and content fingerprint before submitting the
-		// edit.
-		if(shelfOutput
-			&& !prepareShelfTransfer(pages, title, writtenSlot, signedOverride))
+		boolean shelfOutput = output == AfterWrite.PLACE_ON_SHELF;
+		if(shelfOutput && !prepareShelfTransfer(pages, title, writtenSlot,
+			signedOverride, write.strategy(), write.expectedHash()))
 		{
 			setEnabled(false);
 			return;
@@ -655,17 +768,56 @@ public final class BookBotHack extends Hack implements UpdateListener
 		ServerboundEditBookPacket editPacket =
 			new ServerboundEditBookPacket(writtenSlot, pages,
 				signedOverride ? Optional.of(title) : Optional.empty());
+		long actualSubmissionNs = System.nanoTime();
 		if(shelfOutput)
-			editSubmittedNanos = System.nanoTime();
+			editSubmittedNanos = actualSubmissionNs;
 		forensicTransactionId = WurstClient.INSTANCE.getOtfs().packetToolsOtf
 			.recordForensicActionRequested(editPacket, "BookBot.edit",
-				forensicTransactionId);
+				write.transactionId());
+		if(forensicTransactionId == null)
+			forensicTransactionId = write.transactionId();
+		if(phaseLock.isChecked() && decision != null
+			&& phase.get("periodicUpdatePhase") instanceof Number current
+			&& phase.get("periodicUpdateCycleNs") instanceof Number cycle)
+		{
+			Map<String, Object> event =
+				phaseController.submitted(forensicTransactionId, output.name(),
+					current.doubleValue(), actualSubmissionNs,
+					cycle.longValue(), decision.selectedDeadlineNs());
+			event.putAll(phase);
+			event.put("actualEditSubmissionNs", actualSubmissionNs);
+			event.put("selectedSubmissionDeadlineNs",
+				decision.selectedDeadlineNs());
+			event.put("lockConfidence",
+				phaseController.stateSnapshot(output.name()).get("confidence"));
+			event.put("learningState", decision.state().name());
+			event.put("recalibrationReason", decision.reason());
+			logPhaseLockEvent("phase_lock_edit_submitted", event);
+		}
 		if(forensicTransactionId != null)
 			logShelfTransferEvent("book_generated",
-				Map.of("bookGeneratedObservedNs", generatedObservedNs,
+				Map.of("bookGeneratedObservedNs", write.generatedNs(),
 					"pageCount", pages.size(), "shelfTransferRequested",
 					shelfOutput));
 		MC.getConnection().send(editPacket);
+		if(phaseLock.isChecked())
+			saveBookToFile(pages, title, signedOverride);
+		if(phaseLock.isChecked() && !shelfOutput)
+		{
+			String hash = (String)BookContentSummaries
+				.fromStrings(pages, title, MC.player.getGameProfile().name(),
+					signedOverride ? "SIGNED" : "UNSIGNED", true)
+				.get("combinedContentSha256");
+			outputVerifications.put(forensicTransactionId,
+				new OutputVerification(forensicTransactionId, output.name(),
+					hash, writtenSlot, pages.size(), signedOverride,
+					write.dimension(), actualSubmissionNs));
+			outputVerifications.get(forensicTransactionId).deadlineNs =
+				actualSubmissionNs + 10_000_000_000L;
+			while(outputVerifications.size() > 64)
+				outputVerifications
+					.remove(outputVerifications.keySet().iterator().next());
+		}
 		
 		if(shelfOutput)
 		{
@@ -683,14 +835,15 @@ public final class BookBotHack extends Hack implements UpdateListener
 				+ (activeShelfStrategy == ShelfTransferStrategy.CONFIRMED_CONTENT
 					? " Waiting for server content." : ""));
 			return;
-		}else if(afterWrite.getSelected() == AfterWrite.DROP)
+		}else if(output == AfterWrite.DROP)
 		{
 			dropMainHand();
+			logPhaseOutputAction("DROP_REQUESTED", actualSubmissionNs,
+				System.nanoTime());
 		}else if(!signedOverride)
 		{
 			int selectedSlot = MC.player.getInventory().getSelectedSlot();
 			unsignedWrittenSlots.add(selectedSlot);
-			
 			int nextSlot = findWritableBookSlot();
 			if(nextSlot != -1)
 			{
@@ -698,24 +851,226 @@ public final class BookBotHack extends Hack implements UpdateListener
 				unsignedWrittenSlots.add(nextSlot);
 				unsignedWrittenSlots.remove(selectedSlot);
 			}
-		}
-		
+			logPhaseOutputAction("KEEP_RETAINED", actualSubmissionNs,
+				System.nanoTime());
+		}else
+			logPhaseOutputAction("KEEP_RETAINED", actualSubmissionNs,
+				System.nanoTime());
 		bookCount++;
+	}
+	
+	private void logPhaseOutputAction(String action, long submittedNs,
+		long actionNs)
+	{
+		if(!phaseLock.isChecked())
+			return;
+		Map<String, Object> event = new LinkedHashMap<>(currentPeriodicPhase());
+		event.put("transactionId", forensicTransactionId);
+		event.put("mode", afterWrite.getSelected().name());
+		event.put("outputAction", action);
+		event.put("actualEditSubmissionNs", submittedNs);
+		event.put("outputActionNs", actionNs);
+		event.put("editToOutputActionMs",
+			Math.max(0, actionNs - submittedNs) / 1e6);
+		logPhaseLockEvent("phase_lock_output_action", event);
+	}
+	
+	private Map<String, Object> currentPeriodicPhase()
+	{
+		return WurstClient.INSTANCE.getOtfs().packetToolsOtf
+			.getBookBotPeriodicPhase();
+	}
+	
+	private void progressPhaseLockedWrite()
+	{
+		PendingWrite write = pendingPhaseWrite;
+		if(!isEnabled() || MC.player == null || MC.level == null
+			|| MC.getConnection() == null)
+		{
+			cancelPendingPhaseWrite(write, "BOOKBOT_OR_WORLD_STOPPED");
+			return;
+		}
+		if(!MC.level.dimension().identifier().toString()
+			.equals(write.dimension()))
+		{
+			cancelPendingPhaseWrite(write, "DIMENSION_CHANGED");
+			return;
+		}
+		if(MC.player.getInventory().getSelectedSlot() != write.slot()
+			|| write.slot() >= MC.player.getInventory().getContainerSize())
+		{
+			cancelPendingPhaseWrite(write, "SELECTED_SLOT_CHANGED");
+			return;
+		}
+		ItemStack current = MC.player.getInventory().getItem(write.slot());
+		if(!current.is(Items.WRITABLE_BOOK) || !ItemStack
+			.isSameItemSameComponents(current, write.originalStack()))
+		{
+			cancelPendingPhaseWrite(write, "BOOK_ITEM_CHANGED");
+			return;
+		}
+		if(afterWrite.getSelected() != write.output()
+			|| (write.output() == AfterWrite.PLACE_ON_SHELF
+				&& shelfTransferStrategy.getSelected() != write.strategy()))
+		{
+			cancelPendingPhaseWrite(write, "OUTPUT_MODE_CHANGED");
+			return;
+		}
+		if(!phaseLock.isChecked())
+		{
+			pendingPhaseWrite = null;
+			lastPendingPhaseLogSignature = null;
+			logPhaseLock("phase_lock_disabled_release", write, Map.of(), null);
+			submitPreparedBook(write, Map.of(), null);
+			return;
+		}
+		Map<String, Object> phase = currentPeriodicPhase();
+		BookBotPhaseLock.Decision decision = phaseController
+			.evaluate(write.output().name(), phase, System.nanoTime());
+		showPhaseLockState(decision.state());
+		String signature = decision.state().name() + ":" + decision.reason()
+			+ ":" + phase.get("phaseReason");
+		if(!signature.equals(lastPendingPhaseLogSignature))
+		{
+			lastPendingPhaseLogSignature = signature;
+			logPhaseLock("phase_lock_waiting", write, phase, decision);
+		}
+		if(decision.submitNow())
+		{
+			pendingPhaseWrite = null;
+			lastPendingPhaseLogSignature = null;
+			submitPreparedBook(write, phase, decision);
+		}
+	}
+	
+	private void cancelPendingPhaseWrite(PendingWrite write, String reason)
+	{
+		if(write == null)
+			return;
+		pendingPhaseWrite = null;
+		lastPendingPhaseLogSignature = null;
+		logPhaseLock("phase_lock_cancelled", write,
+			Map.of("cancellationReason", reason), null);
+		ChatUtils
+			.message("[BookBot] PhaseLock cancelled queued book: " + reason);
+	}
+	
+	private void showPhaseLockState(BookBotPhaseLock.State state)
+	{
+		if(state.name().equals(displayedPhaseState))
+			return;
+		displayedPhaseState = state.name();
+		String message = switch(state)
+		{
+			case CALIBRATING -> "Calibrating server timing";
+			case WAITING_FOR_WINDOW -> "Waiting for favourable window";
+			case PROVISIONAL_LOCK -> "Provisional timing lock";
+			case LOCKED -> "Timing locked";
+			case RECALIBRATING -> "Recalibrating";
+		};
+		ChatUtils.message("[BookBot] PhaseLock: " + message);
+	}
+	
+	private void logPhaseLock(String event, PendingWrite write,
+		Map<String, Object> phase, BookBotPhaseLock.Decision decision)
+	{
+		Map<String, Object> fields = new LinkedHashMap<>(phase);
+		fields.put("transactionId", write.transactionId());
+		fields.put("mode", write.output().name());
+		fields.put("queuedAtNs", write.generatedNs());
+		fields.put("selectedDeadlineNs",
+			decision == null ? null : decision.selectedDeadlineNs());
+		fields.put("targetSubmissionPhase",
+			decision == null ? null : decision.targetSubmissionPhase());
+		fields.put("timingUncertaintyMs",
+			decision == null ? phase.get("timingUncertaintyMs")
+				: decision.timingUncertaintyMs());
+		fields.put("learningState",
+			decision == null
+				? phaseController.stateSnapshot(write.output().name())
+				: decision.state().name());
+		fields.put("recalibrationReason",
+			decision == null ? phase.get("phaseReason") : decision.reason());
+		fields.put("serverPerformance", phase);
+		logPhaseLockEvent(event, fields);
+	}
+	
+	private void logPhaseLockEvent(String event, Map<String, Object> fields)
+	{
+		WurstClient.INSTANCE.getOtfs().packetToolsOtf
+			.recordForensicsExternalEvent("BookBot." + event, fields);
+	}
+	
+	private void progressOutputVerifications()
+	{
+		if(MC.player == null || MC.level == null || MC.getConnection() == null)
+			return;
+		if(!phaseLock.isChecked())
+		{
+			outputVerifications.clear();
+			return;
+		}
+		long now = System.nanoTime();
+		var iterator = outputVerifications.values().iterator();
+		while(iterator.hasNext())
+		{
+			OutputVerification attempt = iterator.next();
+			if(!attempt.dimension
+				.equals(MC.level.dimension().identifier().toString()))
+			{
+				phaseController.cancel(attempt.transactionId,
+					"DIMENSION_CHANGED", now);
+				iterator.remove();
+				continue;
+			}
+			if(attempt.mode.equals("KEEP") && attempt.contentConfirmed
+				&& now >= attempt.stableAfterNs)
+			{
+				ItemStack current =
+					attempt.slot < MC.player.getInventory().getContainerSize()
+						? MC.player.getInventory().getItem(attempt.slot)
+						: ItemStack.EMPTY;
+				if(BookContentSummaries.matchesStack(current, attempt.hash,
+					attempt.pageCount, attempt.signed))
+					finishModeVerification(attempt, "KEEP_CONTENT_STABLE", now);
+				else
+					finishModeVerification(attempt,
+						"BOOK_REMOVED_BEFORE_TRANSFER", now);
+				iterator.remove();
+			}else if(now > attempt.deadlineNs)
+			{
+				finishModeVerification(attempt, attempt.mode.equals("DROP")
+					? "DROP_OUTPUT_UNVERIFIED" : "NO_MATCHING_BOOK_RESPONSE",
+					now);
+				iterator.remove();
+			}
+		}
+	}
+	
+	private void finishModeVerification(OutputVerification attempt,
+		String outcome, long now)
+	{
+		Map<String, Object> phase = currentPeriodicPhase();
+		double p = phase.get("periodicUpdatePhase") instanceof Number n
+			? n.doubleValue() : 0;
+		Map<String, Object> event =
+			phaseController.outcome(attempt.transactionId, outcome, p, now);
+		event.putAll(phase);
+		logPhaseLockEvent("phase_lock_final_outcome", event);
 	}
 	
 	// ### ADDED ### Non-blocking transfer flow; never reports a send as
 	// success.
 	private boolean prepareShelfTransfer(List<String> pages, String title,
-		int slot, boolean signed)
+		int slot, boolean signed, ShelfTransferStrategy strategy,
+		String expectedHash)
 	{
-		submittedContentHash = (String)BookContentSummaries
-			.fromStrings(pages, title, MC.player.getGameProfile().name(),
-				signed ? "SIGNED" : "UNSIGNED", true)
-			.get("combinedContentSha256");
+		submittedContentHash = expectedHash;
 		submittedPageCount = pages.size();
 		submittedSigned = signed;
-		activeShelfStrategy = shelfTransferStrategy.getSelected();
+		activeShelfStrategy = strategy;
 		submittedSlot = slot;
+		shelfAttemptDimension = MC.level.dimension().identifier().toString();
 		editSubmittedNanos = 0;
 		transferAttempted = false;
 		transferShelfPos = null;
@@ -742,6 +1097,15 @@ public final class BookBotHack extends Hack implements UpdateListener
 			clearShelfTransfer();
 			return;
 		}
+		if(shelfAttemptDimension != null && !shelfAttemptDimension
+			.equals(MC.level.dimension().identifier().toString()))
+		{
+			logShelfTransferEvent("shelf_transfer_failed",
+				Map.of("reason", "DIMENSION_CHANGED_DURING_TRANSFER"));
+			recordPhaseOutcome("NO_MATCHING_BOOK_RESPONSE");
+			shelfTransferState = ShelfTransferState.INDETERMINATE;
+			return;
+		}
 		switch(shelfTransferState)
 		{
 			case WAITING_CONTENT ->
@@ -762,55 +1126,123 @@ public final class BookBotHack extends Hack implements UpdateListener
 		}
 	}
 	
-	/** Runs on the client thread before the next queued inventory packet. */
+	/** Runs on the client thread after server inventory state is applied. */
 	public void onInventoryPacketApplied(Packet<?> packet)
 	{
 		if(!isEnabled() || !MC.isSameThread() || MC.player == null
-			|| shelfTransferState != ShelfTransferState.WAITING_CONTENT
-			|| activeShelfStrategy != ShelfTransferStrategy.CONFIRMED_CONTENT)
+			|| (!phaseLock.isChecked()
+				&& shelfTransferState == ShelfTransferState.IDLE))
 			return;
-		ItemStack supplied = updatedBookSlot(packet);
-		if(supplied == null)
-			return;
-		if(supplied.isEmpty())
+		if(shelfTransferState != ShelfTransferState.IDLE)
 		{
-			ChatUtils
-				.message("[BookBot] Server removed the book before transfer.");
-			logShelfTransferEvent("book_removed_before_transfer",
-				Map.of("inventorySlot", submittedSlot, "packetClass",
-					packet.getClass().getName()));
-			shelfTransferState = ShelfTransferState.FAILED;
-			return;
-		}
-		if(!BookContentSummaries.matchesStack(supplied, submittedContentHash,
-			submittedPageCount, submittedSigned))
-		{
-			logShelfTransferEvent("book_confirmation_mismatch",
-				Map.of("inventorySlot", submittedSlot, "expectedPageCount",
+			if(shelfTransferState != ShelfTransferState.WAITING_CONTENT
+				&& shelfTransferState != ShelfTransferState.VERIFYING_STORAGE)
+				return;
+			ItemStack supplied = updatedBookSlot(packet, submittedSlot);
+			if(supplied == null)
+				return;
+			if(supplied.isEmpty())
+			{
+				if(shelfTransferState == ShelfTransferState.WAITING_CONTENT
+					&& activeShelfStrategy == ShelfTransferStrategy.CONFIRMED_CONTENT)
+				{
+					ChatUtils.message(
+						"[BookBot] Server removed the book before transfer.");
+					logShelfTransferEvent("book_removed_before_transfer",
+						Map.of("inventorySlot", submittedSlot, "packetClass",
+							packet.getClass().getName()));
+					recordPhaseOutcome("BOOK_REMOVED_BEFORE_TRANSFER");
+					shelfTransferState = ShelfTransferState.FAILED;
+				}
+				return;
+			}
+			if(!BookContentSummaries.matchesStack(supplied,
+				submittedContentHash, submittedPageCount, submittedSigned))
+			{
+				logShelfTransferEvent("book_confirmation_mismatch", Map.of(
+					"inventorySlot", submittedSlot, "expectedPageCount",
 					submittedPageCount, "expectedContentSha256",
 					submittedContentHash, "serverContent",
 					String.valueOf(BookContentSummaries.fromStack(supplied))));
+				return;
+			}
+			ItemStack applied = MC.player.getInventory().getItem(submittedSlot);
+			if(applied != supplied
+				&& !BookContentSummaries.matchesStack(applied,
+					submittedContentHash, submittedPageCount, submittedSigned))
+				return;
+			long confirmedNs = System.nanoTime();
+			Map<String, Object> phaseConfirmation =
+				recordPhaseContentConfirmation(forensicTransactionId,
+					confirmedNs);
+			if(shelfTransferState == ShelfTransferState.WAITING_CONTENT
+				&& activeShelfStrategy == ShelfTransferStrategy.CONFIRMED_CONTENT)
+				// Preserve the original same-handler-tail Shelf dispatch
+				// timing.
+				attemptShelfTransfer(true);
+			logPhaseLockEvent("phase_lock_content_confirmation",
+				phaseConfirmation);
+			logShelfTransferEvent("book_content_confirmed",
+				Map.of("contentConfirmedNs", confirmedNs, "inventorySlot",
+					submittedSlot, "contentSha256", submittedContentHash,
+					"packetObjectCorrelationId",
+					Integer.toHexString(System.identityHashCode(packet))));
 			return;
 		}
-		ItemStack applied = MC.player.getInventory().getItem(submittedSlot);
-		if(applied != supplied && !BookContentSummaries.matchesStack(applied,
-			submittedContentHash, submittedPageCount, submittedSigned))
-			return;
-		long confirmedNs = System.nanoTime();
-		// Dispatch immediately at handler tail, before a subsequent clear
-		// packet.
-		attemptShelfTransfer(true);
-		logShelfTransferEvent("book_content_confirmed",
-			Map.of("contentConfirmedNs", confirmedNs, "inventorySlot",
-				submittedSlot, "contentSha256", submittedContentHash,
-				"packetObjectCorrelationId",
-				Integer.toHexString(System.identityHashCode(packet))));
+		for(OutputVerification attempt : outputVerifications.values())
+		{
+			if(!attempt.mode.equals("KEEP") || attempt.contentConfirmed)
+				continue;
+			ItemStack supplied = updatedBookSlot(packet, attempt.slot);
+			if(supplied == null || !BookContentSummaries.matchesStack(supplied,
+				attempt.hash, attempt.pageCount, attempt.signed))
+				continue;
+			ItemStack applied = MC.player.getInventory().getItem(attempt.slot);
+			if(applied != supplied
+				&& !BookContentSummaries.matchesStack(applied, attempt.hash,
+					attempt.pageCount, attempt.signed))
+				continue;
+			attempt.contentConfirmed = true;
+			attempt.contentNs = System.nanoTime();
+			attempt.stableAfterNs = attempt.contentNs + 1_000_000_000L;
+			Map<String, Object> event = recordPhaseContentConfirmation(
+				attempt.transactionId, attempt.contentNs);
+			logPhaseLockEvent("phase_lock_content_confirmation", event);
+		}
+	}
+	
+	private Map<String, Object> recordPhaseContentConfirmation(
+		String transactionId, long now)
+	{
+		Map<String, Object> phase = currentPeriodicPhase();
+		double p = phase.get("periodicUpdatePhase") instanceof Number n
+			? n.doubleValue() : 0;
+		Map<String, Object> event =
+			phaseController.contentConfirmed(transactionId, p, now);
+		event.putAll(phase);
+		return event;
+	}
+	
+	private void recordPhaseOutcome(String outcome)
+	{
+		Map<String, Object> phase = currentPeriodicPhase();
+		double p = phase.get("periodicUpdatePhase") instanceof Number n
+			? n.doubleValue() : 0;
+		Map<String, Object> event = phaseController
+			.outcome(forensicTransactionId, outcome, p, System.nanoTime());
+		event.putAll(phase);
+		logPhaseLockEvent("phase_lock_final_outcome", event);
 	}
 	
 	private ItemStack updatedBookSlot(Packet<?> packet)
 	{
+		return updatedBookSlot(packet, submittedSlot);
+	}
+	
+	private ItemStack updatedBookSlot(Packet<?> packet, int targetSlot)
+	{
 		if(packet instanceof ClientboundSetPlayerInventoryPacket p)
-			return p.slot() == submittedSlot ? p.contents() : null;
+			return p.slot() == targetSlot ? p.contents() : null;
 		int containerId;
 		int rawSlot;
 		if(packet instanceof ClientboundContainerSetSlotPacket p)
@@ -818,7 +1250,7 @@ public final class BookBotHack extends Hack implements UpdateListener
 			containerId = p.getContainerId();
 			rawSlot = p.getSlot();
 			if(containerId == -2)
-				return rawSlot == submittedSlot ? p.getItem() : null;
+				return rawSlot == targetSlot ? p.getItem() : null;
 			var menu = containerId == 0 ? MC.player.inventoryMenu
 				: MC.player.containerMenu;
 			if(menu.containerId != containerId || rawSlot < 0
@@ -826,8 +1258,7 @@ public final class BookBotHack extends Hack implements UpdateListener
 				return null;
 			var slot = menu.getSlot(rawSlot);
 			return slot.container == MC.player.getInventory()
-				&& slot.getContainerSlot() == submittedSlot ? p.getItem()
-					: null;
+				&& slot.getContainerSlot() == targetSlot ? p.getItem() : null;
 		}
 		if(packet instanceof ClientboundContainerSetContentPacket p)
 		{
@@ -837,7 +1268,7 @@ public final class BookBotHack extends Hack implements UpdateListener
 				return null;
 			for(var slot : menu.slots)
 				if(slot.container == MC.player.getInventory()
-					&& slot.getContainerSlot() == submittedSlot
+					&& slot.getContainerSlot() == targetSlot
 					&& slot.index < p.items().size())
 					return p.items().get(slot.index);
 		}
@@ -1076,6 +1507,34 @@ public final class BookBotHack extends Hack implements UpdateListener
 		return null;
 	}
 	
+	public void onItemEntityDataApplied(
+		net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket packet)
+	{
+		if(!phaseLock.isChecked() || !isEnabled() || !MC.isSameThread()
+			|| MC.level == null || !(MC.level.getEntity(packet
+				.id()) instanceof net.minecraft.world.entity.item.ItemEntity item))
+			return;
+		var iterator = outputVerifications.values().iterator();
+		while(iterator.hasNext())
+		{
+			OutputVerification attempt = iterator.next();
+			if(!attempt.mode.equals("DROP")
+				|| !BookContentSummaries.matchesStack(item.getItem(),
+					attempt.hash, attempt.pageCount, attempt.signed))
+				continue;
+			attempt.contentConfirmed = true;
+			attempt.contentNs = System.nanoTime();
+			Map<String, Object> event = recordPhaseContentConfirmation(
+				attempt.transactionId, attempt.contentNs);
+			event.put("confirmationSource", "SERVER_ITEM_ENTITY_CONTENT");
+			logPhaseLockEvent("phase_lock_content_confirmation", event);
+			finishModeVerification(attempt, "DROP_ENTITY_MATCHING_CONTENT",
+				attempt.contentNs);
+			iterator.remove();
+			return;
+		}
+	}
+	
 	public void onShelfDataApplied(ClientboundBlockEntityDataPacket packet)
 	{
 		if(!isEnabled() || !MC.isSameThread() || MC.level == null
@@ -1098,8 +1557,10 @@ public final class BookBotHack extends Hack implements UpdateListener
 		observation.put("storedItem",
 			ItemStackForensics.capture(stored, true, false, 0).details());
 		if(stored.isEmpty())
+		{
 			observation.put("outcome", "SHELF_SLOT_STILL_EMPTY");
-		else if(BookContentSummaries.matchesStack(stored, submittedContentHash,
+			shelfTransferState = ShelfTransferState.FAILED;
+		}else if(BookContentSummaries.matchesStack(stored, submittedContentHash,
 			submittedPageCount, submittedSigned))
 		{
 			observation.put("outcome", "SERVER_CONFIRMED_MATCHING_CONTENT");
@@ -1121,6 +1582,7 @@ public final class BookBotHack extends Hack implements UpdateListener
 				: "[BookBot] Server shelf contents differ from the submitted book.");
 		}
 		logShelfTransferEvent("shelf_server_update", observation);
+		recordPhaseOutcome(String.valueOf(observation.get("outcome")));
 	}
 	
 	private void verifyShelfTransfer()
@@ -1135,6 +1597,7 @@ public final class BookBotHack extends Hack implements UpdateListener
 					ItemStackForensics.capture(
 						MC.player.getInventory().getItem(submittedSlot), true,
 						false, 0).details()));
+			recordPhaseOutcome("NO_MATCHING_BOOK_RESPONSE");
 			shelfTransferState = ShelfTransferState.INDETERMINATE;
 		}
 	}
@@ -1144,6 +1607,7 @@ public final class BookBotHack extends Hack implements UpdateListener
 		shelfTransferState = ShelfTransferState.IDLE;
 		submittedContentHash = null;
 		submittedSlot = -1;
+		shelfAttemptDimension = null;
 		transferShelfPos = null;
 		transferShelfSlot = -1;
 		editSubmittedNanos = 0;
@@ -1167,6 +1631,13 @@ public final class BookBotHack extends Hack implements UpdateListener
 		diagnostic.put("payloadBytes", forensicPayloadBytes);
 		if(submittedContentHash != null)
 			diagnostic.putIfAbsent("contentSha256", submittedContentHash);
+		if(event.equals("shelf_interaction_requested"))
+		{
+			diagnostic.put("phaseLockOutputInteractionNs",
+				interactionRequestedNanos);
+			diagnostic.put("phaseLockPhaseAtOutputInteraction",
+				currentPeriodicPhase());
+		}
 		if(MC.level != null)
 			diagnostic.put("dimension",
 				MC.level.dimension().identifier().toString());

@@ -27,8 +27,7 @@ public final class NoGoZoneCmd extends Command
 			"Manages NoGoZones - areas you cannot re-enter after leaving.\n"
 				+ "Use when NoGoZone hack is enabled.",
 			".nogozone", ".nogozone add [x z [dimension] [radius]]",
-			".nogozone list",
-			".nogozone remove <id>", ".nogozone clear");
+			".nogozone list", ".nogozone remove <id>", ".nogozone clear");
 	}
 	
 	@Override
@@ -83,7 +82,8 @@ public final class NoGoZoneCmd extends Command
 		BlockPos zonePos = MC.player.blockPosition();
 		String dimension = MC.level.dimension().identifier().toString();
 		if(args.length >= 3)
-			zonePos = parseXZ(args[1], args[2], MC.player.blockPosition().getY());
+			zonePos =
+				parseXZ(args[1], args[2], MC.player.blockPosition().getY());
 		if(args.length == 4)
 		{
 			if(isInteger(args[3]))
@@ -101,8 +101,8 @@ public final class NoGoZoneCmd extends Command
 		int id = NoGoZoneHack.addZone(zonePos, chunkRadius, dimension);
 		
 		ChatUtils.message("NoGoZone #" + id + " created at " + zonePos.getX()
-			+ " " + zonePos.getY() + " " + zonePos.getZ() + " in "
-			+ dimension + " with radius " + chunkRadius + " chunks.");
+			+ " " + zonePos.getY() + " " + zonePos.getZ() + " in " + dimension
+			+ " with radius " + chunkRadius + " chunks.");
 	}
 	
 	private String parseDimension(String value) throws CmdError
@@ -119,7 +119,7 @@ public final class NoGoZoneCmd extends Command
 				+ " (use overworld, nether, end, or namespace:path).");
 		return dimension;
 	}
-
+	
 	private boolean isInteger(String value)
 	{
 		try
@@ -131,7 +131,7 @@ public final class NoGoZoneCmd extends Command
 			return false;
 		}
 	}
-
+	
 	private int blocksToChunks(int blockRadius)
 	{
 		return Math.max(1, (blockRadius + 15) / 16);

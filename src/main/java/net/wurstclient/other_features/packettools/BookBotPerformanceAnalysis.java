@@ -15,7 +15,10 @@ import java.util.*;
 public final class BookBotPerformanceAnalysis
 {
 	private final Map<String, Attempt> attempts = new LinkedHashMap<>();
-	private long evicted;
+	private final List<Map<String, Object>> phaseLockEvents = new ArrayList<>();
+	private final Map<String, Map<String, Object>> phaseLockModes =
+		new LinkedHashMap<>();
+	private long evicted, phaseLockEventsOmitted;
 	private static final Map<String, List<String>> ENDPOINTS =
 		new LinkedHashMap<>();
 	static
@@ -69,6 +72,8 @@ public final class BookBotPerformanceAnalysis
 	
 	public void accept(Map<String, Object> event)
 	{
+		if(String.valueOf(event.get("name")).startsWith("BookBot.phase_lock"))
+			acceptPhaseLockEvent(event);
 		Object tx = event.get("transactionId");
 		if(tx == null && event
 			.get("relatedEarlierInteraction") instanceof Map<?, ?> related)
@@ -87,6 +92,55 @@ public final class BookBotPerformanceAnalysis
 					row.remove("inventoryTimingItems");
 					acceptFor(transaction, row);
 				}
+	}
+	
+	private void acceptPhaseLockEvent(Map<String, Object> event)
+	{
+		Map<String, Object> compact = new LinkedHashMap<>();
+		for(String key : List.of("name", "transactionId", "mode", "monotonicNs",
+			"periodicUpdatePhase", "periodicUpdateCycleNs",
+			"estimatedNextPeriodicUpdateNs", "timingUncertaintyMs",
+			"selectedSubmissionDeadlineNs", "actualEditSubmissionNs",
+			"editSubmissionToContentConfirmationMs", "finalVerifiedResult",
+			"verifiedSuccess", "learningState", "lockConfidence",
+			"recalibrationReason", "phaseReason", "phaseAvailable"))
+			if(event.containsKey(key))
+				compact.put(key, event.get(key));
+		if(phaseLockEvents.size() < 512)
+			phaseLockEvents.add(Collections.unmodifiableMap(compact));
+		else
+			phaseLockEventsOmitted++;
+		if(!(event.get("mode") instanceof String mode))
+			return;
+		Map<String, Object> summary =
+			phaseLockModes.computeIfAbsent(mode,
+				unused -> new LinkedHashMap<>(Map.of("verifiedSuccesses", 0L,
+					"verifiedFailures", 0L, "indeterminate", 0L, "state",
+					"CALIBRATING", "confidence", 0.0, "recalibrationReason",
+					"NO_VERIFIED_OUTCOMES", "stateTransitions",
+					new ArrayList<String>())));
+		Object state = event.get("learningState");
+		if(state instanceof String stateName)
+		{
+			if(!stateName.equals(summary.get("state")))
+				((List<String>)summary.get("stateTransitions")).add(stateName);
+			summary.put("state", stateName);
+		}
+		if(event.get("lockConfidence") instanceof Number n)
+			summary.put("confidence", n.doubleValue());
+		if(event.get("recalibrationReason") instanceof String reason)
+			summary.put("recalibrationReason", reason);
+		if(!"BookBot.phase_lock_final_outcome".equals(event.get("name")))
+			return;
+		if(Boolean.TRUE.equals(event.get("verifiedSuccess")))
+			summary.merge("verifiedSuccesses", 1L, (a, b) -> (long)a + (long)b);
+		else if(event.get("finalVerifiedResult") instanceof String result
+			&& List.of("SHELF_SLOT_STILL_EMPTY", "BOOK_REMOVED_BEFORE_TRANSFER",
+				"NO_MATCHING_BOOK_RESPONSE", "EMPTY_BOOK_STORED",
+				"STORED_WITH_DIFFERENT_CONTENT").contains(result))
+			summary.merge("verifiedFailures", 1L, (a, b) -> (long)a + (long)b);
+		else
+			summary.merge("indeterminate", 1L, (a, b) -> (long)a + (long)b);
 	}
 	
 	private void acceptFor(String id, Map<String, Object> e)
@@ -366,7 +420,9 @@ public final class BookBotPerformanceAnalysis
 			}
 		}
 		return Map.of("attempts", rows, "groups", statistics,
-			"intervalEndpoints", ENDPOINTS, "findings", findings,
+			"intervalEndpoints", ENDPOINTS, "findings", findings, "phaseLock",
+			Map.of("modes", phaseLockModes, "events", phaseLockEvents,
+				"eventsOmittedByMemoryBound", phaseLockEventsOmitted),
 			"attemptsOmittedByMemoryBound", evicted, "serverBookHandlerPhases",
 			"UNOBSERVABLE_WITHOUT_TARGETED_SERVER_INSTRUMENTATION",
 			"serverTickPhase", "NOT_INFERRED_FROM_PASSIVE_TIME_PACKETS");
@@ -423,6 +479,25 @@ public final class BookBotPerformanceAnalysis
 		text.append("\n\n");
 		for(Object finding : (List<?>)summary.get("findings"))
 			text.append("- ").append(finding).append('\n');
+		Map<?, ?> phaseLock = (Map<?, ?>)summary.get("phaseLock");
+		Map<?, ?> modes = (Map<?, ?>)phaseLock.get("modes");
+		text.append(
+			"\n## PhaseLock by output mode\n\n| Mode | State | Verified successes | Verified failures | Indeterminate | Confidence |\n|---|---|---:|---:|---:|---:|\n");
+		for(Object entry : modes.entrySet())
+		{
+			Map.Entry<?, ?> mode = (Map.Entry<?, ?>)entry;
+			Map<?, ?> values = (Map<?, ?>)mode.getValue();
+			text.append("| ").append(mode.getKey()).append(" | ")
+				.append(values.get("state")).append(" | ")
+				.append(values.get("verifiedSuccesses")).append(" | ")
+				.append(values.get("verifiedFailures")).append(" | ")
+				.append(values.get("indeterminate")).append(" | ")
+				.append(String.format(java.util.Locale.ROOT, "%.2f",
+					values.get("confidence")))
+				.append(" |\n");
+		}
+		text.append(
+			"\nPhaseLock event details and observed deadlines are in the JSONL and JSON summary. Phases refer to client receipt cadence, not an authoritative server tick phase.\n");
 		text.append(
 			"\nRaw endpoint definitions, actual ordering, stage performance snapshots and per-attempt measurements are in the JSON summary. Server processing order and server tick phase remain unassigned without direct server evidence.\n");
 		return text.toString();

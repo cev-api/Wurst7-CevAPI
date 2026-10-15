@@ -19,6 +19,8 @@ public final class ServerTickEstimator
 	
 	private final ArrayDeque<Point> points = new ArrayDeque<>();
 	private final Map<String, Long> irregularities = new LinkedHashMap<>();
+	private final ServerUpdatePhaseEstimator periodicPhase =
+		new ServerUpdatePhaseEstimator();
 	private Double configured;
 	private boolean frozen, stepping;
 	private String dimension;
@@ -87,7 +89,9 @@ public final class ServerTickEstimator
 	{
 		List<Map<String, Object>> out = new ArrayList<>();
 		samples++;
+		periodicPhase.observe(now);
 		Map<String, Object> e = event("server_tick_sample", now);
+		e.putAll(periodicPhase.snapshot(now));
 		e.put("localReceiveMonotonicNs", now);
 		e.put("serverGameTime", gameTime);
 		e.put("dimension", dim);
@@ -317,6 +321,11 @@ public final class ServerTickEstimator
 	{
 		return (long)(Math.max(3, configured == null ? 5 : 60 / configured)
 			* 1e9);
+	}
+	
+	public Map<String, Object> periodicPhaseSnapshot(long now)
+	{
+		return periodicPhase.snapshot(now);
 	}
 	
 	public synchronized Map<String, Object> summary()
