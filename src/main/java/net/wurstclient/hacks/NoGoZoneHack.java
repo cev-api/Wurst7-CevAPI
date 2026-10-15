@@ -191,7 +191,8 @@ public final class NoGoZoneHack extends Hack implements UpdateListener,
 		String currentDimension = getCurrentDimension();
 		for(NoGoZone zone : ZONES)
 			if(zone.dimension.equals(currentDimension)
-				&& !PLAYER_INSIDE_ZONE_IDS.contains(zone.id) && zone.contains(pos))
+				&& !PLAYER_INSIDE_ZONE_IDS.contains(zone.id)
+				&& zone.contains(pos))
 				return zone;
 		return null;
 	}
@@ -327,7 +328,7 @@ public final class NoGoZoneHack extends Hack implements UpdateListener,
 	{
 		return addZone(center, chunkRadius, getCurrentDimension());
 	}
-
+	
 	public static int addZone(BlockPos center, int chunkRadius,
 		String dimension)
 	{
@@ -351,14 +352,14 @@ public final class NoGoZoneHack extends Hack implements UpdateListener,
 		if(!isEnabled())
 			suppressEnableCapture = false;
 	}
-
+	
 	private static String getCurrentDimension()
 	{
 		if(MC.level == null)
 			return "minecraft:overworld";
 		return MC.level.dimension().identifier().toString();
 	}
-
+	
 	public static boolean removeZone(int id)
 	{
 		PLAYER_INSIDE_ZONE_IDS.remove(id);
@@ -440,9 +441,9 @@ public final class NoGoZoneHack extends Hack implements UpdateListener,
 				String dimension = zoneObj.has("dimension")
 					? zoneObj.get("dimension").getAsString()
 					: getCurrentDimension();
-				NoGoZone zone = new NoGoZone(
-					new BlockPos(centerX, centerY, centerZ), chunkRadius, id,
-					dimension);
+				NoGoZone zone =
+					new NoGoZone(new BlockPos(centerX, centerY, centerZ),
+						chunkRadius, id, dimension);
 				ZONES.add(zone);
 			}
 		}catch(IOException | RuntimeException e)
@@ -508,7 +509,7 @@ public final class NoGoZoneHack extends Hack implements UpdateListener,
 		{
 			this(center, chunkRadius, id, "minecraft:overworld");
 		}
-
+		
 		public NoGoZone(BlockPos center, int chunkRadius, int id,
 			String dimension)
 		{
