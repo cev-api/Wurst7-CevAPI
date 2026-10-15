@@ -43,8 +43,8 @@ public abstract class ConnectionMixin
 		Packet<?> packet, CallbackInfo ci)
 	{
 		Connection connection = (Connection)(Object)this;
-		WurstClient.INSTANCE.getOtfs().packetToolsOtf
-			.recordForensicTiming(packet, "S2C", "INBOUND_CONNECTION");
+		WurstClient.INSTANCE.getOtfs().packetToolsOtf.recordForensicTiming(
+			packet, "S2C", "INBOUND_CONNECTION", connection);
 		UiUtilsServerFingerprintCollector.onIncomingPacket(connection, packet);
 	}
 	
@@ -147,7 +147,8 @@ public abstract class ConnectionMixin
 	
 	@Inject(method = "disconnect(Lnet/minecraft/network/chat/Component;)V",
 		at = @At("HEAD"))
-	private void wurst$resetMovementPacketCompat(CallbackInfo ci)
+	private void wurst$resetMovementPacketCompat(
+		net.minecraft.network.chat.Component reason, CallbackInfo ci)
 	{
 		MovementPacketCompat.reset((Connection)(Object)this);
 	}

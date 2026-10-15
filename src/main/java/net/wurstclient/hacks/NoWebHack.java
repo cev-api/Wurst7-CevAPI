@@ -7,34 +7,27 @@
  */
 package net.wurstclient.hacks;
 
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Entity;
 import net.wurstclient.Category;
-import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 
-public final class NoWebHack extends Hack implements UpdateListener
+public final class NoWebHack extends Hack
 {
 	public NoWebHack()
 	{
-		super("NoWeb");
+		super("NoWeb",
+			"Cancels cobweb slowdown in singleplayer. Multiplayer servers apply their own slowdown and reject faster client movement.",
+			false);
 		setCategory(Category.MOVEMENT);
 	}
 	
-	@Override
-	protected void onEnable()
+	public boolean shouldCancelCobwebSlowdown(Entity entity)
 	{
-		EVENTS.add(UpdateListener.class, this);
-	}
-	
-	@Override
-	protected void onDisable()
-	{
-		EVENTS.remove(UpdateListener.class, this);
-	}
-	
-	@Override
-	public void onUpdate()
-	{
-		MC.player.stuckSpeedMultiplier = Vec3.ZERO;
+		if(!isEnabled() || entity == null || MC.player == null)
+			return false;
+		
+		return entity == MC.player || entity instanceof ServerPlayer player
+			&& player.getUUID().equals(MC.player.getUUID());
 	}
 }

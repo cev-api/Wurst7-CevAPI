@@ -123,15 +123,7 @@ public final class NoGoZoneHack extends Hack implements UpdateListener,
 		if(MC.player == null)
 			return;
 		
-		// Detect server change and swap zone files
-		String currentKey = resolveServerKey();
-		if(!currentKey.equals(lastServerKey))
-		{
-			saveZonesToFile(lastServerKey);
-			lastServerKey = currentKey;
-			clearAllZones();
-			loadZonesFromFile(currentKey);
-		}
+		ensureZonesLoadedForCurrentServer();
 		
 		Vec3 playerPos = MC.player.position();
 		boolean insideAnyArmedZone = false;
@@ -321,6 +313,7 @@ public final class NoGoZoneHack extends Hack implements UpdateListener,
 	
 	public static List<NoGoZone> getZones()
 	{
+		WURST.getHax().noGoZoneHack.ensureZonesLoadedForCurrentServer();
 		return ZONES;
 	}
 	
@@ -332,6 +325,7 @@ public final class NoGoZoneHack extends Hack implements UpdateListener,
 	public static int addZone(BlockPos center, int chunkRadius,
 		String dimension)
 	{
+		WURST.getHax().noGoZoneHack.ensureZonesLoadedForCurrentServer();
 		int id = nextZoneId++;
 		NoGoZone zone = new NoGoZone(center, chunkRadius, id, dimension);
 		ZONES.add(zone);
@@ -340,6 +334,7 @@ public final class NoGoZoneHack extends Hack implements UpdateListener,
 		if(MC.player != null && zone.dimension.equals(getCurrentDimension())
 			&& zone.contains(MC.player.position()))
 			PLAYER_INSIDE_ZONE_IDS.add(id);
+		WURST.getHax().noGoZoneHack.saveZonesForCurrentServer();
 		return id;
 	}
 	
@@ -362,11 +357,22 @@ public final class NoGoZoneHack extends Hack implements UpdateListener,
 	
 	public static boolean removeZone(int id)
 	{
+		WURST.getHax().noGoZoneHack.ensureZonesLoadedForCurrentServer();
 		PLAYER_INSIDE_ZONE_IDS.remove(id);
-		return ZONES.removeIf(z -> z.id == id);
+		boolean removed = ZONES.removeIf(z -> z.id == id);
+		if(removed)
+			WURST.getHax().noGoZoneHack.saveZonesForCurrentServer();
+		return removed;
 	}
 	
 	public static void clearAllZones()
+	{
+		WURST.getHax().noGoZoneHack.ensureZonesLoadedForCurrentServer();
+		clearLoadedZones();
+		WURST.getHax().noGoZoneHack.saveZonesForCurrentServer();
+	}
+	
+	private static void clearLoadedZones()
 	{
 		PLAYER_INSIDE_ZONE_IDS.clear();
 		ZONES.clear();
@@ -405,9 +411,22 @@ public final class NoGoZoneHack extends Hack implements UpdateListener,
 	
 	private void loadZonesForCurrentServer()
 	{
-		lastServerKey = resolveServerKey();
-		clearAllZones();
-		loadZonesFromFile(lastServerKey);
+		lastServerKey = "";
+		ensureZonesLoadedForCurrentServer();
+	}
+	
+	private void ensureZonesLoadedForCurrentServer()
+	{
+		if(MC.player == null && !MC.hasSingleplayerServer())
+			return;
+		String currentKey = resolveServerKey();
+		if(currentKey.equals(lastServerKey))
+			return;
+		if(!lastServerKey.isEmpty())
+			saveZonesToFile(lastServerKey);
+		lastServerKey = currentKey;
+		clearLoadedZones();
+		loadZonesFromFile(currentKey);
 	}
 	
 	private void saveZonesForCurrentServer()
@@ -449,7 +468,7 @@ public final class NoGoZoneHack extends Hack implements UpdateListener,
 		}catch(IOException | RuntimeException e)
 		{
 			// Corrupt file or missing — start fresh
-			clearAllZones();
+			clearLoadedZones();
 		}
 	}
 	

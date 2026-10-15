@@ -38,7 +38,6 @@ public final class ForensicSessionWriter
 		new java.util.concurrent.CopyOnWriteArrayList<>();
 	private final int capacity;
 	private final long byteCapacity;
-	private final long rotateRecords;
 	private final Thread worker;
 	private long queuedBytes;
 	private long highWater;
@@ -57,9 +56,6 @@ public final class ForensicSessionWriter
 	private volatile long diagnosticErrors;
 	private volatile boolean drainCompleted, outputClosed;
 	private BufferedWriter output;
-	private int part;
-	private long partRecords;
-	private long partBytes;
 	private volatile long writtenRecords;
 	private final long startedNs = System.nanoTime();
 	private final String startedAt = Instant.now().toString();
@@ -70,13 +66,12 @@ public final class ForensicSessionWriter
 	public ForensicSessionWriter(Path directory, ItemInventoryForensics model,
 		Map<String, Object> settings, PacketTimingTracker timing)
 	{
-		this(directory, model, settings, timing, 2048, 64L * 1024 * 1024,
-			50000);
+		this(directory, model, settings, timing, 2048, 64L * 1024 * 1024);
 	}
 	
 	public ForensicSessionWriter(Path directory, ItemInventoryForensics model,
 		Map<String, Object> settings, PacketTimingTracker timing, int capacity,
-		long byteCapacity, long rotateRecords)
+		long byteCapacity)
 	{
 		this.directory = directory;
 		this.model = model;
@@ -84,7 +79,6 @@ public final class ForensicSessionWriter
 		this.timing = timing;
 		this.capacity = capacity;
 		this.byteCapacity = byteCapacity;
-		this.rotateRecords = rotateRecords;
 		firstFile =
 			directory.resolve("session-" + model.getSessionId() + ".jsonl");
 		model.setEventSink(this::writeLine);
@@ -156,16 +150,7 @@ public final class ForensicSessionWriter
 	public void requestSummary()
 	{
 		submit("summary_export", System.nanoTime(), 1024, () -> {
-			try
-			{
-				Path path = directory.resolve("session-" + model.getSessionId()
-					+ ".snapshot-" + java.util.UUID.randomUUID() + ".json");
-				Files.writeString(path, model.buildSummary(true, settings),
-					StandardCharsets.UTF_8, StandardOpenOption.CREATE_NEW);
-			}catch(IOException error)
-			{
-				reportIoError(error);
-			}
+			writeSummary();
 		});
 	}
 	
@@ -225,37 +210,7 @@ public final class ForensicSessionWriter
 			flush();
 			closeOutput();
 			outputClosed = true;
-			Map<String, Object> summary = new LinkedHashMap<>();
-			summary.put("schemaVersion", 2);
-			summary.put("sessionId", model.getSessionId());
-			summary.put("startedAt", startedAt);
-			summary.put("endedAt", endedAt);
-			summary.put("flushCompletedAt", Instant.now().toString());
-			summary.put("elapsedNs", endedNs - startedNs);
-			summary.put("captureHealth", health());
-			summary.put("packetTimings", timing.summary());
-			summary.put("forensics", com.google.gson.JsonParser
-				.parseString(model.buildSummary(true, settings)));
-			String json = new GsonBuilder().disableHtmlEscaping()
-				.setPrettyPrinting().create().toJson(summary);
-			try
-			{
-				Files.writeString(
-					directory.resolve(
-						"session-" + model.getSessionId() + ".json"),
-					json, StandardCharsets.UTF_8,
-					StandardOpenOption.CREATE_NEW);
-				Files.writeString(
-					directory
-						.resolve("session-" + model.getSessionId() + ".md"),
-					model.buildMarkdownSummary(true, settings)
-						+ "\n## Capture health and timing\n\n```json\n" + json
-						+ "\n```\n",
-					StandardCharsets.UTF_8, StandardOpenOption.CREATE_NEW);
-			}catch(IOException e)
-			{
-				reportIoError(e);
-			}
+			writeSummary();
 		}catch(InterruptedException e)
 		{
 			Thread.currentThread().interrupt();
@@ -318,35 +273,56 @@ public final class ForensicSessionWriter
 	{
 		try
 		{
-			int bytes = line.getBytes(StandardCharsets.UTF_8).length + 1;
-			if(output != null && (partRecords >= rotateRecords
-				|| partBytes + bytes > 256L * 1024 * 1024))
-			{
-				closeOutput();
-				part++;
-			}
 			if(output == null)
 			{
 				Files.createDirectories(directory);
-				Path path = part == 0 ? firstFile : directory.resolve("session-"
-					+ model.getSessionId() + ".part-" + part + ".jsonl");
-				output = Files.newBufferedWriter(path, StandardCharsets.UTF_8,
-					StandardOpenOption.CREATE_NEW);
-				files.add(path.getFileName().toString());
-				partBytes = 0;
-				partRecords = 0;
+				output =
+					Files.newBufferedWriter(firstFile, StandardCharsets.UTF_8,
+						StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+				if(!files.contains(firstFile.getFileName().toString()))
+					files.add(firstFile.getFileName().toString());
 			}
 			output.write(line);
 			output.newLine();
-			partBytes += bytes;
-			partRecords++;
 			writtenRecords++;
 		}catch(IOException e)
 		{
 			failedWrites++;
 			reportIoError(e);
 			closeOutput();
-			part++;
+		}
+	}
+	
+	private void writeSummary()
+	{
+		try
+		{
+			Path path =
+				directory.resolve("session-" + model.getSessionId() + ".json");
+			Files.createDirectories(directory);
+			if(!files.contains(path.getFileName().toString()))
+				files.add(path.getFileName().toString());
+			Map<String, Object> summary = new LinkedHashMap<>();
+			summary.put("schemaVersion", 2);
+			summary.put("sessionId", model.getSessionId());
+			summary.put("startedAt", startedAt);
+			summary.put("endedAt",
+				endedAt == null ? Instant.now().toString() : endedAt);
+			summary.put("flushCompletedAt", Instant.now().toString());
+			summary.put("elapsedNs", Math.max(0,
+				(endedNs == 0 ? System.nanoTime() : endedNs) - startedNs));
+			summary.put("captureHealth", health());
+			summary.put("packetTimings", timing.summary());
+			summary.put("forensics", com.google.gson.JsonParser
+				.parseString(model.buildSummary(true, settings)));
+			String json = new GsonBuilder().disableHtmlEscaping()
+				.setPrettyPrinting().create().toJson(summary);
+			Files.writeString(path, json, StandardCharsets.UTF_8,
+				StandardOpenOption.CREATE,
+				StandardOpenOption.TRUNCATE_EXISTING);
+		}catch(IOException e)
+		{
+			reportIoError(e);
 		}
 	}
 	

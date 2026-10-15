@@ -162,13 +162,12 @@ public final class PacketToolsScreen extends Screen
 				packetTools.getVerboseHumanReadableSetting().setChecked(value);
 				b.setMessage(enabledLabel("Human log", value));
 			}).bounds(panelX + third + gap, y, third, 20).build());
-		forensicsStatusButton = addRenderableWidget(Button
-			.builder(Component.literal(packetTools.getForensicsStatus()), b -> {
+		forensicsStatusButton =
+			addRenderableWidget(Button.builder(forensicsLabel(), b -> {
 				boolean value =
 					!packetTools.getItemForensicsEnabledSetting().isChecked();
 				packetTools.getItemForensicsEnabledSetting().setChecked(value);
-				b.setMessage(
-					Component.literal(packetTools.getForensicsStatus()));
+				b.setMessage(forensicsLabel());
 			}).bounds(panelX + (third + gap) * 2, y, third, 20).build());
 		
 		y += 24;
@@ -244,8 +243,7 @@ public final class PacketToolsScreen extends Screen
 		float partialTicks)
 	{
 		if(forensicsStatusButton != null)
-			forensicsStatusButton.setMessage(
-				Component.literal(packetTools.getForensicsStatus()));
+			forensicsStatusButton.setMessage(forensicsLabel());
 		renderBackground(context, mouseX, mouseY, partialTicks);
 		
 		int panelWidth = Math.min(560, width - 30);
@@ -413,5 +411,20 @@ public final class PacketToolsScreen extends Screen
 		Component state = Component.literal(enabled ? "ON" : "OFF")
 			.withStyle(enabled ? ChatFormatting.GREEN : ChatFormatting.RED);
 		return Component.literal(name + ": ").append(state);
+	}
+	
+	private Component forensicsLabel()
+	{
+		String status = packetTools.getForensicsStatus();
+		String state = status.substring(status.indexOf(':') + 1).trim()
+			.toUpperCase(java.util.Locale.ROOT);
+		ChatFormatting color = switch(state)
+		{
+			case "ACTIVE" -> ChatFormatting.GREEN;
+			case "DORMANT" -> ChatFormatting.GOLD;
+			default -> ChatFormatting.RED;
+		};
+		return Component.literal("FORENSICS: ")
+			.append(Component.literal(state).withStyle(color));
 	}
 }

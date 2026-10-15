@@ -28,7 +28,8 @@ public abstract class OfflineSettingsNetworkMixin
 		CallbackInfo ci)
 	{
 		WurstClient.INSTANCE.getHax().packetDelayHack.onDisconnected();
-		WurstClient.INSTANCE.getOtfs().packetToolsOtf.onDisconnected();
+		WurstClient.INSTANCE.getOtfs().packetToolsOtf
+			.onDisconnected((Object)this, details.reason().getString());
 		UiUtils.onDisconnected();
 		
 		WurstClient.INSTANCE.getHax().kickForensicsHack
