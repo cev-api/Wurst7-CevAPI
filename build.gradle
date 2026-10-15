@@ -676,3 +676,65 @@ tasks.named("test") {
 tasks.named("check") {
     dependsOn tasks.named("itemForensicsRegressionTest")
 }
+
+tasks.register("inventorySlotMappingRegressionTest", JavaExec) {
+    dependsOn tasks.named("testClasses")
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = "net.wurstclient.other_features.packettools.InventorySlotMappingRegressionTest"
+}
+
+tasks.register("bookBotShelfRegressionTest", JavaExec) {
+    dependsOn tasks.named("testClasses")
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = "net.wurstclient.util.BookBotShelfRegressionTest"
+    systemProperty "joml.nounsafe", "true"
+}
+
+tasks.named("test") {
+    exclude "net/wurstclient/util/BookBotShelfRegressionTest*"
+}
+
+tasks.named("check") {
+    dependsOn tasks.named("bookBotShelfRegressionTest")
+}
+tasks.named("test") {
+    exclude "net/wurstclient/other_features/packettools/InventorySlotMappingRegressionTest*"
+}
+tasks.named("check") {
+    dependsOn tasks.named("inventorySlotMappingRegressionTest")
+}
+
+ tasks.register("forensicReliabilityRegressionTest", JavaExec) {
+ dependsOn tasks.named("testClasses")
+ classpath = sourceSets.test.runtimeClasspath
+ mainClass = "net.wurstclient.other_features.packettools.ForensicReliabilityRegressionTest"
+ }
+ tasks.named("test") { exclude "net/wurstclient/other_features/packettools/ForensicReliabilityRegressionTest*" }
+ tasks.named("check") { dependsOn tasks.named("forensicReliabilityRegressionTest") }
+
+// Independent opt-in dedicated-server artifact; no Wurst client entrypoints/classes are bundled.
+sourceSets {
+ serverTelemetry {
+  java.srcDir "server-telemetry/src/main/java"
+  resources.srcDir "server-telemetry/src/main/resources"
+  compileClasspath += sourceSets.main.compileClasspath + sourceSets.main.output
+ }
+}
+tasks.register("serverTelemetryJar", Jar) {
+ dependsOn tasks.named("serverTelemetryClasses"), tasks.named("classes")
+ archiveFileName = "Cev-Controlled-Server-Telemetry-MC26.3-v1.0.0.jar"
+ from sourceSets.serverTelemetry.output
+ from(sourceSets.main.output) {
+  include "net/wurstclient/other_features/packettools/telemetry/TelemetryPayloads*.class"
+  include "net/wurstclient/other_features/packettools/telemetry/ServerTickMeasurements*.class"
+ }
+}
+tasks.named("assemble") { dependsOn tasks.named("serverTelemetryJar") }
+
+tasks.register("serverTelemetryRegressionTest", JavaExec) {
+ dependsOn tasks.named("testClasses")
+ classpath = sourceSets.test.runtimeClasspath
+ mainClass = "net.wurstclient.other_features.packettools.ServerTelemetryRegressionTest"
+}
+tasks.named("test") { exclude "net/wurstclient/other_features/packettools/ServerTelemetryRegressionTest*" }
+tasks.named("check") { dependsOn tasks.named("serverTelemetryRegressionTest") }

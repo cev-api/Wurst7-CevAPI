@@ -51,6 +51,7 @@ public final class NoGoZoneHack extends Hack implements UpdateListener,
 	private static int nextZoneId = 1;
 	private Vec3 lastSafePos;
 	private String lastServerKey = "";
+	private boolean suppressEnableCapture;
 	
 	private final ColorSetting zoneColor = new ColorSetting("Zone color",
 		"Color of the no-go zone ground highlight", new Color(0xFF0000));
@@ -71,7 +72,9 @@ public final class NoGoZoneHack extends Hack implements UpdateListener,
 		EVENTS.add(PacketOutputListener.class, this);
 		EVENTS.add(RenderListener.class, this);
 		lastSafePos = null;
-		if(MC.player != null)
+		boolean captureOnEnable = !suppressEnableCapture;
+		suppressEnableCapture = false;
+		if(captureOnEnable && MC.player != null)
 		{
 			// The effective distance is capped by the server's chunk-cache
 			// radius. A player chunk within this Chebyshev radius would cause
@@ -79,7 +82,8 @@ public final class NoGoZoneHack extends Hack implements UpdateListener,
 			int renderDistance =
 				Math.max(2, MC.options.getEffectiveRenderDistance());
 			int protectedRadius = renderDistance + 1;
-			int zoneId = addZone(MC.player.blockPosition(), protectedRadius);
+			int zoneId = addZone(MC.player.blockPosition(), protectedRadius,
+				getCurrentDimension());
 			NoGoZone zone = ZONES.getLast();
 			ChunkPos chunk = MC.player.chunkPosition();
 			int blocksUntilSafe =
@@ -132,8 +136,11 @@ public final class NoGoZoneHack extends Hack implements UpdateListener,
 		Vec3 playerPos = MC.player.position();
 		boolean insideAnyArmedZone = false;
 		
+		String currentDimension = getCurrentDimension();
 		for(NoGoZone zone : ZONES)
 		{
+			if(!zone.dimension.equals(currentDimension))
+				continue;
 			boolean playerInside = zone.contains(playerPos);
 			
 			if(playerInside && !PLAYER_INSIDE_ZONE_IDS.contains(zone.id))
@@ -181,8 +188,10 @@ public final class NoGoZoneHack extends Hack implements UpdateListener,
 	
 	private NoGoZone getArmedZoneContaining(Vec3 pos)
 	{
+		String currentDimension = getCurrentDimension();
 		for(NoGoZone zone : ZONES)
-			if(!PLAYER_INSIDE_ZONE_IDS.contains(zone.id) && zone.contains(pos))
+			if(zone.dimension.equals(currentDimension)
+				&& !PLAYER_INSIDE_ZONE_IDS.contains(zone.id) && zone.contains(pos))
 				return zone;
 		return null;
 	}
@@ -197,8 +206,11 @@ public final class NoGoZoneHack extends Hack implements UpdateListener,
 		int fillColor = zoneColor.getColorI(0x40);
 		int outlineColor = zoneColor.getColorI(0xFF);
 		
+		String currentDimension = getCurrentDimension();
 		for(NoGoZone zone : ZONES)
 		{
+			if(!zone.dimension.equals(currentDimension))
+				continue;
 			AABB box = zone.getBoundingBox();
 			if(box == null)
 				continue;
@@ -313,14 +325,40 @@ public final class NoGoZoneHack extends Hack implements UpdateListener,
 	
 	public static int addZone(BlockPos center, int chunkRadius)
 	{
+		return addZone(center, chunkRadius, getCurrentDimension());
+	}
+
+	public static int addZone(BlockPos center, int chunkRadius,
+		String dimension)
+	{
 		int id = nextZoneId++;
-		NoGoZone zone = new NoGoZone(center, chunkRadius, id);
+		NoGoZone zone = new NoGoZone(center, chunkRadius, id, dimension);
 		ZONES.add(zone);
-		// Player is inside the zone they just created
-		PLAYER_INSIDE_ZONE_IDS.add(id);
+		// Treat the current location as already occupied only when this zone
+		// belongs to the dimension the player is currently in.
+		if(MC.player != null && zone.dimension.equals(getCurrentDimension())
+			&& zone.contains(MC.player.position()))
+			PLAYER_INSIDE_ZONE_IDS.add(id);
 		return id;
 	}
 	
+	public void enableWithoutCapturingCurrentChunk()
+	{
+		if(isEnabled())
+			return;
+		suppressEnableCapture = true;
+		setEnabled(true);
+		if(!isEnabled())
+			suppressEnableCapture = false;
+	}
+
+	private static String getCurrentDimension()
+	{
+		if(MC.level == null)
+			return "minecraft:overworld";
+		return MC.level.dimension().identifier().toString();
+	}
+
 	public static boolean removeZone(int id)
 	{
 		PLAYER_INSIDE_ZONE_IDS.remove(id);
@@ -399,8 +437,12 @@ public final class NoGoZoneHack extends Hack implements UpdateListener,
 				int centerY = zoneObj.get("centerY").getAsInt();
 				int centerZ = zoneObj.get("centerZ").getAsInt();
 				int chunkRadius = zoneObj.get("chunkRadius").getAsInt();
+				String dimension = zoneObj.has("dimension")
+					? zoneObj.get("dimension").getAsString()
+					: getCurrentDimension();
 				NoGoZone zone = new NoGoZone(
-					new BlockPos(centerX, centerY, centerZ), chunkRadius, id);
+					new BlockPos(centerX, centerY, centerZ), chunkRadius, id,
+					dimension);
 				ZONES.add(zone);
 			}
 		}catch(IOException | RuntimeException e)
@@ -436,6 +478,7 @@ public final class NoGoZoneHack extends Hack implements UpdateListener,
 			zoneObj.addProperty("centerY", zone.center.getY());
 			zoneObj.addProperty("centerZ", zone.center.getZ());
 			zoneObj.addProperty("chunkRadius", zone.chunkRadius);
+			zoneObj.addProperty("dimension", zone.dimension);
 			zonesArray.add(zoneObj);
 		}
 		root.add("zones", zonesArray);
@@ -457,14 +500,22 @@ public final class NoGoZoneHack extends Hack implements UpdateListener,
 		public final int id;
 		public final BlockPos center;
 		public final int chunkRadius;
+		public final String dimension;
 		public final ChunkPos minChunk;
 		public final ChunkPos maxChunk;
 		
 		public NoGoZone(BlockPos center, int chunkRadius, int id)
 		{
+			this(center, chunkRadius, id, "minecraft:overworld");
+		}
+
+		public NoGoZone(BlockPos center, int chunkRadius, int id,
+			String dimension)
+		{
 			this.id = id;
 			this.center = center;
 			this.chunkRadius = chunkRadius;
+			this.dimension = dimension;
 			ChunkPos centerChunk = ChunkPos.containing(center);
 			minChunk = new ChunkPos(centerChunk.x() - chunkRadius,
 				centerChunk.z() - chunkRadius);

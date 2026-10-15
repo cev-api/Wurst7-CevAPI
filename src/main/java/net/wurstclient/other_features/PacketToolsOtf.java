@@ -45,6 +45,7 @@ import net.minecraft.client.User;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.protocol.Packet;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.network.protocol.game.ServerboundChatAckPacket;
 import net.minecraft.network.protocol.game.ServerboundChatSessionUpdatePacket;
 import net.minecraft.network.protocol.game.ServerboundContainerButtonClickPacket;
@@ -94,7 +95,15 @@ public final class PacketToolsOtf extends OtherFeature
 		FabricLoader.getInstance().getConfigDir().resolve("packet-logger");
 	
 	private final CheckboxSetting loggingEnabled =
-		new CheckboxSetting("Logging enabled", false);
+		new CheckboxSetting("Logging enabled", false)
+		{
+			@Override
+			public void update()
+			{
+				forensicsDisconnected = false;
+				syncForensicsState();
+			}
+		};
 	private final CheckboxSetting denyEnabled =
 		new CheckboxSetting("Deny enabled", false);
 	private final CheckboxSetting delayEnabled =
@@ -143,49 +152,22 @@ public final class PacketToolsOtf extends OtherFeature
 		new ButtonSetting("Show entity summary", this::printEntitySummary);
 	private final CheckboxSetting itemForensicsEnabled = new CheckboxSetting(
 		"Enable Item & Inventory Forensics",
-		"Captures item packets and client inventory changes to a separate JSONL session, independent of packet filters and normal logging.",
-		false);
-	private final CheckboxSetting forensicTrackInventory =
-		new CheckboxSetting("Track player inventory", true);
-	private final CheckboxSetting forensicTrackContainers =
-		new CheckboxSetting("Track opened containers", true);
-	private final CheckboxSetting forensicTrackEquipment =
-		new CheckboxSetting("Track equipment and armour", true);
-	private final CheckboxSetting forensicTrackDroppedItems =
-		new CheckboxSetting("Track nearby item entities", true);
-	private final CheckboxSetting forensicTrackComponents =
-		new CheckboxSetting("Track item data components", true);
+		"Requires Logging enabled. While main logging is OFF, forensics is inactive. Captures all observable inventory activity independently of packet filters.",
+		false)
+	{
+		@Override
+		public void update()
+		{
+			forensicsDisconnected = false;
+			syncForensicsState();
+		}
+	};
+	// ### MODIFIED ### Coverage is automatic whenever the master toggle is on.
 	private final CheckboxSetting forensicFullContent = new CheckboxSetting(
 		"Export full item content",
 		"Includes full component payloads in forensic records. Large books and container contents can use substantial disk space.",
 		false);
-	private final SliderSetting forensicMaxContentKiB =
-		new SliderSetting("Max full content per value (KiB)", 1024, 64, 16384,
-			64, ValueDisplay.INTEGER);
-	private final CheckboxSetting forensicTrackInteractions =
-		new CheckboxSetting("Track item interaction packets", true);
-	private final CheckboxSetting forensicExtendedCorrelation =
-		new CheckboxSetting("Enable extended packet correlation", true);
-	private final CheckboxSetting forensicAutoAnomalyDetection =
-		new CheckboxSetting("Enable automatic anomaly detection",
-			"Marks inventory changes close in time to a server inventory packet as candidates; this does not establish cause.",
-			true);
-	private final SliderSetting forensicCorrelationTimeout =
-		new SliderSetting("Forensics correlation timeout (ms)", 2000, 100,
-			30000, 100, ValueDisplay.INTEGER);
-	private final SliderSetting forensicRadius = new SliderSetting(
-		"Forensics item radius", 16, 2, 64, 1, ValueDisplay.INTEGER);
-	private final SliderSetting forensicSnapshotFrequency = new SliderSetting(
-		"Forensics snapshot frequency", 2, 1, 20, 1, ValueDisplay.INTEGER);
-	private final SliderSetting forensicCaptureLimit =
-		new SliderSetting("Forensics total record limit", 50000, 1000, 200000,
-			1000, ValueDisplay.INTEGER);
-	private final SliderSetting forensicPendingLimit =
-		new SliderSetting("Forensics pending event limit", 4096, 128, 8192, 128,
-			ValueDisplay.INTEGER);
-	private final SliderSetting forensicMaxSessionMiB =
-		new SliderSetting("Forensics max session size (MiB)", 256, 16, 2048, 16,
-			ValueDisplay.INTEGER);
+	private static final int MAX_FORENSIC_CONTENT_BYTES = 1024 * 1024;
 	private final CheckboxSetting forensicRedactServerAddress =
 		new CheckboxSetting("Redact server address in report",
 			"Omits the server address from the exported session summary.",
@@ -199,28 +181,29 @@ public final class PacketToolsOtf extends OtherFeature
 		new EntityLifecycleTracker();
 	private final PacketFilter packetFilter = new PacketFilter();
 	private PacketDumper packetDumper;
-	private final PacketDumper forensicPacketDumper =
-		new PacketDumper(new PacketDecodeCoverage(), new PacketFilter(),
-			new EntityLifecycleTracker());
-	private final ItemInventoryForensics itemForensics =
-		new ItemInventoryForensics();
+	private volatile ForensicActivation activeForensics;
+	private final java.util.concurrent.ConcurrentLinkedQueue<net.wurstclient.other_features.packettools.ForensicSessionWriter> endingForensics =
+		new java.util.concurrent.ConcurrentLinkedQueue<>();
+	private boolean forensicsLifecycleReady;
+	private boolean forensicsDisconnected;
+	private volatile long diagnosticClientTick;
+	private volatile long recentTickDurationNs;
+	private volatile Map<String, Object> performanceContext = Map.of();
+	private volatile long clientTickStartedNs;
+	private final ThreadLocal<Map<String, Object>> actionContext =
+		ThreadLocal.withInitial(Map::of);
 	
 	private Path currentVerboseJsonlFile;
 	private Path currentVerboseHumanFile;
 	private Path currentUdpJsonlFile;
-	private Path currentForensicsJsonlFile;
-	private final ArrayList<String> forensicJsonlBuffer = new ArrayList<>(512);
-	private static final int MAX_FORENSIC_BUFFER_LINES = 2048;
-	private static final long MAX_FORENSIC_BUFFER_BYTES = 64L * 1024 * 1024;
-	private long forensicBufferedBytes;
-	private long forensicOutputDroppedRecords;
-	private int forensicsFlushTickCounter;
-	private boolean lastItemForensicsState;
-	
-	// Batched write buffers – flushed in onUpdate() to avoid per-packet disk
+	// Batched write buffers â€“ flushed in onUpdate() to avoid per-packet disk
 	// I/O
 	private final ArrayList<String> verboseJsonlBuffer = new ArrayList<>(512);
 	private final ArrayList<String> verboseHumanBuffer = new ArrayList<>(512);
+	// ### ADDED ### Bound retained diagnostic data during prolonged write
+	// failures.
+	private static final int MAX_VERBOSE_BUFFER_LINES = 10_000;
+	private long verboseDroppedRecords;
 	private int verboseFlushTickCounter;
 	private final ArrayList<String> udpJsonlBuffer = new ArrayList<>(512);
 	private static final int MAX_UDP_BUFFERED_RECORDS = 4096;
@@ -273,22 +256,7 @@ public final class PacketToolsOtf extends OtherFeature
 		addSetting(showCoverageReport);
 		addSetting(showEntitySummary);
 		addSetting(itemForensicsEnabled);
-		addSetting(forensicTrackInventory);
-		addSetting(forensicTrackContainers);
-		addSetting(forensicTrackEquipment);
-		addSetting(forensicTrackDroppedItems);
-		addSetting(forensicTrackComponents);
 		addSetting(forensicFullContent);
-		addSetting(forensicMaxContentKiB);
-		addSetting(forensicTrackInteractions);
-		addSetting(forensicExtendedCorrelation);
-		addSetting(forensicAutoAnomalyDetection);
-		addSetting(forensicCorrelationTimeout);
-		addSetting(forensicRadius);
-		addSetting(forensicSnapshotFrequency);
-		addSetting(forensicCaptureLimit);
-		addSetting(forensicPendingLimit);
-		addSetting(forensicMaxSessionMiB);
 		addSetting(forensicRedactServerAddress);
 		addSetting(exportForensicsSummary);
 		
@@ -298,7 +266,8 @@ public final class PacketToolsOtf extends OtherFeature
 		lastLoggingState = loggingEnabled.isChecked();
 		lastDenyEnabledState = denyEnabled.isChecked();
 		lastUdpMonitoringState = monitorUdp.isChecked();
-		lastItemForensicsState = itemForensicsEnabled.isChecked();
+		forensicsLifecycleReady = true;
+		syncForensicsState();
 		
 		EVENTS.add(PacketInputListener.class, this);
 		EVENTS.add(PacketOutputListener.class, this);
@@ -336,13 +305,7 @@ public final class PacketToolsOtf extends OtherFeature
 	public void onReceivedPacket(PacketInputEvent event)
 	{
 		Packet<?> packet = event.getPacket();
-		if(itemForensicsEnabled.isChecked()
-			&& forensicTrackInteractions.isChecked())
-			itemForensics.recordPacket(packet, "S2C", "INBOUND_PACKET_EVENT",
-				List.of(), forensicPacketDumper,
-				forensicFullContent.isChecked(), getForensicMaxContentBytes(),
-				forensicExtendedCorrelation.isChecked(),
-				forensicCorrelationTimeout.getValueI());
+		recordForensicPacket(packet, "S2C", "PACKETTOOLS_OBSERVED", List.of());
 		String name = net.wurstclient.other_features.packettools.PacketCatalog
 			.formatPacketName(packet);
 		discoveredS2C.add(name);
@@ -357,6 +320,7 @@ public final class PacketToolsOtf extends OtherFeature
 		
 		if(denyEnabled.isChecked() && denyS2C.contains(name))
 		{
+			recordForensicTiming(packet, "S2C", "DENIED");
 			event.cancel();
 			return;
 		}
@@ -365,6 +329,7 @@ public final class PacketToolsOtf extends OtherFeature
 			&& delayS2C.contains(name))
 		{
 			event.cancel();
+			recordForensicTiming(packet, "S2C", "QUEUED");
 			delayedIncoming.addLast(new QueuedPacket(packet,
 				getCurrentTick() + delayTicks.getValueI()));
 		}
@@ -374,14 +339,8 @@ public final class PacketToolsOtf extends OtherFeature
 	public void onSentPacket(PacketOutputEvent event)
 	{
 		Packet<?> packet = event.getPacket();
-		if(itemForensicsEnabled.isChecked()
-			&& forensicTrackInteractions.isChecked())
-			itemForensics.recordPacket(packet, "C2S",
-				"CLIENT_PACKET_OUTPUT_EVENT", event.getDebugTrace(),
-				forensicPacketDumper, forensicFullContent.isChecked(),
-				getForensicMaxContentBytes(),
-				forensicExtendedCorrelation.isChecked(),
-				forensicCorrelationTimeout.getValueI());
+		recordForensicPacket(packet, "C2S", "PACKETTOOLS_CLIENT_SEND",
+			event.getDebugTrace());
 		if(bypassOutput.remove(packet))
 			return;
 		
@@ -390,21 +349,24 @@ public final class PacketToolsOtf extends OtherFeature
 		discoveredC2S.add(name);
 		recordUnknown(packet.getClass().getSimpleName(), PacketDirection.C2S);
 		
-		if(verboseEnabled.isChecked() && shouldAlwaysVerbose(packet))
+		boolean alwaysVerbose =
+			verboseEnabled.isChecked() && shouldAlwaysVerbose(packet);
+		if(alwaysVerbose)
 		{
 			logVerbose(packet, "C2S", event.getDebugTrace());
-			return;
 		}
 		
-		if(shouldVerboseOutsideGame())
+		if(!alwaysVerbose && shouldVerboseOutsideGame())
 		{
 			logVerbose(packet, "OUTSIDE-C2S", event.getDebugTrace());
 			flushVerboseBuffers();
-		}else if(loggingEnabled.isChecked() && logC2S.contains(name))
+		}else if(!alwaysVerbose && loggingEnabled.isChecked()
+			&& logC2S.contains(name))
 			logPacket(name, "C2S", packet);
 		
 		if(denyEnabled.isChecked() && denyC2S.contains(name))
 		{
+			recordForensicTiming(packet, "C2S", "DENIED");
 			event.cancel();
 			return;
 		}
@@ -413,6 +375,7 @@ public final class PacketToolsOtf extends OtherFeature
 			&& delayC2S.contains(name))
 		{
 			event.cancel();
+			recordForensicTiming(packet, "C2S", "QUEUED");
 			delayedOutgoing.addLast(new QueuedPacket(packet,
 				getCurrentTick() + delayTicks.getValueI()));
 		}
@@ -421,14 +384,8 @@ public final class PacketToolsOtf extends OtherFeature
 	@Override
 	public void onSentConnectionPacket(ConnectionPacketOutputEvent event)
 	{
-		if(itemForensicsEnabled.isChecked()
-			&& forensicTrackInteractions.isChecked())
-			itemForensics.recordPacket(event.getPacket(), "C2S",
-				"CONNECTION_SEND_INTERCEPTION", event.getDebugTrace(),
-				forensicPacketDumper, forensicFullContent.isChecked(),
-				getForensicMaxContentBytes(),
-				forensicExtendedCorrelation.isChecked(),
-				forensicCorrelationTimeout.getValueI());
+		recordForensicPacket(event.getPacket(), "C2S",
+			"PACKETTOOLS_CONNECTION_SEND", event.getDebugTrace());
 		if(!shouldVerboseExternalMonitoring())
 			return;
 		
@@ -451,9 +408,7 @@ public final class PacketToolsOtf extends OtherFeature
 		boolean previousLoggingState = lastLoggingState;
 		boolean previousDelayState = lastDelayEnabledState;
 		boolean previousUdpMonitoringState = lastUdpMonitoringState;
-		boolean previousItemForensicsState = lastItemForensicsState;
 		boolean udpMonitoringState = monitorUdp.isChecked();
-		boolean itemForensicsState = itemForensicsEnabled.isChecked();
 		announceToggleChange("Logging", loggingState, previousLoggingState);
 		announceToggleChange("Blocking", denyState, lastDenyEnabledState);
 		announceToggleChange("Delaying", delayState, previousDelayState);
@@ -461,45 +416,7 @@ public final class PacketToolsOtf extends OtherFeature
 		lastDenyEnabledState = denyState;
 		lastDelayEnabledState = delayState;
 		lastUdpMonitoringState = udpMonitoringState;
-		lastItemForensicsState = itemForensicsState;
-		if(itemForensicsState)
-		{
-			if(!previousItemForensicsState)
-			{
-				currentForensicsJsonlFile = null;
-				itemForensics.startNewSession();
-			}
-			itemForensics
-				.setMaxCaptureRecords((long)forensicCaptureLimit.getValueI());
-			itemForensics.setMaxPendingEvents(forensicPendingLimit.getValueI());
-			itemForensics.setMaxCaptureBytes(
-				(long)forensicMaxSessionMiB.getValueI() * 1024 * 1024);
-			itemForensics.setCorrelationTimeoutMs(
-				forensicCorrelationTimeout.getValueI());
-			itemForensics.tick(forensicTrackInventory.isChecked(),
-				forensicTrackContainers.isChecked(),
-				forensicTrackEquipment.isChecked(),
-				forensicTrackDroppedItems.isChecked(),
-				forensicTrackComponents.isChecked(),
-				forensicFullContent.isChecked(),
-				forensicAutoAnomalyDetection.isChecked(),
-				getForensicMaxContentBytes(), forensicRadius.getValueI(),
-				forensicSnapshotFrequency.getValueI());
-			bufferForensicLines(itemForensics.drain(512));
-			forensicsFlushTickCounter++;
-			if(forensicsFlushTickCounter >= 10
-				|| forensicJsonlBuffer.size() >= 512)
-				flushForensicsBuffer();
-		}else if(previousItemForensicsState)
-		{
-			List<String> remaining;
-			do
-			{
-				remaining = itemForensics.drain(4096);
-				bufferForensicLines(remaining);
-			}while(!remaining.isEmpty());
-			flushForensicsBuffer();
-		}
+		tickForensics();
 		
 		boolean delayActive = delayState && delayTicks.getValueI() > 0;
 		if(!delayActive && previousDelayState)
@@ -509,8 +426,10 @@ public final class PacketToolsOtf extends OtherFeature
 		
 		if(previousLoggingState && !loggingState)
 		{
+			// ### MODIFIED ### Flush records captured before logging was
+			// disabled.
+			flushVerboseBuffers();
 			currentLogFile = null;
-			discardVerboseBuffers();
 			currentVerboseJsonlFile = null;
 			currentVerboseHumanFile = null;
 		}
@@ -539,7 +458,7 @@ public final class PacketToolsOtf extends OtherFeature
 		}else if(!verboseEnabled.isChecked() && lastVerboseState
 			&& loggingState)
 		{
-			// Verbose just turned off — flush remaining and clear refs
+			// Verbose just turned off â€” flush remaining and clear refs
 			flushVerboseBuffers();
 			currentVerboseJsonlFile = null;
 			currentVerboseHumanFile = null;
@@ -557,146 +476,776 @@ public final class PacketToolsOtf extends OtherFeature
 			"[PacketTools] " + name + (current ? " activated." : " disabled."));
 	}
 	
-	private void exportForensicsSummary()
+	/**
+	 * Settings callbacks stop admission immediately, including while the world
+	 * is paused.
+	 */
+	private synchronized void syncForensicsState()
 	{
-		List<String> remaining;
-		do
+		if(!forensicsLifecycleReady)
+			return;
+		boolean wanted =
+			net.wurstclient.other_features.packettools.ForensicSessionWriter
+				.effectiveEnabled(loggingEnabled.isChecked(),
+					itemForensicsEnabled.isChecked());
+		if(!wanted && activeForensics != null)
+			endForensics("logging_disabled");
+		else if(wanted && activeForensics == null && !forensicsDisconnected)
 		{
-			remaining = itemForensics.drain(4096);
-			bufferForensicLines(remaining);
-		}while(!remaining.isEmpty());
-		flushForensicsBuffer();
-		remaining = itemForensics.drain(4096);
-		bufferForensicLines(remaining);
-		flushForensicsBuffer();
-		try
-		{
-			Path directory = LOG_DIR.resolve("item-forensics");
-			Files.createDirectories(directory);
-			Path report = directory
-				.resolve("session-" + itemForensics.getSessionId() + ".json");
-			Map<String, Object> captureSettings = new LinkedHashMap<>();
-			captureSettings.put("trackPlayerInventory",
-				forensicTrackInventory.isChecked());
-			captureSettings.put("trackOpenedContainers",
-				forensicTrackContainers.isChecked());
-			captureSettings.put("trackEquipment",
-				forensicTrackEquipment.isChecked());
-			captureSettings.put("trackNearbyItemEntities",
-				forensicTrackDroppedItems.isChecked());
-			captureSettings.put("trackDataComponents",
-				forensicTrackComponents.isChecked());
-			captureSettings.put("includeFullContent",
+			ItemInventoryForensics model = new ItemInventoryForensics();
+			model.startNewSession();
+			var timings =
+				new net.wurstclient.other_features.packettools.PacketTimingTracker(
+					model.getSessionId());
+			Map<String, Object> settings = new LinkedHashMap<>();
+			settings.put("coverage", "all_client_observable_item_state");
+			settings.put("includeFullContent", forensicFullContent.isChecked());
+			settings.put("serverAddress",
+				forensicRedactServerAddress.isChecked()
+					|| MC.getCurrentServer() == null ? "redacted"
+						: MC.getCurrentServer().ip);
+			settings.put("contentDeduplication", true);
+			var writer =
+				new net.wurstclient.other_features.packettools.ForensicSessionWriter(
+					LOG_DIR.resolve("item-forensics"), model, settings,
+					timings);
+			activeForensics = new ForensicActivation(model, writer, timings,
 				forensicFullContent.isChecked());
-			captureSettings.put("maxFullContentPerValueKiB",
-				forensicMaxContentKiB.getValueI());
-			captureSettings.put("trackInteractionPackets",
-				forensicTrackInteractions.isChecked());
-			captureSettings.put("extendedCorrelation",
-				forensicExtendedCorrelation.isChecked());
-			captureSettings.put("automaticAnomalyDetection",
-				forensicAutoAnomalyDetection.isChecked());
-			captureSettings.put("correlationTimeoutMs",
-				forensicCorrelationTimeout.getValueI());
-			captureSettings.put("monitoringRadius", forensicRadius.getValueI());
-			captureSettings.put("snapshotFrequencyTicks",
-				forensicSnapshotFrequency.getValueI());
-			captureSettings.put("recordLimit",
-				forensicCaptureLimit.getValueI());
-			captureSettings.put("pendingEventLimit",
-				forensicPendingLimit.getValueI());
-			captureSettings.put("maxSessionSizeMiB",
-				forensicMaxSessionMiB.getValueI());
-			Files.writeString(report,
-				itemForensics.buildSummary(
-					forensicRedactServerAddress.isChecked(), captureSettings),
-				java.nio.charset.StandardCharsets.UTF_8,
-				StandardOpenOption.CREATE,
-				StandardOpenOption.TRUNCATE_EXISTING);
-			Path markdown = directory
-				.resolve("session-" + itemForensics.getSessionId() + ".md");
-			Files.writeString(markdown,
-				itemForensics.buildMarkdownSummary(
-					forensicRedactServerAddress.isChecked(), captureSettings),
-				java.nio.charset.StandardCharsets.UTF_8,
-				StandardOpenOption.CREATE,
-				StandardOpenOption.TRUNCATE_EXISTING);
-			ChatUtils.message("PacketTools: forensic summary exported to "
-				+ report.getFileName() + " and " + markdown.getFileName()
-				+ ".");
-		}catch(IOException e)
-		{
-			LOGGER.warn("Failed to export item forensics summary", e);
-			ChatUtils.error("PacketTools: failed to export forensic summary.");
 		}
 	}
 	
-	private void flushForensicsBuffer()
+	private synchronized void endForensics(String reason)
 	{
-		if(forensicJsonlBuffer.isEmpty())
+		ForensicActivation ending = activeForensics;
+		activeForensics = null;
+		if(ending == null)
+			return;
+		net.wurstclient.other_features.packettools.telemetry.TelemetryClient
+			.stop(ending.model.getSessionId());
+		ending.writer.finish(reason);
+		endingForensics.add(ending.writer);
+	}
+	
+	public String getForensicsStatus()
+	{
+		return activeForensics != null ? "Forensics: active"
+			: itemForensicsEnabled.isChecked() ? "Forensics: dormant"
+				: "Forensics: off";
+	}
+	
+	private void tickForensics()
+	{
+		diagnosticClientTick++;
+		if(MC.player != null)
+			forensicsDisconnected = false;
+		syncForensicsState();
+		endingForensics.removeIf(
+			net.wurstclient.other_features.packettools.ForensicSessionWriter::isFinished);
+		ForensicActivation a = activeForensics;
+		if(a == null)
+			return;
+		if(a.sawWorld && (MC.player == null || MC.level == null))
 		{
-			if(forensicOutputDroppedRecords > 0)
+			forensicsDisconnected = true;
+			endForensics("disconnected");
+			return;
+		}
+		a.sawWorld |= MC.player != null;
+		Map<String, Object> performance = new LinkedHashMap<>();
+		performance.put("contextObservedNs", System.nanoTime());
+		performance.put("fps", MC.getFps());
+		if(MC.player != null)
+			performance.put("playerPosition", Map.of("x", MC.player.getX(), "y",
+				MC.player.getY(), "z", MC.player.getZ()));
+		if(recentTickDurationNs > 0)
+			performance.put("recentClientTickDurationNs", recentTickDurationNs);
+		performance.put("paused", MC.isPaused());
+		performance.put("connectionState",
+			MC.getConnection() == null ? "disconnected" : "connected");
+		if(MC.level != null)
+			performance.put("dimension",
+				MC.level.dimension().identifier().toString());
+		if(MC.player != null && MC.getConnection() != null)
+		{
+			var info = MC.getConnection().getPlayerInfo(MC.player.getUUID());
+			if(info != null)
 			{
-				itemForensics.recordOutputDrops(forensicOutputDroppedRecords);
-				forensicOutputDroppedRecords = 0;
+				performance.put("pingMs", info.getLatency());
+				performance.put("pingSource",
+					"server_reported_player_info_not_packet_specific_RTT");
+			}
+		}
+		performanceContext = Map.copyOf(performance);
+		a.dimension = MC.level == null ? "UNOBSERVED"
+			: MC.level.dimension().identifier().toString();
+		a.emitTickEvents(a.telemetry.passive.dimensionChanged(a.dimension,
+			System.nanoTime()), Map.of());
+		a.emitTickEvents(a.telemetry.passive.checkStale(System.nanoTime()),
+			Map.of());
+		net.wurstclient.other_features.packettools.telemetry.TelemetryClient
+			.poll(a.model.getSessionId());
+		var state = net.wurstclient.other_features.packettools.ForensicSnapshots
+			.world(MC, diagnosticClientTick);
+		a.submit("client_tick", state.observedNs(), state.estimatedBytes(),
+			() -> a.model.reconcileCaptured(state, true, a.fullContent,
+				MAX_FORENSIC_CONTENT_BYTES, performance));
+		for(var reference : a.nextTickPackets)
+		{
+			Packet<?> packet = reference.get();
+			if(packet != null)
+				a.observe(packet, "S2C", "NEXT_CLIENT_TICK");
+		}
+		a.nextTickPackets.clear();
+	}
+	
+	public void recordClientTickStart(long now)
+	{
+		clientTickStartedNs = now;
+	}
+	
+	public void recordClientTickDuration(long durationNs)
+	{
+		recentTickDurationNs = durationNs;
+	}
+	
+	public void recordForensicTiming(Packet<?> packet, String direction,
+		String stage)
+	{
+		if(packet instanceof net.minecraft.network.protocol.game.ClientboundBundlePacket bundle
+			&& (stage.equals("INBOUND_CONNECTION")
+				|| stage.equals("CLIENT_DISPATCH")))
+		{
+			for(Packet<?> child : bundle.subPackets())
+				recordForensicTiming(child, direction, stage);
+			return;
+		}
+		ForensicActivation a = activeForensics;
+		if(packet.type()
+			.flow() != (direction.equals("S2C")
+				? net.minecraft.network.protocol.PacketFlow.CLIENTBOUND
+				: net.minecraft.network.protocol.PacketFlow.SERVERBOUND))
+			return;
+		if(a != null && isForensicPacket(packet))
+		{
+			boolean tickPacket =
+				packet instanceof net.minecraft.network.protocol.game.ClientboundSetTimePacket
+					|| packet instanceof net.minecraft.network.protocol.game.ClientboundTickingStatePacket
+					|| packet instanceof net.minecraft.network.protocol.game.ClientboundTickingStepPacket;
+			if(tickPacket
+				&& (stage.equals("DECODED")
+					|| stage.equals("INBOUND_CONNECTION"))
+				&& !a.timings.hasStage(packet, "packetArrivalNs"))
+			{
+				Map<String, Object> trace = a.trace(packet, direction, stage);
+				long now = ((Number)trace.get("packetArrivalNs")).longValue();
+				List<Map<String, Object>> events;
+				if(packet instanceof net.minecraft.network.protocol.game.ClientboundSetTimePacket time)
+					events = a.telemetry.passive.sample(time.gameTime(), now,
+						a.dimension, diagnosticClientTick,
+						(String)trace.get("logicalPacketId"));
+				else if(packet instanceof net.minecraft.network.protocol.game.ClientboundTickingStatePacket control)
+					events = a.telemetry.passive.control(control.tickRate(),
+						control.isFrozen(), false, now);
+				else
+					events = a.telemetry.passive.step(now);
+				a.emitTickEvents(events, trace);
+				return;
+			}
+			a.observe(packet, direction, stage);
+		}
+	}
+	
+	private static boolean isForensicPacket(Packet<?> packet)
+	{
+		String name = packet.getClass().getSimpleName()
+			.toLowerCase(java.util.Locale.ROOT);
+		return packet instanceof net.minecraft.network.protocol.game.ClientboundSetTimePacket
+			|| packet instanceof net.minecraft.network.protocol.game.ClientboundTickingStatePacket
+			|| packet instanceof net.minecraft.network.protocol.game.ClientboundTickingStepPacket
+			|| name.contains("container") || name.contains("inventory")
+			|| name.contains("item") || name.contains("equipment")
+			|| name.contains("book") || name.contains("interact")
+			|| name.contains("block") || name.contains("entitydata")
+			|| name.contains("playeraction") || name.contains("recipe")
+			|| name.contains("creative");
+	}
+	
+	private void recordForensicPacket(Packet<?> packet, String direction,
+		String stage, List<String> debug)
+	{
+		if(packet instanceof net.minecraft.network.protocol.game.ClientboundBundlePacket bundle)
+		{
+			for(Packet<?> child : bundle.subPackets())
+				recordForensicPacket(child, direction, stage, debug);
+			return;
+		}
+		ForensicActivation a = activeForensics;
+		if(a == null || !isForensicPacket(packet))
+			return;
+		Map<String, Object> trace = a.trace(packet, direction, stage);
+		String id = (String)trace.get("logicalPacketId");
+		boolean details;
+		synchronized(a.decoded)
+		{
+			details = a.decoded.add(id);
+			if(a.decoded.size() > 16384)
+				a.decoded.remove(a.decoded.iterator().next());
+		}
+		Packet<?> frozen = details
+			? net.wurstclient.other_features.packettools.ForensicSnapshots
+				.freezePacket(packet)
+			: null;
+		List<String> debugCopy = List.copyOf(debug);
+		a.submit("packet_observation",
+			((Number)trace.get("monotonicNs")).longValue(),
+			details
+				? net.wurstclient.other_features.packettools.ForensicSnapshots
+					.estimatedPacketBytes(frozen)
+				: 1024,
+			() -> {
+				if(details)
+					a.model.withObservation(trace,
+						() -> a.model.recordPacket(frozen, direction, stage,
+							debugCopy, a.dumper, a.fullContent,
+							MAX_FORENSIC_CONTENT_BYTES, false, 2000));
+				else
+					a.model.recordObservation(trace);
+			});
+	}
+	
+	public void recordForensicsPreApplication(Packet<?> packet)
+	{
+		ForensicActivation a = activeForensics;
+		if(a == null || !MC.isSameThread() || !isForensicPacket(packet))
+			return;
+		if(a.timings.hasStage(packet, "handlerStartNs"))
+			return;
+		Map<String, Object> timing = a.trace(packet, "S2C", "HANDLER_START");
+		Map<String, Object> publishedStart =
+			net.wurstclient.other_features.packettools.ForensicSnapshots
+				.freezeFields(timing);
+		a.submit("packet_timing", System.nanoTime(), 1024,
+			() -> a.model.recordObservation(publishedStart));
+		var state = net.wurstclient.other_features.packettools.ForensicSnapshots
+			.affected(MC, packet, diagnosticClientTick);
+		a.attachSlotActions(timing, state);
+		if(!state.stacks().isEmpty())
+			a.submit("handler_pre_state", state.observedNs(),
+				state.estimatedBytes(), () -> a.model.reconcileCaptured(state,
+					false, a.fullContent, MAX_FORENSIC_CONTENT_BYTES, timing));
+	}
+	
+	public void recordForensicsPostApplication(Packet<?> packet)
+	{
+		ForensicActivation a = activeForensics;
+		if(a == null || !MC.isSameThread() || !isForensicPacket(packet)
+			|| a.timings.hasStage(packet, "stateAppliedNs"))
+			return;
+		var state = net.wurstclient.other_features.packettools.ForensicSnapshots
+			.affected(MC, packet, diagnosticClientTick);
+		if(state.stacks().isEmpty())
+		{
+			if(packet instanceof net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket block
+				&& MC.level != null)
+			{
+				Map<String, Object> applied =
+					a.trace(packet, "S2C", "STATE_APPLIED");
+				applied.put("blockPosition", block.getPos().toShortString());
+				applied.put("observedBlockState",
+					net.wurstclient.other_features.packettools.RegistryDecoder
+						.decodeBlockStateDetailed(
+							MC.level.getBlockState(block.getPos())));
+				a.submit("block_state_applied", System.nanoTime(), 2048,
+					() -> a.model.recordObservation(applied));
 			}
 			return;
 		}
-		try
+		Map<String, Object> timing = a.trace(packet, "S2C", "STATE_APPLIED");
+		a.attachSlotActions(timing, state);
+		a.submit("handler_post_state", state.observedNs(),
+			state.estimatedBytes(), () -> a.model.reconcileCaptured(state,
+				false, a.fullContent, MAX_FORENSIC_CONTENT_BYTES, timing));
+		if(a.nextTickPackets.size() < 4096)
+			a.nextTickPackets.add(new java.lang.ref.WeakReference<>(packet));
+	}
+	
+	public void recordForensicHandlerEnd(Packet<?> packet)
+	{
+		recordForensicTiming(packet, "S2C", "HANDLER_END");
+		recordForensicsPostApplication(packet);
+	}
+	
+	public void recordForensicsExternalEvent(String name,
+		Map<String, Object> fields)
+	{
+		ForensicActivation a = activeForensics;
+		if(a == null)
+			return;
+		Map<String, Object> event = new LinkedHashMap<>(performanceContext);
+		event.putAll(fields);
+		event.put("name", name);
+		event.put("eventType", "external_forensics_event");
+		event.put("monotonicNs", System.nanoTime());
+		event.put("timestamp", java.time.Instant.now().toString());
+		event.put("thread", Thread.currentThread().getName());
+		event.put("clientTick", diagnosticClientTick);
+		event.put("serverPerformance", a.telemetry.snapshot(System.nanoTime()));
+		a.submit("external_forensics_event", System.nanoTime(), 8192,
+			() -> a.model.recordObservation(event));
+	}
+	
+	public Map<String, Object> beginForensicTransaction(String transactionId)
+	{
+		var previous = actionContext.get();
+		if(transactionId != null)
+			actionContext.set(Map.of("transactionId", transactionId));
+		return previous;
+	}
+	
+	public void endForensicTransaction(Map<String, Object> previous)
+	{
+		actionContext.set(previous);
+	}
+	
+	public Map<String, Object> beginForensicInteraction(
+		net.minecraft.world.phys.BlockHitResult hit,
+		net.minecraft.world.InteractionHand hand)
+	{
+		Map<String, Object> previous = actionContext.get();
+		if(activeForensics == null)
+			return previous;
+		Map<String, Object> fields = new LinkedHashMap<>();
+		fields.put("transactionId", actionContext.get()
+			.getOrDefault("transactionId", "interaction-" + UUID.randomUUID()));
+		fields.put("actionRequestedNs", System.nanoTime());
+		fields.put("monotonicNs", fields.get("actionRequestedNs"));
+		fields.put("timestamp", java.time.Instant.now().toString());
+		fields.put("thread", Thread.currentThread().getName());
+		fields.put("clientTick", diagnosticClientTick);
+		fields.put("blockPosition", hit.getBlockPos().toShortString());
+		fields.put("hitFace", hit.getDirection().getName());
+		fields.put("hitPosition", Map.of("x", hit.getLocation().x, "y",
+			hit.getLocation().y, "z", hit.getLocation().z));
+		fields.put("hand", hand.name());
+		if(MC.level != null)
+			fields.put("blockState",
+				net.wurstclient.other_features.packettools.RegistryDecoder
+					.decodeBlockStateDetailed(
+						MC.level.getBlockState(hit.getBlockPos())));
+		if(MC.player != null)
+			fields.put("submittedItemId",
+				net.minecraft.core.registries.BuiltInRegistries.ITEM
+					.getKey(MC.player.getItemInHand(hand).getItem())
+					.toString());
+		actionContext.set(Map.copyOf(fields));
+		ForensicActivation owner = activeForensics;
+		if(owner != null)
 		{
-			Path file = getCurrentForensicsJsonlFile();
-			StringBuilder output = new StringBuilder();
-			for(String line : forensicJsonlBuffer)
-				output.append(line).append('\n');
-			Files.writeString(file, output.toString(),
-				java.nio.charset.StandardCharsets.UTF_8,
-				StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-			forensicJsonlBuffer.clear();
-			forensicBufferedBytes = 0;
-			forensicsFlushTickCounter = 0;
-			if(forensicOutputDroppedRecords > 0)
+			synchronized(owner.relatedActions)
 			{
-				itemForensics.recordOutputDrops(forensicOutputDroppedRecords);
-				forensicOutputDroppedRecords = 0;
+				owner.relatedActions.put(
+					"block:" + hit.getBlockPos().toShortString(),
+					Map.copyOf(fields));
+				while(owner.relatedActions.size() > 256)
+					owner.relatedActions.remove(
+						owner.relatedActions.keySet().iterator().next());
 			}
-		}catch(IOException e)
-		{
-			LOGGER.warn("Failed to write item forensics JSONL", e);
+			ItemStack submitted = MC.player == null ? ItemStack.EMPTY
+				: MC.player.getItemInHand(hand).copy();
+			var registries =
+				MC.level == null ? null : MC.level.registryAccess();
+			var targetState =
+				net.wurstclient.other_features.packettools.ForensicSnapshots
+					.block(MC, hit.getBlockPos(), diagnosticClientTick);
+			owner.submit("interaction_item_snapshot", System.nanoTime(),
+				targetState.estimatedBytes() + 65536, () -> {
+					Map<String, Object> event = new LinkedHashMap<>(fields);
+					event.put("eventType", "interaction_item_snapshot");
+					var item =
+						net.wurstclient.other_features.packettools.ItemStackForensics
+							.capture(submitted, true, owner.fullContent,
+								MAX_FORENSIC_CONTENT_BYTES, registries);
+					event.put("submittedItemFingerprint", item.fingerprint());
+					event.put("submittedItem", item.details());
+					owner.model.recordObservation(event);
+					owner.model.reconcileCaptured(targetState, false,
+						owner.fullContent, MAX_FORENSIC_CONTENT_BYTES, fields);
+				});
 		}
+		recordForensicsExternalEvent("block_interaction_requested", fields);
+		return previous;
 	}
 	
-	private void bufferForensicLines(List<String> lines)
+	public void recordForensicInteractionResult(
+		net.minecraft.world.InteractionResult result)
 	{
-		for(String line : lines)
+		if(activeForensics == null)
+			return;
+		Map<String, Object> fields = new LinkedHashMap<>(actionContext.get());
+		fields.put("clientInteractionResult", String.valueOf(result));
+		fields.put("storageOutcome", "UNKNOWN_UNTIL_SERVER_STATE");
+		recordForensicsExternalEvent("block_interaction_returned", fields);
+	}
+	
+	public void endForensicInteraction(Map<String, Object> previous)
+	{
+		recordForensicsExternalEvent("block_interaction_method_completed",
+			actionContext.get());
+		actionContext.set(previous);
+	}
+	
+	public String beginBookBotForensicAttempt()
+	{
+		return activeForensics == null ? null
+			: "BookBot.edit-" + UUID.randomUUID();
+	}
+	
+	public String recordForensicActionRequested(Packet<?> packet, String action)
+	{
+		return recordForensicActionRequested(packet, action, null);
+	}
+	
+	public String recordForensicActionRequested(Packet<?> packet, String action,
+		String transactionId)
+	{
+		ForensicActivation a = activeForensics;
+		if(a == null)
+			return null;
+		Map<String, Object> fields = new LinkedHashMap<>(performanceContext);
+		fields.put("transactionId", transactionId == null
+			? action + "-" + UUID.randomUUID() : transactionId);
+		fields.put("serverPerformance",
+			a.telemetry.snapshot(System.nanoTime()));
+		Map<String, Object> event =
+			a.timings.observe(packet, "C2S", "ACTION_REQUESTED",
+				System.nanoTime(), diagnosticClientTick, fields);
+		if(packet instanceof net.minecraft.network.protocol.game.ServerboundEditBookPacket edit)
 		{
-			long bytes =
-				line.getBytes(java.nio.charset.StandardCharsets.UTF_8).length
-					+ 1L;
-			if(forensicJsonlBuffer.size() >= MAX_FORENSIC_BUFFER_LINES
-				|| forensicBufferedBytes + bytes > MAX_FORENSIC_BUFFER_BYTES)
+			Map<String, Object> related =
+				Map.of("transactionId", event.get("transactionId"),
+					"actionRequestedNs", event.get("actionRequestedNs"));
+			synchronized(a.relatedActions)
 			{
-				forensicOutputDroppedRecords++;
-				continue;
+				a.relatedActions.put("backing:" + edit.slot(), related);
+				a.relatedActions.put(
+					"slot:"
+						+ (edit.slot() < 9 ? 36 + edit.slot() : edit.slot()),
+					related);
+				while(a.relatedActions.size() > 256)
+					a.relatedActions
+						.remove(a.relatedActions.keySet().iterator().next());
 			}
-			forensicJsonlBuffer.add(line);
-			forensicBufferedBytes += bytes;
 		}
+		a.submit("action_requested", System.nanoTime(), 1024,
+			() -> a.model.recordObservation(event));
+		return (String)event.get("transactionId");
 	}
 	
-	private Path getCurrentForensicsJsonlFile() throws IOException
+	/**
+	 * Callback ownership stays with the original session even across rapid
+	 * toggles.
+	 */
+	public java.util.function.BiConsumer<Boolean, String> recordForensicTransportSubmitted(
+		Packet<?> packet, boolean completionAvailable)
 	{
-		if(currentForensicsJsonlFile != null)
-			return currentForensicsJsonlFile;
-		Path directory = LOG_DIR.resolve("item-forensics");
-		Files.createDirectories(directory);
-		currentForensicsJsonlFile = directory
-			.resolve("session-" + itemForensics.getSessionId() + ".jsonl");
-		return currentForensicsJsonlFile;
+		ForensicActivation a = activeForensics;
+		if(a == null || !isForensicPacket(packet))
+			return (success, error) -> {};
+		Map<String, Object> event =
+			a.trace(packet, "C2S", "TRANSPORT_SUBMITTED");
+		event.put("writeCompletionObservable", completionAvailable);
+		a.submit("transport_submit", System.nanoTime(), 1024,
+			() -> a.model.recordObservation(event));
+		return (success, error) -> {
+			Map<String, Object> completed = a.timings.transportCompleted(event,
+				System.nanoTime(), diagnosticClientTick, success, error);
+			a.submit("transport_completion", System.nanoTime(), 1024,
+				() -> a.model.recordObservation(completed));
+		};
 	}
 	
-	private int getForensicMaxContentBytes()
+	public void recordAuthoritativeTelemetry(String captureId, String json,
+		long receiveNs, String receiveStage)
 	{
-		return forensicMaxContentKiB.getValueI() * 1024;
+		ForensicActivation a = activeForensics;
+		if(a == null || !a.model.getSessionId().equals(captureId)
+			|| !net.wurstclient.other_features.packettools.telemetry.TelemetryClient
+				.isTrustedConnection())
+			return;
+		String receiveThread = Thread.currentThread().getName();
+		String receivedAt = java.time.Instant.now().toString();
+		a.submit("authoritative_server_telemetry", receiveNs,
+			json.length() * 2L, () -> {
+				Map<String, Object> value = new GsonBuilder()
+					.setObjectToNumberStrategy(
+						com.google.gson.ToNumberPolicy.LONG_OR_DOUBLE)
+					.create().fromJson(json,
+						new com.google.gson.reflect.TypeToken<Map<String, Object>>()
+						{}.getType());
+				boolean accepted =
+					a.telemetry.acceptAuthoritative(value, receiveNs);
+				Map<String, Object> event = new LinkedHashMap<>();
+				event.put("eventType",
+					accepted ? "server_authoritative_telemetry"
+						: "server_telemetry_rejected");
+				event.put("monotonicNs", receiveNs);
+				event.put("serverPerformance", a.telemetry.snapshot(receiveNs));
+				event.put("source", "TRUSTED_NEGOTIATED_COMPONENT");
+				event.put("captureStage", receiveStage);
+				event.put("thread", receiveThread);
+				event.put("timestamp", receivedAt);
+				a.model.recordObservation(event);
+			});
+	}
+	
+	public void recordForensicWorldContext()
+	{
+		ForensicActivation a = activeForensics;
+		if(a == null || MC.level == null || !MC.isSameThread())
+			return;
+		a.dimension = MC.level.dimension().identifier().toString();
+		a.emitTickEvents(a.telemetry.passive.dimensionChanged(a.dimension,
+			System.nanoTime()), Map.of());
+	}
+	
+	public synchronized void onPlayConnectionCreated()
+	{
+		if(activeForensics != null && activeForensics.sawWorld)
+			endForensics("play_connection_replaced");
+		forensicsDisconnected = false;
+		syncForensicsState();
+	}
+	
+	public void closeForensicSession(String reason)
+	{
+		forensicsDisconnected = true;
+		endForensics(reason);
+	}
+	
+	public void shutdownLogging()
+	{
+		closeForensicSession("client_shutdown");
+		for(var writer : endingForensics)
+			try
+			{
+				if(!writer.await(10000))
+					LOGGER.error("Forensic shutdown flush timed out: {}",
+						writer.getFile());
+			}catch(InterruptedException e)
+			{
+				Thread.currentThread().interrupt();
+				break;
+			}
+		flushVerboseBuffers();
+		flushUdpBuffer();
+	}
+	
+	private void exportForensicsSummary()
+	{
+		ForensicActivation a = activeForensics;
+		if(a != null)
+			a.writer.requestSummary();
+		else
+			ChatUtils.message(
+				"PacketTools: each completed forensic session has its own automatic summary.");
+	}
+	
+	private final class ForensicActivation
+	{
+		final PacketDumper dumper = new PacketDumper(new PacketDecodeCoverage(),
+			new PacketFilter(), new EntityLifecycleTracker());
+		final ItemInventoryForensics model;
+		final net.wurstclient.other_features.packettools.ForensicSessionWriter writer;
+		final net.wurstclient.other_features.packettools.PacketTimingTracker timings;
+		final boolean fullContent;
+		final net.wurstclient.other_features.packettools.ServerPerformanceTelemetry telemetry =
+			new net.wurstclient.other_features.packettools.ServerPerformanceTelemetry();
+		volatile String dimension = "UNOBSERVED";
+		
+		void emitTickEvents(List<Map<String, Object>> events,
+			Map<String, Object> trace)
+		{
+			for(Map<String, Object> sample : events)
+			{
+				Map<String, Object> event = new LinkedHashMap<>(trace);
+				event.putAll(sample);
+				event.put("thread", Thread.currentThread().getName());
+				event.put("clientTick", diagnosticClientTick);
+				event.putIfAbsent("dimension", dimension);
+				submit("server_tick_telemetry",
+					((Number)event.get("monotonicNs")).longValue(), 4096,
+					() -> model.recordObservation(event));
+			}
+		}
+		
+		void attachSlotActions(Map<String, Object> timing,
+			net.wurstclient.other_features.packettools.ForensicSnapshots.State state)
+		{
+			Map<String, Object> matches = new LinkedHashMap<>();
+			synchronized(relatedActions)
+			{
+				for(String key : state.stacks().keySet())
+					if(key.startsWith("player_inventory:0:slot:"))
+					{
+						String raw = key.substring(key.lastIndexOf(':') + 1);
+						var action = relatedActions.get("slot:" + raw);
+						if(action != null)
+							matches.put(key, action);
+					}
+			}
+			if(!matches.isEmpty())
+			{
+				timing.put("slotInteractions", matches);
+				if("STATE_APPLIED".equals(timing.get("captureStage")))
+				{
+					List<Map<String, Object>> actual = new ArrayList<>();
+					matches.forEach((key, action) -> {
+						Map<String, Object> item =
+							new LinkedHashMap<>((Map<String, Object>)action);
+						ItemStack stack = state.stacks().get(key);
+						item.put("observedItemEmpty", stack.isEmpty());
+						item.put("observedBookPageCount", bookPages(stack));
+						actual.add(Map.copyOf(item));
+					});
+					timing.put("inventoryTimingItems", List.copyOf(actual));
+				}
+			}
+		}
+		
+		final Set<String> decoded = new LinkedHashSet<>();
+		final Map<String, Map<String, Object>> relatedActions =
+			new LinkedHashMap<>();
+		final List<java.lang.ref.WeakReference<Packet<?>>> nextTickPackets =
+			new ArrayList<>();
+		boolean sawWorld;
+		
+		ForensicActivation(ItemInventoryForensics model,
+			net.wurstclient.other_features.packettools.ForensicSessionWriter writer,
+			net.wurstclient.other_features.packettools.PacketTimingTracker timings,
+			boolean fullContent)
+		{
+			this.model = model;
+			this.writer = writer;
+			this.timings = timings;
+			this.fullContent = fullContent;
+			model.setServerPerformanceSummary(telemetry::summary);
+		}
+		
+		Map<String, Object> trace(Packet<?> packet, String direction,
+			String stage)
+		{
+			long tickBoundary = clientTickStartedNs;
+			long now = System.nanoTime();
+			Map<String, Object> context =
+				new LinkedHashMap<>(performanceContext);
+			context.putAll(actionContext.get());
+			String target = null;
+			if(packet instanceof net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket p)
+				target = "block:" + p.getPos().toShortString();
+			else if(packet instanceof net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket p)
+				target = "block:" + p.getPos().toShortString();
+			else if(packet instanceof net.minecraft.network.protocol.game.ClientboundContainerSetSlotPacket p)
+			{
+				context.put("containerId", p.getContainerId());
+				context.put("rawSlot", p.getSlot());
+				context.put("stateId", p.getStateId());
+				if(p.getContainerId() == 0)
+					target = "slot:" + p.getSlot();
+			}else if(packet instanceof net.minecraft.network.protocol.game.ClientboundSetPlayerInventoryPacket p)
+				target = "backing:" + p.slot();
+			if(target != null)
+			{
+				synchronized(relatedActions)
+				{
+					var action = relatedActions.get(target);
+					if(action != null)
+					{
+						context.put("relatedEarlierInteraction", action);
+						context.put("relationshipConfidence",
+							"SAME_TARGET_CANDIDATE_NOT_PROOF_OF_CAUSALITY");
+					}
+				}
+			}
+			Map<String, Object> observed = timings.observe(packet, direction,
+				stage, now, diagnosticClientTick, context);
+			if(tickBoundary > 0 && now >= tickBoundary)
+			{
+				observed.put("clientTickPhaseMs", (now - tickBoundary) / 1e6);
+				observed.put("clientTickBoundaryNs", tickBoundary);
+				observed.put("clientTickPhaseObservationNs", now);
+				observed.put("clientTickPhaseBasis",
+					"ELAPSED_SINCE_LAST_CLIENT_TICK_HEAD; NOT_SERVER_PHASE");
+			}
+			observed.put("dimension", dimension);
+			addInventoryTiming(packet, observed);
+			if(String.valueOf(observed.get("transactionId"))
+				.startsWith("BookBot.edit-")
+				|| observed.containsKey("relatedEarlierInteraction")
+				|| observed.containsKey("inventoryTimingItems"))
+				observed.put("serverPerformance", telemetry.snapshot(now));
+			return observed;
+		}
+		
+		void addInventoryTiming(Packet<?> packet, Map<String, Object> observed)
+		{
+			List<Map<String, Object>> items = new ArrayList<>();
+			if(packet instanceof net.minecraft.network.protocol.game.ClientboundContainerSetSlotPacket p)
+			{
+				String key = p.getContainerId() == 0 ? "slot:" + p.getSlot()
+					: p.getContainerId() == -2 ? "backing:" + p.getSlot()
+						: null;
+				if(key != null)
+					inventoryTimingItem(items, key, p.getItem());
+			}else if(packet instanceof net.minecraft.network.protocol.game.ClientboundSetPlayerInventoryPacket p)
+				inventoryTimingItem(items, "backing:" + p.slot(), p.contents());
+			else if(packet instanceof net.minecraft.network.protocol.game.ClientboundContainerSetContentPacket p
+				&& p.containerId() == 0)
+				for(int slot = 0; slot < p.items().size(); slot++)
+					inventoryTimingItem(items, "slot:" + slot,
+						p.items().get(slot));
+			if(!items.isEmpty())
+				observed.put("inventoryTimingItems", List.copyOf(items));
+		}
+		
+		void inventoryTimingItem(List<Map<String, Object>> items, String key,
+			ItemStack stack)
+		{
+			Map<String, Object> action;
+			synchronized(relatedActions)
+			{
+				action = relatedActions.get(key);
+			}
+			if(action == null)
+				return;
+			Map<String, Object> item = new LinkedHashMap<>(action);
+			item.put("suppliedItemEmpty", stack.isEmpty());
+			item.put("suppliedBookPageCount", bookPages(stack));
+			items.add(Map.copyOf(item));
+		}
+		
+		int bookPages(ItemStack stack)
+		{
+			var writable = stack.get(
+				net.minecraft.core.component.DataComponents.WRITABLE_BOOK_CONTENT);
+			if(writable != null)
+				return writable.pages().size();
+			var written = stack.get(
+				net.minecraft.core.component.DataComponents.WRITTEN_BOOK_CONTENT);
+			return written == null ? 0 : written.pages().size();
+		}
+		
+		void observe(Packet<?> packet, String direction, String stage)
+		{
+			Map<String, Object> event = trace(packet, direction, stage);
+			submit("packet_timing",
+				((Number)event.get("monotonicNs")).longValue(), 1024,
+				() -> model.recordObservation(event));
+		}
+		
+		void submit(String type, long now, long bytes, Runnable task)
+		{
+			writer.submit(type, now, bytes, task);
+		}
 	}
 	
 	private boolean lastVerboseState;
@@ -876,6 +1425,9 @@ public final class PacketToolsOtf extends OtherFeature
 	 */
 	public void onDisconnected()
 	{
+		// ### ADDED ### Preserve buffered packet observations across
+		// disconnects.
+		flushVerboseBuffers();
 		delayEnabled.setChecked(false);
 		lastDelayEnabledState = false;
 		delayedIncoming.clear();
@@ -951,6 +1503,7 @@ public final class PacketToolsOtf extends OtherFeature
 				break;
 			
 			delayedIncoming.removeFirst();
+			recordForensicTiming(queued.packet, "S2C", "RELEASED");
 			applyIncomingPacket(queued.packet);
 		}
 	}
@@ -974,6 +1527,7 @@ public final class PacketToolsOtf extends OtherFeature
 				break;
 			
 			delayedOutgoing.removeFirst();
+			recordForensicTiming(queued.packet, "C2S", "RELEASED");
 			bypassOutput.add(queued.packet);
 			connection.send(queued.packet);
 		}
@@ -988,7 +1542,14 @@ public final class PacketToolsOtf extends OtherFeature
 		@SuppressWarnings("unchecked")
 		Packet<ClientPacketListener> typed =
 			(Packet<ClientPacketListener>)packet;
-		typed.handle(connection);
+		recordForensicsPreApplication(packet);
+		try
+		{
+			typed.handle(connection);
+		}finally
+		{
+			recordForensicHandlerEnd(packet);
+		}
 	}
 	
 	private void logPacket(String name, String direction, Packet<?> packet)
@@ -1429,6 +1990,13 @@ public final class PacketToolsOtf extends OtherFeature
 	
 	private void appendVerboseLineLocked(String jsonLine, boolean human)
 	{
+		if(verboseJsonlBuffer.size() >= MAX_VERBOSE_BUFFER_LINES)
+		{
+			verboseJsonlBuffer.remove(0);
+			if(!verboseHumanBuffer.isEmpty())
+				verboseHumanBuffer.remove(0);
+			verboseDroppedRecords++;
+		}
 		verboseJsonlBuffer.add(jsonLine);
 		if(human)
 			verboseHumanBuffer.add(buildHumanReadable(jsonLine));
@@ -1470,14 +2038,9 @@ public final class PacketToolsOtf extends OtherFeature
 	
 	private void flushVerboseBuffers()
 	{
-		if(!loggingEnabled.isChecked())
-		{
-			discardVerboseBuffers();
-			return;
-		}
-		
 		ArrayList<String> jsonlBatch;
 		ArrayList<String> humanBatch;
+		long dropped = 0;
 		synchronized(verboseJsonlBuffer)
 		{
 			if(verboseJsonlBuffer.isEmpty())
@@ -1493,12 +2056,26 @@ public final class PacketToolsOtf extends OtherFeature
 		{
 			Path jsonlFile = getCurrentVerboseJsonlFile();
 			StringBuilder sb = new StringBuilder();
+			synchronized(verboseJsonlBuffer)
+			{
+				dropped = verboseDroppedRecords;
+				verboseDroppedRecords = 0;
+			}
+			if(dropped > 0)
+				sb.append(VERBOSE_GSON.toJson(Map.of("recordType",
+					"CAPTURE_LOSS", "droppedRecordCount", dropped, "buffer",
+					"verbose", "reason", "BUFFER_CAPACITY"))).append('\n');
 			for(String line : jsonlBatch)
 				sb.append(line).append('\n');
 			Files.writeString(jsonlFile, sb.toString(),
 				StandardOpenOption.CREATE, StandardOpenOption.APPEND);
 		}catch(IOException e)
 		{
+			synchronized(verboseJsonlBuffer)
+			{
+				verboseDroppedRecords += dropped;
+			}
+			requeueVerboseLines(jsonlBatch, null);
 			ChatUtils.error("PacketTools: failed writing verbose JSONL file.");
 		}
 		
@@ -1514,20 +2091,61 @@ public final class PacketToolsOtf extends OtherFeature
 					StandardOpenOption.CREATE, StandardOpenOption.APPEND);
 			}catch(IOException e)
 			{
+				requeueVerboseHumanLines(humanBatch);
 				ChatUtils.error(
 					"PacketTools: failed writing verbose human-readable file.");
 			}
 		}
 	}
 	
-	private void discardVerboseBuffers()
+	// ### ADDED ### Retain failed batches without holding the buffer lock
+	// during I/O.
+	private void requeueVerboseLines(List<String> jsonl, List<String> human)
 	{
 		synchronized(verboseJsonlBuffer)
 		{
-			verboseJsonlBuffer.clear();
-			verboseHumanBuffer.clear();
+			int overflow = Math.max(0, verboseJsonlBuffer.size() + jsonl.size()
+				- MAX_VERBOSE_BUFFER_LINES);
+			while(overflow > 0 && !verboseJsonlBuffer.isEmpty())
+			{
+				verboseJsonlBuffer.remove(verboseJsonlBuffer.size() - 1);
+				if(!verboseHumanBuffer.isEmpty())
+					verboseHumanBuffer.remove(verboseHumanBuffer.size() - 1);
+				verboseDroppedRecords++;
+				overflow--;
+			}
+			if(overflow > 0)
+			{
+				jsonl = new ArrayList<>(
+					jsonl.subList(0, Math.max(0, jsonl.size() - overflow)));
+				verboseDroppedRecords += overflow;
+			}
+			verboseJsonlBuffer.addAll(0, jsonl);
+			if(human != null)
+				verboseHumanBuffer.addAll(0, human);
 		}
-		verboseFlushTickCounter = 0;
+	}
+	
+	private void requeueVerboseHumanLines(List<String> human)
+	{
+		synchronized(verboseJsonlBuffer)
+		{
+			int overflow = Math.max(0, verboseHumanBuffer.size() + human.size()
+				- MAX_VERBOSE_BUFFER_LINES);
+			while(overflow > 0 && !verboseHumanBuffer.isEmpty())
+			{
+				verboseHumanBuffer.remove(verboseHumanBuffer.size() - 1);
+				verboseDroppedRecords++;
+				overflow--;
+			}
+			if(overflow > 0)
+			{
+				human = new ArrayList<>(
+					human.subList(0, Math.max(0, human.size() - overflow)));
+				verboseDroppedRecords += overflow;
+			}
+			verboseHumanBuffer.addAll(0, human);
+		}
 	}
 	
 	private String buildHumanReadable(String jsonLine)

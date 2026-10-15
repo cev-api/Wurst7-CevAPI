@@ -29,6 +29,8 @@ public final class WurstInitializer implements ModInitializer
 				"WurstInitializer.onInitialize() ran twice!");
 		
 		WurstClient.INSTANCE.initialize();
+		net.wurstclient.other_features.packettools.telemetry.TelemetryClient
+			.initialize();
 		try
 		{
 			UiUtils.init();

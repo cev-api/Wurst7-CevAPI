@@ -65,6 +65,8 @@ public abstract class ConnectionMixin
 		Packet<?> packet, CallbackInfo ci)
 	{
 		Connection connection = (Connection)(Object)this;
+		WurstClient.INSTANCE.getOtfs().packetToolsOtf
+			.recordForensicTiming(packet, "S2C", "INBOUND_CONNECTION");
 		UiUtilsServerFingerprintCollector.onIncomingPacket(connection, packet);
 		VanillaSpoofOtf.onIncomingPacket(connection, packet);
 	}
@@ -83,6 +85,9 @@ public abstract class ConnectionMixin
 		
 		if(event.isCancelled())
 			ci.cancel();
+		else
+			WurstClient.INSTANCE.getOtfs().packetToolsOtf
+				.recordForensicTiming(packet, "S2C", "CLIENT_DISPATCH");
 	}
 	
 	// These mixins target the second "send" method. The one with two arguments.
@@ -92,6 +97,8 @@ public abstract class ConnectionMixin
 		at = @At("HEAD"))
 	public Packet<?> modifyPacket(Packet<?> packet)
 	{
+		WurstClient.INSTANCE.getOtfs().packetToolsOtf
+			.recordForensicTiming(packet, "C2S", "SEND_REQUESTED");
 		if(MovementPacketCompat.isSendingSyntheticTickEnd())
 			return packet;
 		
@@ -181,6 +188,8 @@ public abstract class ConnectionMixin
 		
 		if(NbtFilterHack.shouldCancelOutgoingPacket(packet))
 		{
+			WurstClient.INSTANCE.getOtfs().packetToolsOtf
+				.recordForensicTiming(packet, "C2S", "CANCELLED_NBT_FILTER");
 			ci.cancel();
 			return;
 		}
@@ -191,6 +200,9 @@ public abstract class ConnectionMixin
 			if(event.isCancelled())
 			{
 				events.remove(event);
+				WurstClient.INSTANCE.getOtfs().packetToolsOtf
+					.recordForensicTiming(packet, "C2S",
+						"CANCELLED_OUTPUT_EVENT");
 				ci.cancel();
 				return;
 			}
@@ -199,11 +211,27 @@ public abstract class ConnectionMixin
 		}
 	}
 	
+	@Inject(
+		method = "send(Lnet/minecraft/network/protocol/Packet;Lio/netty/channel/ChannelFutureListener;Z)V",
+		at = @At("HEAD"))
+	private void wurst$passed(Packet<?> packet, ChannelFutureListener listener,
+		boolean flush, CallbackInfo ci)
+	{
+		WurstClient.INSTANCE.getOtfs().packetToolsOtf
+			.recordForensicTiming(packet, "C2S", "SEND_CHECKS_PASSED");
+	}
+	
 	@Inject(method = "disconnect(Lnet/minecraft/network/chat/Component;)V",
 		at = @At("HEAD"))
 	private void wurst$resetMovementPacketCompat(CallbackInfo ci)
 	{
 		Connection connection = (Connection)(Object)this;
+		if(connection
+			.getPacketListener() instanceof net.minecraft.client.multiplayer.ClientPacketListener
+			&& connection.getPacketListener() == net.minecraft.client.Minecraft
+				.getInstance().getConnection())
+			WurstClient.INSTANCE.getOtfs().packetToolsOtf
+				.closeForensicSession("connection_disconnect");
 		MovementPacketCompat.reset(connection);
 		VanillaSpoofOtf.onDisconnect(connection);
 	}
@@ -215,8 +243,108 @@ public abstract class ConnectionMixin
 		net.minecraft.network.DisconnectionDetails details, CallbackInfo ci)
 	{
 		Connection connection = (Connection)(Object)this;
+		if(connection
+			.getPacketListener() instanceof net.minecraft.client.multiplayer.ClientPacketListener
+			&& connection.getPacketListener() == net.minecraft.client.Minecraft
+				.getInstance().getConnection())
+			WurstClient.INSTANCE.getOtfs().packetToolsOtf
+				.closeForensicSession("connection_disconnect");
 		MovementPacketCompat.reset(connection);
 		VanillaSpoofOtf.onDisconnect(connection);
+	}
+	
+	@com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation(
+		method = "doSendPacket",
+		at = @At(value = "INVOKE",
+			target = "Lio/netty/channel/Channel;writeAndFlush(Ljava/lang/Object;)Lio/netty/channel/ChannelFuture;"))
+	private io.netty.channel.ChannelFuture wurst$writeFlush(
+		io.netty.channel.Channel channel, Object message,
+		com.llamalad7.mixinextras.injector.wrapoperation.Operation<io.netty.channel.ChannelFuture> original)
+	{
+		var callback = WurstClient.INSTANCE.getOtfs().packetToolsOtf
+			.recordForensicTransportSubmitted((Packet<?>)message, true);
+		var future = original.call(channel, message);
+		future.addListener(done -> callback.accept(done.isSuccess(),
+			done.cause() == null ? null : done.cause().toString()));
+		return future;
+	}
+	
+	@com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation(
+		method = "doSendPacket",
+		at = @At(value = "INVOKE",
+			target = "Lio/netty/channel/Channel;write(Ljava/lang/Object;)Lio/netty/channel/ChannelFuture;"))
+	private io.netty.channel.ChannelFuture wurst$write(
+		io.netty.channel.Channel channel, Object message,
+		com.llamalad7.mixinextras.injector.wrapoperation.Operation<io.netty.channel.ChannelFuture> original)
+	{
+		var callback = WurstClient.INSTANCE.getOtfs().packetToolsOtf
+			.recordForensicTransportSubmitted((Packet<?>)message, true);
+		var future = original.call(channel, message);
+		future.addListener(done -> callback.accept(done.isSuccess(),
+			done.cause() == null ? null : done.cause().toString()));
+		return future;
+	}
+	
+	@com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation(
+		method = "doSendPacket",
+		at = @At(value = "INVOKE",
+			target = "Lio/netty/channel/Channel;writeAndFlush(Ljava/lang/Object;Lio/netty/channel/ChannelPromise;)Lio/netty/channel/ChannelFuture;"))
+	private io.netty.channel.ChannelFuture wurst$voidWriteFlush(
+		io.netty.channel.Channel channel, Object message,
+		io.netty.channel.ChannelPromise promise,
+		com.llamalad7.mixinextras.injector.wrapoperation.Operation<io.netty.channel.ChannelFuture> original)
+	{
+		var callback = WurstClient.INSTANCE.getOtfs().packetToolsOtf
+			.recordForensicTransportSubmitted((Packet<?>)message,
+				!promise.isVoid());
+		var future = original.call(channel, message, promise);
+		if(!promise.isVoid())
+			future.addListener(done -> callback.accept(done.isSuccess(),
+				done.cause() == null ? null : done.cause().toString()));
+		return future;
+	}
+	
+	@com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation(
+		method = "doSendPacket",
+		at = @At(value = "INVOKE",
+			target = "Lio/netty/channel/Channel;write(Ljava/lang/Object;Lio/netty/channel/ChannelPromise;)Lio/netty/channel/ChannelFuture;"))
+	private io.netty.channel.ChannelFuture wurst$voidWrite(
+		io.netty.channel.Channel channel, Object message,
+		io.netty.channel.ChannelPromise promise,
+		com.llamalad7.mixinextras.injector.wrapoperation.Operation<io.netty.channel.ChannelFuture> original)
+	{
+		var callback = WurstClient.INSTANCE.getOtfs().packetToolsOtf
+			.recordForensicTransportSubmitted((Packet<?>)message,
+				!promise.isVoid());
+		var future = original.call(channel, message, promise);
+		if(!promise.isVoid())
+			future.addListener(done -> callback.accept(done.isSuccess(),
+				done.cause() == null ? null : done.cause().toString()));
+		return future;
+	}
+	
+	@com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation(
+		method = "genericsFtw",
+		at = @At(value = "INVOKE",
+			target = "Lnet/minecraft/network/protocol/Packet;handle(Lnet/minecraft/network/PacketListener;)V"))
+	private static void wurst$directHandler(Packet packet,
+		net.minecraft.network.PacketListener listener,
+		com.llamalad7.mixinextras.injector.wrapoperation.Operation<Void> original)
+	{
+		if(!net.minecraft.client.Minecraft.getInstance().isSameThread())
+		{
+			original.call(packet, listener);
+			return;
+		}
+		var tools = WurstClient.INSTANCE.getOtfs().packetToolsOtf;
+		tools.recordForensicsPreApplication(packet);
+		try
+		{
+			original.call(packet, listener);
+		}finally
+		{
+			tools.recordForensicHandlerEnd(packet);
+		}
 	}
 	
 	private ConnectionPacketOutputEvent getEvent(Packet<?> packet)

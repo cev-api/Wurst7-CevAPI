@@ -448,6 +448,25 @@ public abstract class MultiPlayerGameModeMixin implements IMultiPlayerGameMode
 		
 	}
 	
+	@com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod(
+		method = "useItemOn")
+	private InteractionResult wurst$timeInteraction(LocalPlayer player,
+		InteractionHand hand, BlockHitResult hit,
+		com.llamalad7.mixinextras.injector.wrapoperation.Operation<InteractionResult> original)
+	{
+		var tools = WurstClient.INSTANCE.getOtfs().packetToolsOtf;
+		var previous = tools.beginForensicInteraction(hit, hand);
+		try
+		{
+			var result = original.call(player, hand, hit);
+			tools.recordForensicInteractionResult(result);
+			return result;
+		}finally
+		{
+			tools.endForensicInteraction(previous);
+		}
+	}
+	
 	@Shadow
 	public abstract InteractionResult useItemOn(LocalPlayer player,
 		InteractionHand hand, BlockHitResult hitResult);
