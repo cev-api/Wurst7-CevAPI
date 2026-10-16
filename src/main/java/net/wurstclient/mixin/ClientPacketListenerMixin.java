@@ -438,6 +438,7 @@ public abstract class ClientPacketListenerMixin
 		ClientboundPlayerPositionPacket packet, CallbackInfo ci)
 	{
 		WurstClient.INSTANCE.getHax().autoFlyHack.onPathServerCorrection();
+		WurstClient.INSTANCE.getHax().noWebHack.onServerPositionApplied();
 	}
 	
 	@Inject(method = "handleSetTime", at = @At("TAIL"))

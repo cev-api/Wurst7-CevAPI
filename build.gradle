@@ -740,6 +740,26 @@ tasks.named("test") { exclude "net/wurstclient/other_features/packettools/Server
 tasks.named("check") { dependsOn tasks.named("serverTelemetryRegressionTest") }
 
 
+tasks.register("banHistoryRegressionTest", JavaExec) {
+ dependsOn tasks.named("testClasses")
+ classpath = sourceSets.test.runtimeClasspath
+ mainClass = "net.wurstclient.util.BanHistoryRegressionTest"
+}
+tasks.named("test") { exclude "net/wurstclient/util/BanHistoryRegressionTest*" }
+tasks.named("check") { dependsOn tasks.named("banHistoryRegressionTest") }
+
+tasks.register("noWebMovementRegressionTest", JavaExec) {
+ dependsOn tasks.named("testClasses")
+ classpath = sourceSets.test.runtimeClasspath
+ mainClass = "net.wurstclient.hacks.NoWebMovementRegressionTest"
+}
+tasks.named("test") {
+ exclude "net/wurstclient/hacks/NoWebMovementRegressionTest*"
+}
+tasks.named("check") {
+ dependsOn tasks.named("noWebMovementRegressionTest")
+}
+
 tasks.register("autoEatCombatRegressionTest", JavaExec) {
  dependsOn tasks.named("testClasses")
  classpath = sourceSets.test.runtimeClasspath

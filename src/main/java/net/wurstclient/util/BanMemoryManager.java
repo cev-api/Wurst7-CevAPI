@@ -15,7 +15,11 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Base64;
 import java.util.List;
 import java.util.Locale;
@@ -27,6 +31,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.client.multiplayer.resolver.ServerAddress;
 import net.minecraft.network.chat.Component;
@@ -59,6 +64,161 @@ public final class BanMemoryManager
 	public BanMemoryManager(Path folder)
 	{
 		this.folder = folder;
+	}
+	
+	public synchronized void loadHistory()
+	{
+		if(!Files.isDirectory(folder))
+			return;
+		try(var paths = Files.list(folder))
+		{
+			for(Path path : paths.filter(p -> p.toString().endsWith(".json"))
+				.toList())
+				try
+				{
+					ServerRecord record = GSON.fromJson(Files.readString(path),
+						ServerRecord.class);
+					if(record != null && record.server != null
+						&& !record.server.isBlank())
+						load(record.server);
+				}catch(IOException | RuntimeException e)
+				{
+					System.err.println("Couldn't read ban history file "
+						+ path.getFileName() + ".");
+				}
+		}catch(IOException e)
+		{
+			System.err.println("Couldn't read ban history folder.");
+		}
+	}
+	
+	public synchronized List<BanHistoryEntry> getAccountBanHistory(String name)
+	{
+		if(name == null || name.isBlank())
+			return List.of();
+		List<BanHistoryEntry> result = new ArrayList<>();
+		for(ServerRecord record : loaded.values())
+			for(AccountRecord account : record.accounts)
+				if(account != null && account.accountBanned
+					&& name.equalsIgnoreCase(account.name))
+					result.add(new BanHistoryEntry(record.server,
+						"IP".equals(account.lastBanType)
+							? "IP ban (account used)" : "Account ban",
+						account.name, "", account.lastBanReason,
+						account.lastBanAt > 0 ? account.lastBanAt
+							: account.lastSeen));
+		return sortedHistory(result);
+	}
+	
+	public synchronized List<BanHistoryEntry> getProxyBanHistory(
+		SocksProxy proxy)
+	{
+		if(proxy == null)
+			return getDirectBanHistory();
+		String key = proxyKey(proxy);
+		String endpoint = proxy.getHost() + ":" + proxy.getPort();
+		String legacyKey = "proxy|" + proxy.getProtocol().name() + "|"
+			+ proxy.getHost().toLowerCase(Locale.ROOT) + "|" + proxy.getPort();
+		String legacyLabel =
+			proxy.getProtocol().getDisplayName() + " proxy exit IP " + endpoint;
+		PublicIpResult cached = publicIpCache
+			.get(proxy.getProtocol().name() + "|" + proxy.getStorageId());
+		List<BanHistoryEntry> result = new ArrayList<>();
+		for(ServerRecord record : loaded.values())
+			for(IdentityRecord identity : record.identities)
+				if(identity != null && identity.identityBanned
+					&& ((identity.proxyKeys == null
+						|| identity.proxyKeys.isEmpty())
+						&& (legacyKey.equalsIgnoreCase(identity.identity)
+							|| legacyLabel.equalsIgnoreCase(identity.label))
+						|| identity.proxyKeys != null && identity.proxyKeys
+							.stream().anyMatch(key::equalsIgnoreCase)
+						|| cached != null && cached.ip != null
+							&& ("ip|" + cached.ip).equals(identity.identity)))
+					result.add(identityHistory(record, identity));
+		return sortedHistory(result);
+	}
+	
+	public synchronized List<BanHistoryEntry> getDirectBanHistory()
+	{
+		List<BanHistoryEntry> result = new ArrayList<>();
+		for(ServerRecord record : loaded.values())
+			for(IdentityRecord identity : record.identities)
+				if(identity != null && identity.identityBanned
+					&& (identity.usedDirect
+						|| DIRECT_IDENTITY.equals(identity.identity)
+						|| "public IP".equals(identity.label)
+						|| "direct IP (unresolved)".equals(identity.label)))
+					result.add(identityHistory(record, identity));
+		return sortedHistory(result);
+	}
+	
+	private static BanHistoryEntry identityHistory(ServerRecord record,
+		IdentityRecord identity)
+	{
+		String label =
+			identity.identity != null && identity.identity.startsWith("ip|")
+				? identity.identity.substring(3)
+				: safe(identity.label, "Unknown IP");
+		return new BanHistoryEntry(record.server,
+			hasExplicitIpMarker(identity.lastBanReason) ? "IP ban"
+				: "Used during account ban",
+			safe(identity.bannedByAccount, "Unknown account"), label,
+			identity.lastBanReason,
+			identity.lastBanAt > 0 ? identity.lastBanAt : identity.lastSeen);
+	}
+	
+	private static List<BanHistoryEntry> sortedHistory(
+		List<BanHistoryEntry> entries)
+	{
+		entries.sort(Comparator.comparingLong(BanHistoryEntry::timestamp)
+			.reversed().thenComparing(BanHistoryEntry::server));
+		return List.copyOf(entries);
+	}
+	
+	public static List<Component> historyTooltip(List<BanHistoryEntry> history)
+	{
+		List<Component> lines = new ArrayList<>();
+		lines.add(Component.literal("Recorded ban history")
+			.withStyle(ChatFormatting.GOLD));
+		if(history.isEmpty())
+			lines.add(Component.literal("No recorded bans.")
+				.withStyle(ChatFormatting.GRAY));
+		DateTimeFormatter dates = DateTimeFormatter
+			.ofPattern("yyyy-MM-dd HH:mm").withZone(ZoneId.systemDefault());
+		for(BanHistoryEntry entry : history.stream().limit(8).toList())
+		{
+			lines.add(Component.literal(entry.server())
+				.withStyle(ChatFormatting.RED));
+			lines.add(Component.literal(entry.type() + " — " + entry.account())
+				.withStyle(ChatFormatting.YELLOW));
+			if(!entry.identity().isBlank())
+				lines.add(Component.literal("Address: " + entry.identity())
+					.withStyle(ChatFormatting.GRAY));
+			String reason = safe(entry.reason(), "Reason not recorded")
+				.replaceAll("[\\r\\n\\t]+", " ");
+			if(reason.length() > 120)
+				reason = reason.substring(0, 117) + "...";
+			lines.add(Component.literal(reason).withStyle(ChatFormatting.GRAY));
+			if(entry.timestamp() > 0)
+				lines.add(Component
+					.literal(
+						dates.format(Instant.ofEpochMilli(entry.timestamp())))
+					.withStyle(ChatFormatting.DARK_GRAY));
+		}
+		if(history.size() > 8)
+			lines.add(
+				Component.literal("+ " + (history.size() - 8) + " more records")
+					.withStyle(ChatFormatting.GRAY));
+		return lines;
+	}
+	
+	static String proxyKey(SocksProxy proxy)
+	{
+		return fileName(proxy.getProtocol().name() + "\u0000"
+			+ proxy.getHost().toLowerCase(Locale.ROOT) + "\u0000"
+			+ proxy.getPort() + "\u0000" + proxy.getUsername() + "\u0000"
+			+ proxy.getPassword());
 	}
 	
 	public synchronized ConnectionContext createContext(ServerData server,
@@ -105,7 +265,8 @@ public final class BanMemoryManager
 		String host = address.getHost().toLowerCase(Locale.ROOT);
 		String serverKey = host + ":" + address.getPort();
 		return new ConnectionContext(serverKey, host + ":" + address.getPort(),
-			accountName, accountUuid, identity, identityLabel);
+			accountName, accountUuid, identity, identityLabel,
+			proxy == null ? "" : proxyKey(proxy));
 	}
 	
 	private String resolvePublicIp(SocksProxy proxy, String cacheKey)
@@ -293,8 +454,10 @@ public final class BanMemoryManager
 		long now = System.currentTimeMillis();
 		account.lastBanReason = text;
 		account.lastBanType = type.name();
+		account.lastBanAt = now;
 		account.lastSeen = now;
 		identity.lastBanReason = text;
+		identity.lastBanAt = now;
 		identity.lastSeen = now;
 		
 		// A ban taints both the account and the exact public identity used.
@@ -400,12 +563,21 @@ public final class BanMemoryManager
 		ConnectionContext context)
 	{
 		IdentityRecord identity = findIdentity(record, context.identity());
-		if(identity != null)
-			return identity;
-		identity = new IdentityRecord();
-		identity.identity = context.identity();
-		identity.label = context.identityLabel();
-		record.identities.add(identity);
+		if(identity == null)
+		{
+			identity = new IdentityRecord();
+			identity.identity = context.identity();
+			identity.label = context.identityLabel();
+			record.identities.add(identity);
+		}
+		if(identity.proxyKeys == null)
+			identity.proxyKeys = new ArrayList<>();
+		if(!context.proxyKey().isBlank()
+			&& !identity.proxyKeys.contains(context.proxyKey()))
+			identity.proxyKeys.add(context.proxyKey());
+		if(DIRECT_IDENTITY.equals(context.identity())
+			|| "public IP".equals(context.identityLabel()))
+			identity.usedDirect = true;
 		return identity;
 	}
 	
@@ -490,7 +662,19 @@ public final class BanMemoryManager
 	
 	public record ConnectionContext(String serverKey, String serverLabel,
 		String accountName, String accountUuid, String identity,
-		String identityLabel)
+		String identityLabel, String proxyKey)
+	{
+		public ConnectionContext(String serverKey, String serverLabel,
+			String accountName, String accountUuid, String identity,
+			String identityLabel)
+		{
+			this(serverKey, serverLabel, accountName, accountUuid, identity,
+				identityLabel, "");
+		}
+	}
+	
+	public record BanHistoryEntry(String server, String type, String account,
+		String identity, String reason, long timestamp)
 	{}
 	
 	public record Warning(String message)
@@ -517,6 +701,7 @@ public final class BanMemoryManager
 		boolean accountBanned;
 		String lastBanType;
 		String lastBanReason;
+		long lastBanAt;
 		long lastSeen;
 	}
 	
@@ -524,12 +709,15 @@ public final class BanMemoryManager
 	{
 		String identity = "";
 		String label = "";
+		List<String> proxyKeys = new ArrayList<>();
+		boolean usedDirect;
 		boolean identityBanned;
 		String bannedByAccount;
 		String bannedByAccountUuid;
 		String usedDuringBanBy;
 		String usedDuringBanByUuid;
 		String lastBanReason;
+		long lastBanAt;
 		long lastSeen;
 	}
 	

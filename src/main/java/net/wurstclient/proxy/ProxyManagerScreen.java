@@ -18,6 +18,7 @@ import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.function.Consumer;
 
 import net.minecraft.ChatFormatting;
@@ -37,6 +38,7 @@ import net.wurstclient.clickgui.widgets.MultiSelectEntryListWidget;
 import net.wurstclient.mixinterface.IMultiplayerTitleRefresher;
 import net.wurstclient.mixin.ScreenAccessor;
 import net.wurstclient.util.MultiProcessingUtils;
+import net.wurstclient.util.BanMemoryManager;
 
 public final class ProxyManagerScreen extends Screen
 {
@@ -78,6 +80,7 @@ public final class ProxyManagerScreen extends Screen
 	@Override
 	protected void init()
 	{
+		WurstClient.INSTANCE.getBanMemoryManager().loadHistory();
 		int x = width / 2 - PROXY_LIST_WIDTH / 2;
 		proxyBox = new EditBox(font, x, 46, PROXY_LIST_WIDTH, 20,
 			Component.literal("host:port or socks5://host:port"));
@@ -375,6 +378,26 @@ public final class ProxyManagerScreen extends Screen
 		
 		for(Renderable drawable : renderables)
 			drawable.extractRenderState(context, mouseX, mouseY, partialTicks);
+		
+		SocksProxy hoveredProxy;
+		if(proxyList.isMouseOver(mouseX, mouseY)
+			&& proxyList.getChildAt(mouseX, mouseY)
+				.orElse(null) instanceof ProxyEntry entry)
+			hoveredProxy = entry.proxy;
+		else if(mouseY >= 24 && mouseY < 34
+			&& Math.abs(mouseX - width / 2) <= font.width(selectedText) / 2)
+			hoveredProxy = activeProxy;
+		else
+			return;
+		List<Component> tooltip = new ArrayList<>();
+		tooltip.add(Component.literal(hoveredProxy == null
+			? "Direct connection IP history" : hoveredProxy.getDisplayName()));
+		tooltip.addAll(BanMemoryManager.historyTooltip(WurstClient.INSTANCE
+			.getBanMemoryManager().getProxyBanHistory(hoveredProxy)));
+		int tooltipWidth = Math.max(100, Math.min(360, width - 24));
+		context.setTooltipForNextFrame(font, tooltip.stream()
+			.flatMap(line -> font.split(line, tooltipWidth).stream()).toList(),
+			mouseX, mouseY);
 	}
 	
 	@Override

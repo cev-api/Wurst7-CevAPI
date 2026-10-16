@@ -140,6 +140,7 @@ public final class AltManagerScreen extends Screen
 	@Override
 	public void init()
 	{
+		WurstClient.INSTANCE.getBanMemoryManager().loadHistory();
 		autoCheckCancelled = false;
 		listGui = new ListGui(minecraft, this, altManager.getList());
 		addWidget(listGui);
@@ -2007,18 +2008,8 @@ public final class AltManagerScreen extends Screen
 		if(hoveredEntry == null)
 			return;
 		
-		int hoveredIndex = listGui.children().indexOf(hoveredEntry);
-		int itemX = mouseX - listGui.getRowLeft();
-		int itemY = mouseY - listGui.getRowTop(hoveredIndex);
-		
-		if(itemX < 31 || itemY < 15 || itemY >= 25)
-			return;
-		
 		Alt alt = hoveredEntry.alt;
 		ArrayList<Component> tooltip = new ArrayList<>();
-		
-		if(itemX >= 31 + font.width(hoveredEntry.getBottomText()))
-			return;
 		
 		if(alt.isCracked())
 			addTooltip(tooltip, "cracked");
@@ -2049,7 +2040,14 @@ public final class AltManagerScreen extends Screen
 		else
 			tooltip.add(Component.literal("Last validated: never"));
 		
-		context.setComponentTooltipForNextFrame(font, tooltip, mouseX, mouseY);
+		var memory = WurstClient.INSTANCE.getBanMemoryManager();
+		tooltip.add(Component.empty());
+		tooltip.addAll(net.wurstclient.util.BanMemoryManager
+			.historyTooltip(memory.getAccountBanHistory(alt.getName())));
+		int tooltipWidth = Math.max(100, Math.min(360, width - 24));
+		context.setTooltipForNextFrame(font, tooltip.stream()
+			.flatMap(line -> font.split(line, tooltipWidth).stream()).toList(),
+			mouseX, mouseY);
 	}
 	
 	private void addTooltip(ArrayList<Component> tooltip, String trKey)
