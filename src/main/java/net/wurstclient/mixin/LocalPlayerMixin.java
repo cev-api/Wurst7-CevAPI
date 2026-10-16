@@ -14,6 +14,9 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
+
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
@@ -21,9 +24,11 @@ import com.mojang.authlib.GameProfile;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.Holder;
+import net.minecraft.network.protocol.Packet;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
@@ -53,6 +58,15 @@ public abstract class LocalPlayerMixin extends AbstractClientPlayer
 	
 	@Shadow
 	private int positionReminder;
+	
+	@Shadow
+	private double xLast;
+	
+	@Shadow
+	private double yLast;
+	
+	@Shadow
+	private double zLast;
 	
 	private LocalPlayerMixin(WurstClient wurst, ClientLevel world,
 		GameProfile profile)
@@ -112,6 +126,17 @@ public abstract class LocalPlayerMixin extends AbstractClientPlayer
 	private void onSendPositionTAIL(CallbackInfo ci)
 	{
 		EventManager.fire(PostMotionEvent.INSTANCE);
+	}
+	
+	@WrapOperation(method = "sendPosition()V",
+		at = @At(value = "INVOKE",
+			target = "Lnet/minecraft/client/multiplayer/ClientPacketListener;send(Lnet/minecraft/network/protocol/Packet;)V"))
+	private void noWeb$sendMovement(ClientPacketListener connection,
+		Packet<?> packet, Operation<Void> original)
+	{
+		WurstClient.INSTANCE.getHax().noWebHack
+			.sendIntermediateMovement(connection, packet, xLast, yLast, zLast);
+		original.call(connection, packet);
 	}
 	
 	@ModifyVariable(

@@ -15,6 +15,15 @@ public final class OfflineProtocolCompatRegressionTest
 {
 	public static void main(String[] args) throws Exception
 	{
+		check(MovementPacketCompat.supportsPositionBursts(776, 777),
+			"NoWeb subdivision supports translated 26.2 connections");
+		check(MovementPacketCompat.supportsPositionBursts(777, 777),
+			"Native 26.3 uses existing tick-boundary scheduling and must not disable NoWeb subdivision");
+		check(
+			!MovementPacketCompat.supportsPositionBursts(null, 777)
+				&& !MovementPacketCompat.supportsPositionBursts(-1, 777)
+				&& !MovementPacketCompat.supportsPositionBursts(778, 777),
+			"Unknown and newer protocols must not enable unverified subdivision");
 		// The native client is 26.3 (777); the translated server is 26.2 (776).
 		DataInputStream input =
 			new DataInputStream(new ByteArrayInputStream(OfflineProtocolCompat

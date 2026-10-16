@@ -78,6 +78,7 @@ public final class ProxyManagerScreen extends Screen
 	@Override
 	protected void init()
 	{
+		WurstClient.INSTANCE.getBanMemoryManager().loadHistory();
 		int x = width / 2 - PROXY_LIST_WIDTH / 2;
 		proxyBox = new EditBox(font, x, 46, PROXY_LIST_WIDTH, 20,
 			Component.literal("host:port or socks5://host:port"));
