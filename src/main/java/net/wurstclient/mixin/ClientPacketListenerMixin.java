@@ -114,7 +114,7 @@ public abstract class ClientPacketListenerMixin
 		WurstClient.INSTANCE.getOtfs().packetToolsOtf
 			.recordForensicsPostApplication(packet);
 		WurstClient.INSTANCE.getHax().bookBotHack
-			.onInventoryPacketApplied(packet);
+			.onInventoryPacketApplied(packet, this);
 	}
 	
 	@Inject(method = "handleContainerSetSlot", at = @At("HEAD"))
@@ -132,7 +132,7 @@ public abstract class ClientPacketListenerMixin
 		WurstClient.INSTANCE.getOtfs().packetToolsOtf
 			.recordForensicsPostApplication(packet);
 		WurstClient.INSTANCE.getHax().bookBotHack
-			.onInventoryPacketApplied(packet);
+			.onInventoryPacketApplied(packet, this);
 	}
 	
 	@Inject(method = "handleSetPlayerInventory", at = @At("TAIL"))
@@ -143,7 +143,7 @@ public abstract class ClientPacketListenerMixin
 		WurstClient.INSTANCE.getOtfs().packetToolsOtf
 			.recordForensicsPostApplication(packet);
 		WurstClient.INSTANCE.getHax().bookBotHack
-			.onInventoryPacketApplied(packet);
+			.onInventoryPacketApplied(packet, this);
 	}
 	
 	@Inject(method = "handleBlockEntityData", at = @At("TAIL"))
@@ -153,7 +153,8 @@ public abstract class ClientPacketListenerMixin
 	{
 		WurstClient.INSTANCE.getOtfs().packetToolsOtf
 			.recordForensicsPostApplication(packet);
-		WurstClient.INSTANCE.getHax().bookBotHack.onShelfDataApplied(packet);
+		WurstClient.INSTANCE.getHax().bookBotHack.onShelfDataApplied(packet,
+			this);
 	}
 	
 	@Inject(method = "handleContainerContent", at = @At("HEAD"))
@@ -445,6 +446,7 @@ public abstract class ClientPacketListenerMixin
 	private void wurst$onMiningServerTime(ClientboundSetTimePacket packet,
 		CallbackInfo ci)
 	{
+		WurstClient.INSTANCE.getHax().bookBotHack.onServerTime(this);
 		MiningStateCompat.onServerTime((ClientPacketListener)(Object)this,
 			packet.gameTime());
 	}
