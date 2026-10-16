@@ -25,9 +25,11 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.Holder;
+import net.minecraft.network.protocol.Packet;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
@@ -58,6 +60,15 @@ public abstract class LocalPlayerMixin extends AbstractClientPlayer
 	
 	@Shadow
 	private int positionReminder;
+	
+	@Shadow
+	private double xLast;
+	
+	@Shadow
+	private double yLast;
+	
+	@Shadow
+	private double zLast;
 	
 	private LocalPlayerMixin(WurstClient wurst, ClientLevel world,
 		GameProfile profile)
@@ -168,6 +179,17 @@ public abstract class LocalPlayerMixin extends AbstractClientPlayer
 	private void onSendMovementPacketsTAIL(CallbackInfo ci)
 	{
 		EventManager.fire(PostMotionEvent.INSTANCE);
+	}
+	
+	@WrapOperation(method = "sendPosition()V",
+		at = @At(value = "INVOKE",
+			target = "Lnet/minecraft/client/multiplayer/ClientPacketListener;send(Lnet/minecraft/network/protocol/Packet;)V"))
+	private void noWeb$sendMovement(ClientPacketListener connection,
+		Packet<?> packet, Operation<Void> original)
+	{
+		WurstClient.INSTANCE.getHax().noWebHack
+			.sendIntermediateMovement(connection, packet, xLast, yLast, zLast);
+		original.call(connection, packet);
 	}
 	
 	@ModifyVariable(
