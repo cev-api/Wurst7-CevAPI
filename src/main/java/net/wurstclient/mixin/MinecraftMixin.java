@@ -257,6 +257,7 @@ public abstract class MinecraftMixin
 	private void onDisconnect(net.minecraft.client.gui.screens.Screen screen,
 		boolean transferring, boolean keepResourcePacks, CallbackInfo ci)
 	{
+		WurstClient.INSTANCE.getHax().bookBotHack.onDisconnected();
 		net.wurstclient.util.MiningStateCompat.reset();
 	}
 	

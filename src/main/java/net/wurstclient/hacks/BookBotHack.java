@@ -59,6 +59,13 @@ import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
 import net.wurstclient.settings.TextFieldSetting;
 import net.wurstclient.util.ChatUtils;
+import net.wurstclient.util.BookBotActivation;
+import net.wurstclient.util.BookBotShelfWindow;
+import net.wurstclient.util.BookBotInventoryPlan;
+import net.minecraft.network.HashedStack;
+import net.minecraft.network.protocol.game.ServerboundContainerClickPacket;
+import net.minecraft.world.inventory.ContainerInput;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import net.wurstclient.util.InventoryUtils;
 import net.wurstclient.util.ShelfTransferTargeting;
 import net.wurstclient.util.chunk.ChunkUtils;
@@ -145,6 +152,11 @@ public final class BookBotHack extends Hack implements UpdateListener
 			ShelfTransferStrategy.values(),
 			ShelfTransferStrategy.CONFIRMED_CONTENT);
 	
+	private final CheckboxSetting shelfWindow = new CheckboxSetting(
+		"ShelfWindow",
+		"Times book writing so Shelf placement is predicted to occur 250–700 ms into the server's periodic update cycle.",
+		false);
+	
 	private final CheckboxSetting autoCraft = new CheckboxSetting("Auto-craft",
 		"When you run out of book & quills, craft one from a book, a feather"
 			+ " and an ink sac in your inventory.",
@@ -184,6 +196,28 @@ public final class BookBotHack extends Hack implements UpdateListener
 			}
 		});
 	
+	private BookBotActivation activation;
+	private boolean shelfActivation;
+	private boolean windowActivation;
+	private ShelfTransferStrategy requestedShelfStrategy;
+	private Object activeConnection;
+	private Object activePlayer;
+	private Object timingConnection;
+	private BookBotShelfWindow timing = new BookBotShelfWindow();
+	private long activationStarted;
+	private long predictedLatency;
+	private long predictedInteraction;
+	private long populatedArrival;
+	private long actualPhase = -1;
+	private BookBotInventoryPlan inventoryPlan;
+	private List<ItemStack> confirmedSlots;
+	private ItemStack confirmedCursor = ItemStack.EMPTY;
+	private int confirmedRevision;
+	private boolean inventoryConfirmed;
+	private boolean syncPending;
+	private long inventoryDeadline;
+	private long inventoryPlanStarted;
+	
 	private int delayTimer;
 	private int bookCount;
 	private int inventoryCooldown;
@@ -222,6 +256,7 @@ public final class BookBotHack extends Hack implements UpdateListener
 		addSetting(sign);
 		addSetting(afterWrite);
 		addSetting(shelfTransferStrategy);
+		addSetting(shelfWindow);
 		addSetting(autoCraft);
 		addSetting(name);
 		addSetting(appendCount);
@@ -245,6 +280,28 @@ public final class BookBotHack extends Hack implements UpdateListener
 			}
 		}
 		
+		activation = new BookBotActivation();
+		shelfActivation = afterWrite.getSelected() == AfterWrite.PLACE_ON_SHELF;
+		windowActivation = shelfActivation && shelfWindow.isChecked();
+		requestedShelfStrategy = shelfTransferStrategy.getSelected();
+		clearShelfTransfer();
+		actualPhase = -1;
+		populatedArrival = 0;
+		activeConnection = MC.getConnection();
+		activePlayer = MC.player;
+		activationStarted = System.nanoTime();
+		inventoryPlan = null;
+		inventoryConfirmed = false;
+		syncPending = false;
+		confirmedSlots = null;
+		forensicTransactionId = shelfActivation ? newBookTransactionId() : null;
+		if(activeConnection == null || activePlayer == null)
+		{
+			setEnabled(false);
+			return;
+		}
+		logShelfTransferEvent("activation_started", Map.of("singleShot",
+			shelfActivation, "shelfWindow", windowActivation));
 		random = new Random();
 		delayTimer = delay.getValueI();
 		inventoryCooldown = 0;
@@ -259,6 +316,19 @@ public final class BookBotHack extends Hack implements UpdateListener
 	protected void onDisable()
 	{
 		EVENTS.remove(UpdateListener.class, this);
+		if(activation != null)
+		{
+			logShelfTransferEvent("activation_cancelled_or_finished",
+				Map.of("cursorPreserved", MC.player == null ? "unavailable"
+					: MC.player.inventoryMenu.getCarried().toString()));
+			activation.cancel();
+		}
+		if(inventoryPlan != null)
+			inventoryPlan.cancel();
+		inventoryPlan = null;
+		inventoryConfirmed = false;
+		syncPending = false;
+		confirmedSlots = null;
 		unsignedWrittenSlots.clear();
 		// ### ADDED ### Disabling cancels pending automation without retrying.
 		clearShelfTransfer();
@@ -267,9 +337,43 @@ public final class BookBotHack extends Hack implements UpdateListener
 	@Override
 	public void onUpdate()
 	{
+		if(!isEnabled())
+			return;
+		if(!sessionValid())
+		{
+			stopOperation(
+				"Connection or player changed; pending work cancelled.");
+			return;
+		}
+		if(shelfSettingsChanged())
+		{
+			stopOperation("Shelf settings changed; invoke BookBot again.");
+			return;
+		}
 		if(shelfTransferState != ShelfTransferState.IDLE)
 		{
 			progressShelfTransfer();
+			return;
+		}
+		if(shelfActivation && activation.submitted())
+		{
+			setEnabled(false);
+			return;
+		}
+		if(!progressInventory())
+			return;
+		if(!MC.player.inventoryMenu.getCarried().isEmpty()
+			|| !confirmedCursor.isEmpty())
+		{
+			stopOperation(
+				"Cursor is occupied; item preserved. Clear it before invoking BookBot.");
+			return;
+		}
+		if(windowActivation
+			&& System.nanoTime() - activationStarted > 30_000_000_000L)
+		{
+			stopOperation(
+				"ShelfWindow timed out waiting for a reliable update cycle.");
 			return;
 		}
 		// Find an empty writable book in inventory
@@ -302,6 +406,8 @@ public final class BookBotHack extends Hack implements UpdateListener
 			delayTimer--;
 			return;
 		}
+		if(!readyToSubmit())
+			return;
 		delayTimer = delay.getValueI();
 		
 		// Produce pages
@@ -389,7 +495,18 @@ public final class BookBotHack extends Hack implements UpdateListener
 		if(slot < 9)
 			MC.player.getInventory().setSelectedSlot(slot);
 		else
-			swapWithMainHand(slot);
+		{
+			if(!matchesConfirmedInventory())
+			{
+				inventoryConfirmed = false;
+				return;
+			}
+			inventoryPlanStarted = System.nanoTime();
+			inventoryPlan = BookBotInventoryPlan.move(confirmedSlots,
+				InventoryUtils.toNetworkSlot(slot),
+				MC.player.getInventory().getSelectedSlot(), confirmedRevision);
+			inventoryDeadline = System.nanoTime() + 5_000_000_000L;
+		}
 	}
 	
 	private void swapWithMainHand(int slot)
@@ -404,50 +521,223 @@ public final class BookBotHack extends Hack implements UpdateListener
 	
 	private boolean tryCraftBookAndQuill()
 	{
-		if(MC.player == null)
-			return false;
-		
+		try
+		{
+			inventoryPlanStarted = System.nanoTime();
+			inventoryPlan = BookBotInventoryPlan.craft(confirmedSlots,
+				confirmedCursor, confirmedRevision);
+			logShelfTransferEvent("craft_started",
+				Map.of("craftAttemptId", inventoryPlan.id(),
+					"reservedDestination", inventoryPlan.destination,
+					"inventoryStateId", confirmedRevision,
+					"ingredientsAndSlots", confirmedSlots.toString()));
+			inventoryDeadline = System.nanoTime() + 5_000_000_000L;
+			return true;
+		}catch(IllegalArgumentException e)
+		{
+			stopOperation(e.getMessage());
+			return true;
+		}
+	}
+	
+	private boolean shelfSettingsChanged()
+	{
+		return (afterWrite
+			.getSelected() == AfterWrite.PLACE_ON_SHELF) != shelfActivation
+			|| shelfActivation && (shelfWindow.isChecked() != windowActivation
+				|| shelfTransferStrategy
+					.getSelected() != requestedShelfStrategy);
+	}
+	
+	private boolean sessionValid()
+	{
+		return MC.player != null && MC.level != null
+			&& MC.getConnection() != null
+			&& MC.getConnection() == activeConnection
+			&& MC.player == activePlayer;
+	}
+	
+	private void stopOperation(String reason)
+	{
+		logShelfTransferEvent("operation_stopped",
+			Map.of("reason", reason, "actualPhaseNs", actualPhase,
+				"populatedArrivalNs", populatedArrival));
+		ChatUtils.message("[BookBot] " + reason);
+		setEnabled(false);
+	}
+	
+	public void onDisconnected()
+	{
+		if(isEnabled())
+			stopOperation(
+				"Disconnected; pending work cancelled. Any cursor item is preserved.");
+		timing = new BookBotShelfWindow();
+		timingConnection = null;
+	}
+	
+	public void onServerTime(Object connection)
+	{
+		if(!MC.isSameThread() || connection != MC.getConnection())
+			return;
+		if(timingConnection != connection)
+		{
+			timing = new BookBotShelfWindow();
+			timingConnection = connection;
+		}
+		timing.update(System.nanoTime());
+	}
+	
+	private boolean progressInventory()
+	{
 		if(MC.player.containerMenu != MC.player.inventoryMenu)
+		{
+			stopOperation(
+				"Inventory menu changed; cursor and ingredients preserved.");
 			return false;
-		
-		if(!MC.player.inventoryMenu.getCarried().isEmpty())
+		}
+		long now = System.nanoTime();
+		if(inventoryPlan != null
+			&& now - inventoryPlanStarted > 30_000_000_000L)
+		{
+			stopOperation(
+				"Inventory transaction timed out; cursor and ingredients preserved.");
 			return false;
-		
-		var im = IMC.getGameMode();
-		
-		for(int gridSlot = 1; gridSlot <= 4; gridSlot++)
-			if(!MC.player.inventoryMenu.getSlot(gridSlot).getItem().isEmpty())
-				im.windowClick_QUICK_MOVE(gridSlot);
-			
-		int bookSlot = InventoryUtils.indexOf(Items.BOOK, 36);
-		int featherSlot = InventoryUtils.indexOf(Items.FEATHER, 36);
-		int inkSlot = InventoryUtils.indexOf(Items.INK_SAC, 36);
-		if(bookSlot == -1 || featherSlot == -1 || inkSlot == -1)
+		}
+		if(syncPending || inventoryPlan != null && inventoryPlan.waiting())
+		{
+			if(now > inventoryDeadline)
+				stopOperation(
+					"Inventory acknowledgement timed out; cursor and ingredients preserved.");
 			return false;
-		
-		placeStackInGrid(im, bookSlot, 1);
-		placeStackInGrid(im, featherSlot, 2);
-		placeStackInGrid(im, inkSlot, 3);
-		
-		im.windowClick_PICKUP(0);
-		
-		int freeSlot = MC.player.getInventory().getFreeSlot();
-		if(freeSlot != -1)
-			im.windowClick_PICKUP(InventoryUtils.toNetworkSlot(freeSlot));
-		
-		for(int gridSlot = 1; gridSlot <= 3; gridSlot++)
-			im.windowClick_QUICK_MOVE(gridSlot);
-		
-		inventoryCooldown = 2;
+		}
+		if(!inventoryConfirmed)
+		{
+			confirmedRevision = MC.player.inventoryMenu.getStateId();
+			syncPending = true;
+			inventoryDeadline = now + 5_000_000_000L;
+			sendInventoryClick(-1, 0, ContainerInput.PICKUP,
+				"CHECK_CURSOR_EMPTY");
+			return false;
+		}
+		if(inventoryPlan == null)
+			return true;
+		if(inventoryPlan.failed())
+		{
+			stopOperation(
+				"Craft/move acknowledgement differed from the expected state; item preserved.");
+			return false;
+		}
+		if(inventoryPlan.complete())
+		{
+			if(!confirmedCursor.isEmpty() || !confirmedSlots
+				.get(inventoryPlan.destination).is(Items.WRITABLE_BOOK)
+				|| !matchesConfirmedInventory())
+			{
+				stopOperation(
+					"Book destination/cursor verification failed; item preserved.");
+				return false;
+			}
+			logShelfTransferEvent("inventory_transaction_complete",
+				Map.of("craftAttemptId", inventoryPlan.id(), "destination",
+					inventoryPlan.destination, "bookReachedDestination",
+					confirmedSlots.get(inventoryPlan.destination)
+						.is(Items.WRITABLE_BOOK),
+					"cursorEmpty", confirmedCursor.isEmpty()));
+			inventoryPlan = null;
+			return true;
+		}
+		if(!matchesConfirmedInventory())
+		{
+			stopOperation(
+				"Inventory changed during crafting; cursor and ingredients preserved.");
+			return false;
+		}
+		var click = inventoryPlan.next(confirmedSlots, confirmedCursor);
+		if(click == null)
+		{
+			stopOperation(
+				"Crafting output or reserved destination changed; item preserved.");
+			return false;
+		}
+		inventoryDeadline = now + 5_000_000_000L;
+		sendInventoryClick(click.slot(), click.button(), click.input(),
+			click.stage());
+		return false;
+	}
+	
+	private boolean matchesConfirmedInventory()
+	{
+		var menu = MC.player.inventoryMenu;
+		if(confirmedSlots == null || confirmedSlots.size() != menu.slots.size()
+			|| !ItemStack.matches(menu.getCarried(), confirmedCursor))
+			return false;
+		for(int i = 0; i < confirmedSlots.size(); i++)
+			if(!ItemStack.matches(menu.getSlot(i).getItem(),
+				confirmedSlots.get(i)))
+				return false;
 		return true;
 	}
 	
-	private void placeStackInGrid(
-		net.wurstclient.mixinterface.IMultiPlayerGameMode im, int inventorySlot,
-		int gridSlot)
+	private void sendInventoryClick(int slot, int button, ContainerInput input,
+		String stage)
 	{
-		im.windowClick_PICKUP(InventoryUtils.toNetworkSlot(inventorySlot));
-		im.windowClick_PICKUP(gridSlot);
+		// Vanilla processes the click then broadcasts a full snapshot on a
+		// state-ID
+		// mismatch. No local prediction: every step waits for that
+		// authoritative snapshot.
+		// Slot -1 is a no-op, used to request the initial cursor/inventory
+		// snapshot.
+		var packet = new ServerboundContainerClickPacket(0, -1, (short)slot,
+			(byte)button, input, new Int2ObjectOpenHashMap<>(),
+			HashedStack.EMPTY);
+		logShelfTransferEvent("inventory_click",
+			Map.of("stage", stage, "slot", slot, "button", button, "input",
+				input.name(), "inventoryStateId", confirmedRevision,
+				"cursorBefore", MC.player.inventoryMenu.getCarried().toString(),
+				"craftingOutput",
+				MC.player.inventoryMenu.getSlot(0).getItem().toString()));
+		var tools = WurstClient.INSTANCE.getOtfs().packetToolsOtf;
+		var previous = tools.beginForensicTransaction(forensicTransactionId);
+		try
+		{
+			MC.getConnection().send(packet);
+		}finally
+		{
+			tools.endForensicTransaction(previous);
+		}
+	}
+	
+	private boolean readyToSubmit()
+	{
+		if(!isEnabled() || shelfSettingsChanged())
+		{
+			if(isEnabled())
+				stopOperation("Shelf settings changed; invoke BookBot again.");
+			return false;
+		}
+		if(!sessionValid() || !matchesConfirmedInventory()
+			|| !confirmedCursor.isEmpty())
+		{
+			inventoryConfirmed = false;
+			return false;
+		}
+		int selected = MC.player.getInventory().getSelectedSlot();
+		if(!confirmedSlots.get(selected + 36).is(Items.WRITABLE_BOOK))
+		{
+			inventoryConfirmed = false;
+			return false;
+		}
+		if(!windowActivation)
+			return true;
+		long now = System.nanoTime();
+		if(timingConnection != activeConnection || !timing.usable(now))
+		{
+			if(now - activationStarted > 3_500_000_000L)
+				stopOperation(
+					"ShelfWindow stopped: server time updates are stale or unreliable.");
+			return false;
+		}
+		return timing.shouldSubmit(true, now);
 	}
 	
 	private List<String> randomPages(PrimitiveIterator.OfInt chars)
@@ -603,13 +893,13 @@ public final class BookBotHack extends Hack implements UpdateListener
 	private void writeBook(List<String> pages, String titleOverride,
 		boolean signedOverride)
 	{
-		if(MC.getConnection() == null)
+		if(!readyToSubmit() || shelfActivation && activation.submitted())
 			return;
 		
 		pages = clampPages(pages);
 		long generatedObservedNs = System.nanoTime();
-		forensicTransactionId = WurstClient.INSTANCE.getOtfs().packetToolsOtf
-			.beginBookBotForensicAttempt();
+		if(forensicTransactionId == null || !shelfActivation)
+			forensicTransactionId = newBookTransactionId();
 		forensicPayloadBytes = 0;
 		if(WurstClient.INSTANCE.getOtfs().packetToolsOtf
 			.getItemForensicsEnabledSetting().isChecked()
@@ -642,8 +932,7 @@ public final class BookBotHack extends Hack implements UpdateListener
 		
 		saveBookToFile(pages, title, signedOverride);
 		
-		boolean shelfOutput =
-			afterWrite.getSelected() == AfterWrite.PLACE_ON_SHELF;
+		boolean shelfOutput = shelfActivation;
 		// Prepare the target and content fingerprint before submitting the
 		// edit.
 		if(shelfOutput
@@ -655,9 +944,31 @@ public final class BookBotHack extends Hack implements UpdateListener
 		ServerboundEditBookPacket editPacket =
 			new ServerboundEditBookPacket(writtenSlot, pages,
 				signedOverride ? Optional.of(title) : Optional.empty());
+		if(!readyToSubmit())
+		{
+			clearShelfTransfer();
+			delayTimer = 0;
+			return;
+		}
+		if(shelfOutput && !activation.submit())
+			return;
 		if(shelfOutput)
+		{
 			editSubmittedNanos = System.nanoTime();
-		forensicTransactionId = WurstClient.INSTANCE.getOtfs().packetToolsOtf
+			predictedLatency = timing.latency();
+			predictedInteraction = editSubmittedNanos + predictedLatency;
+			populatedArrival = 0;
+			actualPhase = -1;
+			logShelfTransferEvent("shelf_window_submission",
+				Map.of("predictedResponseLatencyNs", predictedLatency,
+					"latencyUncertaintyNs", timing.uncertainty(),
+					"lowConfidence", timing.uncertainty() >= 225_000_000L,
+					"targetInteractionPhaseNs",
+					timing.phase(predictedInteraction),
+					"chosenEditSubmissionNs", editSubmittedNanos,
+					"windowEnabled", windowActivation));
+		}
+		WurstClient.INSTANCE.getOtfs().packetToolsOtf
 			.recordForensicActionRequested(editPacket, "BookBot.edit",
 				forensicTransactionId);
 		if(forensicTransactionId != null)
@@ -672,6 +983,8 @@ public final class BookBotHack extends Hack implements UpdateListener
 			bookCount++;
 			if(activeShelfStrategy == ShelfTransferStrategy.IMMEDIATE)
 				attemptShelfTransfer();
+			if(!isEnabled())
+				return;
 			logShelfTransferEvent("book_edit_submitted",
 				Map.of("contentSha256", submittedContentHash, "inventorySlot",
 					writtenSlot, "pageCount", submittedPageCount, "signed",
@@ -683,7 +996,9 @@ public final class BookBotHack extends Hack implements UpdateListener
 				+ (activeShelfStrategy == ShelfTransferStrategy.CONFIRMED_CONTENT
 					? " Waiting for server content." : ""));
 			return;
-		}else if(afterWrite.getSelected() == AfterWrite.DROP)
+		}
+		inventoryConfirmed = false;
+		if(afterWrite.getSelected() == AfterWrite.DROP)
 		{
 			dropMainHand();
 		}else if(!signedOverride)
@@ -714,7 +1029,9 @@ public final class BookBotHack extends Hack implements UpdateListener
 			.get("combinedContentSha256");
 		submittedPageCount = pages.size();
 		submittedSigned = signed;
-		activeShelfStrategy = shelfTransferStrategy.getSelected();
+		activeShelfStrategy =
+			windowActivation ? ShelfTransferStrategy.CONFIRMED_CONTENT
+				: shelfTransferStrategy.getSelected();
 		submittedSlot = slot;
 		editSubmittedNanos = 0;
 		transferAttempted = false;
@@ -757,16 +1074,41 @@ public final class BookBotHack extends Hack implements UpdateListener
 			}
 			case VERIFYING_STORAGE -> verifyShelfTransfer();
 			case FAILED, INDETERMINATE -> setEnabled(false);
-			case STORED -> clearShelfTransfer();
-			default -> clearShelfTransfer();
+			case STORED -> setEnabled(false);
+			default -> stopOperation(
+				"Unexpected Shelf state; pending work cancelled.");
 		}
 	}
 	
 	/** Runs on the client thread before the next queued inventory packet. */
-	public void onInventoryPacketApplied(Packet<?> packet)
+	public void onInventoryPacketApplied(Packet<?> packet, Object connection)
 	{
-		if(!isEnabled() || !MC.isSameThread() || MC.player == null
-			|| shelfTransferState != ShelfTransferState.WAITING_CONTENT
+		if(!isEnabled() || !MC.isSameThread() || connection != activeConnection
+			|| !sessionValid())
+			return;
+		if(packet instanceof ClientboundContainerSetContentPacket content
+			&& content.containerId() == 0)
+		{
+			int distance = (content.stateId() - confirmedRevision) & 32767;
+			if(distance > 0 && distance <= 16383 && content.items()
+				.size() == MC.player.inventoryMenu.slots.size())
+			{
+				confirmedRevision = content.stateId();
+				confirmedSlots =
+					content.items().stream().map(ItemStack::copy).toList();
+				confirmedCursor = content.carriedItem().copy();
+				inventoryConfirmed = true;
+				syncPending = false;
+				if(inventoryPlan != null)
+					inventoryPlan.acknowledge(content.stateId(), confirmedSlots,
+						confirmedCursor);
+				logShelfTransferEvent("inventory_acknowledged",
+					Map.of("inventoryStateId", confirmedRevision, "cursorAfter",
+						confirmedCursor.toString(), "craftingOutput",
+						confirmedSlots.get(0).toString()));
+			}
+		}
+		if(shelfTransferState != ShelfTransferState.WAITING_CONTENT
 			|| activeShelfStrategy != ShelfTransferStrategy.CONFIRMED_CONTENT)
 			return;
 		ItemStack supplied = updatedBookSlot(packet);
@@ -796,10 +1138,20 @@ public final class BookBotHack extends Hack implements UpdateListener
 		if(applied != supplied && !BookContentSummaries.matchesStack(applied,
 			submittedContentHash, submittedPageCount, submittedSigned))
 			return;
+		if(!MC.player.inventoryMenu.getCarried().isEmpty())
+		{
+			stopOperation(
+				"Book confirmed with an occupied cursor; transfer cancelled, item preserved.");
+			return;
+		}
 		long confirmedNs = System.nanoTime();
+		populatedArrival = confirmedNs;
+		timing.observe(confirmedNs - editSubmittedNanos);
 		// Dispatch immediately at handler tail, before a subsequent clear
 		// packet.
 		attemptShelfTransfer(true);
+		if(!isEnabled())
+			return;
 		logShelfTransferEvent("book_content_confirmed",
 			Map.of("contentConfirmedNs", confirmedNs, "inventorySlot",
 				submittedSlot, "contentSha256", submittedContentHash,
@@ -851,8 +1203,16 @@ public final class BookBotHack extends Hack implements UpdateListener
 	
 	private void attemptShelfTransfer(boolean confirmedContent)
 	{
-		if(transferAttempted)
+		if(transferAttempted || !isEnabled())
 			return;
+		if(!sessionValid() || shelfSettingsChanged()
+			|| MC.player.containerMenu != MC.player.inventoryMenu
+			|| !MC.player.inventoryMenu.getCarried().isEmpty())
+		{
+			stopOperation(
+				"Shelf transfer cancelled after inventory, settings or connection changed; item preserved.");
+			return;
+		}
 		ShelfTarget target = preparedShelfTarget;
 		if(target != null && MC.level
 			.getBlockEntity(target.position) instanceof ShelfBlockEntity shelf)
@@ -902,9 +1262,14 @@ public final class BookBotHack extends Hack implements UpdateListener
 		}
 		transferShelfPos = target.position;
 		transferShelfSlot = target.slot;
+		if(!activation.transfer())
+			return;
 		transferAttempted = true;
 		shelfTransferState = ShelfTransferState.TRANSFER_REQUESTED;
 		interactionRequestedNanos = System.nanoTime();
+		actualPhase = timingConnection == activeConnection
+			? timing.phase(interactionRequestedNanos) : -1;
+		
 		// Block interaction only: do not fall back to opening/using the book.
 		var diagnosticTools = WurstClient.INSTANCE.getOtfs().packetToolsOtf;
 		var previousDiagnostic =
@@ -921,6 +1286,11 @@ public final class BookBotHack extends Hack implements UpdateListener
 		if(previousSelectedSlot != submittedSlot)
 			MC.player.getInventory().setSelectedSlot(previousSelectedSlot);
 		shelfTransferState = ShelfTransferState.VERIFYING_STORAGE;
+		logShelfTransferEvent("shelf_window_actual",
+			Map.of("actualPopulatedBookArrivalNs", populatedArrival,
+				"actualInteractionPhaseNs", actualPhase, "insideTargetWindow",
+				BookBotShelfWindow.inWindow(actualPhase), "predictionErrorNs",
+				interactionRequestedNanos - predictedInteraction));
 		logShelfTransferEvent("shelf_interaction_requested",
 			Map.of("contentSha256", submittedContentHash, "inventorySlot",
 				submittedSlot, "shelfPosition", target.position.toShortString(),
@@ -1076,9 +1446,11 @@ public final class BookBotHack extends Hack implements UpdateListener
 		return null;
 	}
 	
-	public void onShelfDataApplied(ClientboundBlockEntityDataPacket packet)
+	public void onShelfDataApplied(ClientboundBlockEntityDataPacket packet,
+		Object connection)
 	{
-		if(!isEnabled() || !MC.isSameThread() || MC.level == null
+		if(!isEnabled() || !MC.isSameThread() || !sessionValid()
+			|| connection != activeConnection || MC.level == null
 			|| shelfTransferState != ShelfTransferState.VERIFYING_STORAGE
 			|| !packet.getPos().equals(transferShelfPos)
 			|| !(MC.level.getBlockEntity(
@@ -1159,12 +1531,29 @@ public final class BookBotHack extends Hack implements UpdateListener
 		double distanceSquared, boolean crosshair)
 	{}
 	
+	private String newBookTransactionId()
+	{
+		String id = WurstClient.INSTANCE.getOtfs().packetToolsOtf
+			.beginBookBotForensicAttempt();
+		return id == null ? "BookBot.edit-" + java.util.UUID.randomUUID() : id;
+	}
+	
 	private void logShelfTransferEvent(String event, Map<String, Object> fields)
 	{
 		Map<String, Object> diagnostic = new java.util.LinkedHashMap<>(fields);
 		if(forensicTransactionId != null)
 			diagnostic.put("transactionId", forensicTransactionId);
 		diagnostic.put("payloadBytes", forensicPayloadBytes);
+		if(activation != null)
+			diagnostic.put("activationId", activation.id());
+		if(inventoryPlan != null)
+			diagnostic.put("craftAttemptId", inventoryPlan.id());
+		diagnostic.put("serverUpdatePeriodNs", timing.period());
+		diagnostic.put("lastTimeUpdateArrivalNs", timing.lastUpdate());
+		diagnostic.put("actualShelfInteractionPhaseNs", actualPhase);
+		if(interactionRequestedNanos != 0)
+			diagnostic.put("predictionErrorNs",
+				interactionRequestedNanos - predictedInteraction);
 		if(submittedContentHash != null)
 			diagnostic.putIfAbsent("contentSha256", submittedContentHash);
 		if(MC.level != null)

@@ -56,11 +56,284 @@ public final class BookBotShelfRegressionTest
 		var lookup = VanillaRegistries.createWorldLookup();
 		net.minecraft.core.registries.BuiltInRegistries.DATA_COMPONENT_INITIALIZERS
 			.build(lookup).forEach(pending -> pending.apply());
+		testShelfWindow();
+		testSingleShotActivation();
+		testCraftingTransactions();
 		testActualMenuSlots();
 		testShelfGeometry();
 		testBooksAndNestedPackets();
 		System.out.println(
-			"BookBot shelf geometry, actual menu indexes, and 100-page content checks passed.");
+			"BookBot timing, single-shot, acknowledged crafting, shelf geometry, slot mapping and 100-page content checks passed.");
+	}
+	
+	private static void testShelfWindow()
+	{
+		BookBotShelfWindow timing = new BookBotShelfWindow();
+		long second = 1_000_000_000L;
+		check(timing.shouldSubmit(false, second),
+			"OFF must not require timing history");
+		check(!timing.shouldSubmit(true, second),
+			"ON must wait for a reliable cadence");
+		timing.update(second);
+		timing.update(2 * second);
+		timing.update(3 * second);
+		check(
+			timing.latency() == second / 2
+				&& timing.uncertainty() >= 300_000_000L,
+			"Cold start uses 500 ms with low latency confidence");
+		check(timing.shouldSubmit(true, 3 * second),
+			"Predicted arrival at 500 ms proceeds");
+		check(!timing.shouldSubmit(true, 3 * second + 300_000_000L),
+			"Submission at 300 ms must defer when arrival is predicted at 800 ms");
+		check(timing.shouldSubmit(true, 3 * second + 800_000_000L),
+			"Prediction wraps into the next cycle at 300 ms");
+		check(
+			BookBotShelfWindow.inWindow(250_000_000L)
+				&& BookBotShelfWindow.inWindow(700_000_000L)
+				&& !BookBotShelfWindow.inWindow(249_999_999L)
+				&& !BookBotShelfWindow.inWindow(700_000_001L),
+			"Window edges are inclusive");
+		timing.observe(436_000_000L);
+		timing.observe(1_060_000_000L);
+		timing.observe(500_000_000L);
+		check(
+			timing.latency() > 660_000_000L && timing.latency() < 670_000_000L,
+			"Both successful and failed response observations contribute equally");
+		check(timing.period() == second && timing.uncertainty() > 250_000_000L,
+			"Perfect time cadence does not imply low response uncertainty");
+		check(!timing.shouldSubmit(true, 3 * second + 100_000_000L),
+			"Changed response latency changes the eligible submission phase");
+		check(timing.shouldSubmit(true, 3 * second + 700_000_000L),
+			"Latency compensation targets eventual interaction, not fixed submission phase");
+		check(timing.phase(8 * second + 325_000_000L) == 325_000_000L,
+			"Phase wraps across multiple successive cycles");
+		check(!timing.usable(6 * second),
+			"Stale cadence cannot leave an operation pending");
+		timing.update(6 * second);
+		check(!timing.usable(6 * second),
+			"A large cadence discontinuity invalidates reliability");
+		timing.update(7 * second);
+		timing.update(8 * second);
+		check(timing.usable(8 * second),
+			"A recovered cadence needs no success lock");
+		for(int i = 0; i < 12; i++)
+			timing.observe(800_000_000L);
+		check(timing.latency() == 800_000_000L && timing.uncertainty() == 0,
+			"Bounded rolling history forgets old latency observations");
+	}
+	
+	private static void testSingleShotActivation()
+	{
+		BookBotActivation activation = new BookBotActivation();
+		int edits = 0;
+		int transfers = 0;
+		if(activation.submit())
+			edits++;
+		if(activation.transfer())
+			transfers++;
+		// Server confirms storage and consumes the first book. A second
+		// writable
+		// book is now available on every subsequent tick and inventory
+		// callback.
+		ItemStack nextBook = new ItemStack(Items.WRITABLE_BOOK);
+		for(int callback = 0; callback < 100; callback++)
+		{
+			if(nextBook.is(Items.WRITABLE_BOOK) && activation.submit())
+				edits++;
+			if(activation.transfer())
+				transfers++;
+		}
+		check(edits == 1 && transfers == 1,
+			"Successful Shelf storage followed by another writable book cannot repeat the activation");
+		activation.cancel();
+		check(!activation.submit() && !activation.transfer(),
+			"Disable invalidates queued execution");
+		BookBotActivation reconnected = new BookBotActivation();
+		check(
+			!reconnected.id().equals(activation.id()) && reconnected.submit()
+				&& !activation.submit(),
+			"A reconnect/new command cannot revive an older activation");
+		BookBotActivation cancelledBeforeEdit = new BookBotActivation();
+		cancelledBeforeEdit.cancel();
+		check(!cancelledBeforeEdit.submit(),
+			"Cancellation during ShelfWindow prevents an edit");
+	}
+	
+	private static List<ItemStack> craftingInventory()
+	{
+		List<ItemStack> slots =
+			new ArrayList<>(java.util.Collections.nCopies(46, ItemStack.EMPTY));
+		slots.set(10, new ItemStack(Items.BOOK, 2));
+		slots.set(11, new ItemStack(Items.FEATHER, 2));
+		slots.set(12, new ItemStack(Items.INK_SAC, 2));
+		return slots;
+	}
+	
+	private static void testCraftingTransactions()
+	{
+		List<ItemStack> slots = craftingInventory();
+		BookBotInventoryPlan plan =
+			BookBotInventoryPlan.craft(slots, ItemStack.EMPTY, 10);
+		int destination = plan.destination;
+		check(destination == 9,
+			"Destination is reserved before the first ingredient click");
+		ItemStack cursor = ItemStack.EMPTY;
+		int revision = 10;
+		int outputPickups = 0;
+		while(!plan.complete())
+		{
+			var click = plan.next(slots, cursor);
+			check(click != null, "Valid craft advances");
+			check(plan.next(slots, cursor) == null,
+				"No next click before server acknowledgement");
+			check(click.slot() >= 0,
+				"Crafting never clicks outside or drops the cursor");
+			if(click.slot() == 0)
+			{
+				check(slots.get(destination).isEmpty() && cursor.isEmpty(),
+					"Never pick up the output without an empty reserved destination/cursor");
+				outputPickups++;
+				cursor = slots.get(0).copy();
+				for(int i = 0; i <= 3; i++)
+					slots.set(i, ItemStack.EMPTY);
+			}else if(cursor.isEmpty())
+			{
+				cursor = slots.get(click.slot()).copy();
+				slots.set(click.slot(), ItemStack.EMPTY);
+			}else if(click.button() == 1)
+			{
+				slots.set(click.slot(), cursor.copyWithCount(1));
+				cursor = cursor.copy();
+				cursor.shrink(1);
+			}else
+			{
+				check(slots.get(click.slot()).isEmpty(),
+					"No destination overwrite");
+				slots.set(click.slot(), cursor.copy());
+				cursor = ItemStack.EMPTY;
+			}
+			if(slots.get(1).is(Items.BOOK) && slots.get(2).is(Items.FEATHER)
+				&& slots.get(3).is(Items.INK_SAC))
+				slots.set(0, new ItemStack(Items.WRITABLE_BOOK));
+			check(!plan.acknowledge(revision, slots, cursor),
+				"Duplicate state cannot acknowledge the next click");
+			check(!plan.acknowledge(revision - 1, slots, cursor),
+				"Older state cannot acknowledge the next click");
+			check(plan.waiting(),
+				"Ignored packets cannot release pending clicks");
+			check(plan.acknowledge(++revision, slots, cursor),
+				"New full server state acknowledges one click");
+			if(!cursor.isEmpty())
+				check(!plan.complete(),
+					"Cursor-held book/ingredient can never become READY_TO_WRITE");
+		}
+		check(
+			outputPickups == 1 && cursor.isEmpty()
+				&& slots.get(destination).is(Items.WRITABLE_BOOK),
+			"Exactly one crafted book reaches the reserved inventory slot with an empty cursor");
+		for(int i = 10; i <= 12; i++)
+			check(slots.get(i).getCount() == 1,
+				"Ingredient remainders return to their original slots");
+		check(plan.next(slots, cursor) == null,
+			"Completed craft cannot craft another book");
+		List<ItemStack> full = craftingInventory();
+		for(int i = 9; i < 45; i++)
+			if(full.get(i).isEmpty())
+				full.set(i, new ItemStack(Items.STONE));
+		expectCraftRejected(full, ItemStack.EMPTY);
+		expectCraftRejected(craftingInventory(),
+			new ItemStack(Items.WRITABLE_BOOK));
+		var interrupted =
+			BookBotInventoryPlan.craft(craftingInventory(), ItemStack.EMPTY, 1);
+		interrupted.next(craftingInventory(), ItemStack.EMPTY);
+		interrupted.cancel();
+		check(
+			!interrupted.acknowledge(2, slots,
+				new ItemStack(Items.WRITABLE_BOOK))
+				&& interrupted.next(slots, cursor) == null
+				&& !interrupted.complete(),
+			"Interrupted transactions preserve the cursor and never resume on delayed acknowledgement");
+		var occupied = craftingInventory();
+		var blocked = BookBotInventoryPlan.craft(occupied, ItemStack.EMPTY, 1);
+		occupied.set(10, new ItemStack(Items.STONE));
+		check(
+			blocked.next(occupied, ItemStack.EMPTY) == null && blocked.failed(),
+			"A changed ingredient source is never clicked");
+		var rejected =
+			BookBotInventoryPlan.craft(craftingInventory(), ItemStack.EMPTY, 1);
+		rejected.next(craftingInventory(), ItemStack.EMPTY);
+		rejected.acknowledge(2, craftingInventory(), ItemStack.EMPTY);
+		check(rejected.failed() && rejected.next(slots, cursor) == null,
+			"Rejected click stops safely without dispatching subsequent steps");
+		var outputSlots = craftingInventory();
+		var outputPlan = planAtCraftingOutput(outputSlots);
+		outputSlots.set(outputPlan.destination, new ItemStack(Items.STONE));
+		check(
+			outputPlan.next(outputSlots, ItemStack.EMPTY) == null
+				&& outputPlan.failed(),
+			"A destination filled during crafting prevents output pickup");
+		var carriedSlots = craftingInventory();
+		var carriedPlan = planAtCraftingOutput(carriedSlots);
+		check(carriedPlan.next(carriedSlots, ItemStack.EMPTY).slot() == 0,
+			"Confirmed output is picked up once");
+		for(int i = 0; i <= 3; i++)
+			carriedSlots.set(i, ItemStack.EMPTY);
+		ItemStack craftedCursor = new ItemStack(Items.WRITABLE_BOOK);
+		carriedPlan.acknowledge(7, carriedSlots, craftedCursor);
+		check(!carriedPlan.complete(),
+			"Output on the cursor never completes crafting");
+		carriedSlots.set(carriedPlan.destination, new ItemStack(Items.STONE));
+		check(carriedPlan.next(carriedSlots, craftedCursor) == null
+			&& carriedPlan.failed() && craftedCursor.is(Items.WRITABLE_BOOK),
+			"Interrupted placement leaves the book on the cursor without clicking the occupied destination");
+		var moveSlots = craftingInventory();
+		moveSlots.set(10, new ItemStack(Items.WRITABLE_BOOK));
+		var move = BookBotInventoryPlan.move(moveSlots, 10, 1, 32767);
+		check(move.next(moveSlots, ItemStack.EMPTY).slot() == 10,
+			"Move uses the protocol source slot");
+		moveSlots.set(37, moveSlots.get(10));
+		moveSlots.set(10, ItemStack.EMPTY);
+		check(
+			move.acknowledge(0, moveSlots, ItemStack.EMPTY) && move.complete(),
+			"Hotbar move is confirmed across inventory state-ID wrap");
+	}
+	
+	private static BookBotInventoryPlan planAtCraftingOutput(
+		List<ItemStack> slots)
+	{
+		var ingredients = List.of(Items.BOOK, Items.FEATHER, Items.INK_SAC);
+		for(int i = 0; i < 3; i++)
+			slots.set(10 + i, new ItemStack(ingredients.get(i)));
+		var plan = BookBotInventoryPlan.craft(slots, ItemStack.EMPTY, 0);
+		int revision = 0;
+		for(int grid = 1; grid <= 3; grid++)
+		{
+			check(plan.next(slots, ItemStack.EMPTY).slot() == 9 + grid,
+				"Confirmed ingredient source is used");
+			ItemStack ingredient = slots.get(9 + grid).copy();
+			slots.set(9 + grid, ItemStack.EMPTY);
+			plan.acknowledge(++revision, slots, ingredient);
+			var place = plan.next(slots, ingredient);
+			check(place.slot() == grid && place.button() == 1,
+				"Exactly one ingredient is placed into the empty grid slot");
+			slots.set(grid, ingredient);
+			if(grid == 3)
+				slots.set(0, new ItemStack(Items.WRITABLE_BOOK));
+			plan.acknowledge(++revision, slots, ItemStack.EMPTY);
+		}
+		return plan;
+	}
+	
+	private static void expectCraftRejected(List<ItemStack> slots,
+		ItemStack cursor)
+	{
+		try
+		{
+			BookBotInventoryPlan.craft(slots, cursor, 1);
+			throw new AssertionError(
+				"Unsafe crafting must be rejected before any click");
+		}catch(IllegalArgumentException expected)
+		{}
 	}
 	
 	private static void testActualMenuSlots()
@@ -140,7 +413,7 @@ public final class BookBotShelfRegressionTest
 	{
 		List<String> pages = new ArrayList<>();
 		for(int i = 0; i < 100; i++)
-			pages.add("a".repeat(3071) + (char)('A' + i % 26));
+			pages.add("\u0800".repeat(1023) + (char)(0x0900 + i));
 		String hash = (String)BookContentSummaries
 			.fromStrings(pages, "Test", "Player", "SIGNED", true)
 			.get("combinedContentSha256");
