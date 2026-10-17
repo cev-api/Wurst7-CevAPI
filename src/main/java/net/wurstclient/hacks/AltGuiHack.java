@@ -128,6 +128,9 @@ public final class AltGuiHack extends Hack
 	private final CheckboxSetting switchHackToggles =
 		new CheckboxSetting("Switch-style hack toggles",
 			"Use switches instead of ON/OFF buttons in the hack list.", false);
+	private final CheckboxSetting separateEnabledByCategory =
+		new CheckboxSetting("Separate enabled hacks by category",
+			"Show category headings in the Enabled hack list.", true);
 	private final SliderSetting settingHighlightThickness = new SliderSetting(
 		"Setting highlight thickness", 0.8, 0, 4, 0.1, ValueDisplay.DECIMAL);
 	private final SliderSetting settingDividerThickness = new SliderSetting(
@@ -197,8 +200,8 @@ public final class AltGuiHack extends Hack
 			.addChildren(hackRowHighlight, hackRowStriping, hackRowBorders,
 				hackRowBorderThickness, hackHighlightThickness,
 				categoryRowBorders, categoryRowBorderThickness,
-				switchHackToggles, favoriteStars, hackExpandIcons,
-				hackClickMode);
+				separateEnabledByCategory, switchHackToggles, favoriteStars,
+				hackExpandIcons, hackClickMode);
 	private final SettingGroup settingsListGroup =
 		new SettingGroup("Settings list",
 			WText.literal("Setting row backgrounds, values and highlights."),
@@ -751,6 +754,11 @@ public final class AltGuiHack extends Hack
 	public boolean isSwitchHackTogglesEnabled()
 	{
 		return switchHackToggles.isChecked();
+	}
+	
+	public boolean isSeparateEnabledByCategory()
+	{
+		return separateEnabledByCategory.isChecked();
 	}
 	
 	public boolean isSectionBordersEnabled()

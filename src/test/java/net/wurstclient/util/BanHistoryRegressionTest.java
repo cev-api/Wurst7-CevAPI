@@ -95,6 +95,21 @@ public final class BanHistoryRegressionTest
 				tooltip.contains("one.example:25565")
 					&& tooltip.contains("two.example:25565"),
 				"Tooltips must identify the banned servers");
+			check(BanMemoryManager.cleanReason(
+				"You are banned. translation{key='multiplayer.disconnect.banned', args=[]}")
+				.equals("You are banned."),
+				"Tooltips must not show the raw translation key");
+			memory.rememberAttempt(new ConnectionContext("192.0.2.44:25565",
+				"Saved server", "NumericPlayer", "", "direct", "public IP"));
+			memory.rememberDisconnect(Component.literal("You are banned"));
+			String numericTooltip = BanMemoryManager
+				.historyTooltip(memory.getAccountBanHistory("NumericPlayer"))
+				.stream().map(Component::getString)
+				.reduce("", (a, b) -> a + "\n" + b);
+			check(
+				!numericTooltip.contains("Saved server")
+					&& numericTooltip.contains("NumericPlayer"),
+				"Unresolved numeric servers must show their address, not a placeholder");
 			try(var files = Files.list(folder))
 			{
 				for(Path file : files.toList())

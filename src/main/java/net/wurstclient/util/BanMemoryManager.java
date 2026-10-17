@@ -8,6 +8,7 @@
 package net.wurstclient.util;
 
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLConnection;
@@ -24,6 +25,9 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+import java.util.Set;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -33,7 +37,9 @@ import com.google.gson.JsonParser;
 import net.minecraft.client.Minecraft;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.multiplayer.ServerData;
+import net.minecraft.client.multiplayer.ServerList;
 import net.minecraft.client.multiplayer.resolver.ServerAddress;
+import net.minecraft.client.multiplayer.resolver.ServerRedirectHandler;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.StringUtil;
 import net.wurstclient.WurstClient;
@@ -58,6 +64,16 @@ public final class BanMemoryManager
 		new java.util.HashMap<>();
 	private final java.util.Map<String, PublicIpResult> publicIpCache =
 		new java.util.HashMap<>();
+	private final java.util.Map<String, String> savedServerHosts =
+		new ConcurrentHashMap<>();
+	private final java.util.Map<String, String> savedServerHostsByHost =
+		new ConcurrentHashMap<>();
+	private final java.util.Map<String, String> savedServerNames =
+		new ConcurrentHashMap<>();
+	private final java.util.Map<String, Optional<String>> reverseDnsCache =
+		new ConcurrentHashMap<>();
+	private final Set<String> pendingReverseDns = ConcurrentHashMap.newKeySet();
+	private volatile boolean serverAliasesLoaded;
 	private ConnectionContext activeAttempt;
 	private ConnectionContext pendingCleanup;
 	
@@ -68,6 +84,7 @@ public final class BanMemoryManager
 	
 	public synchronized void loadHistory()
 	{
+		loadSavedServerAliases();
 		if(!Files.isDirectory(folder))
 			return;
 		try(var paths = Files.list(folder))
@@ -101,7 +118,7 @@ public final class BanMemoryManager
 			for(AccountRecord account : record.accounts)
 				if(account != null && account.accountBanned
 					&& name.equalsIgnoreCase(account.name))
-					result.add(new BanHistoryEntry(record.server,
+					result.add(new BanHistoryEntry(serverLabel(record),
 						"IP".equals(account.lastBanType)
 							? "IP ban (account used)" : "Account ban",
 						account.name, "", account.lastBanReason,
@@ -153,19 +170,230 @@ public final class BanMemoryManager
 		return sortedHistory(result);
 	}
 	
-	private static BanHistoryEntry identityHistory(ServerRecord record,
+	private BanHistoryEntry identityHistory(ServerRecord record,
 		IdentityRecord identity)
 	{
 		String label =
 			identity.identity != null && identity.identity.startsWith("ip|")
-				? identity.identity.substring(3)
+				? resolvedHost(identity.identity.substring(3),
+					proxyHost(identity.label, "Public address"))
 				: safe(identity.label, "Unknown IP");
-		return new BanHistoryEntry(record.server,
+		return new BanHistoryEntry(serverLabel(record),
 			hasExplicitIpMarker(identity.lastBanReason) ? "IP ban"
 				: "Used during account ban",
 			safe(identity.bannedByAccount, "Unknown account"), label,
 			identity.lastBanReason,
 			identity.lastBanAt > 0 ? identity.lastBanAt : identity.lastSeen);
+	}
+	
+	private String serverLabel(ServerRecord record)
+	{
+		String host = savedServerHosts.get(endpointKey(record.server));
+		String address = hostFromEndpoint(record.server);
+		if(host == null)
+			host = savedServerHostsByHost.get(address);
+		if(host != null)
+			return host;
+		String savedLabel = safe(record.serverLabel, "");
+		if(savedLabel.equalsIgnoreCase("Saved server"))
+			savedLabel = "";
+		if(isIpLiteral(address))
+		{
+			String fallback = savedLabel.isBlank()
+				? savedServerNames.getOrDefault(address, record.server)
+				: savedLabel;
+			if(isIpLiteral(hostFromEndpoint(fallback)))
+				fallback = record.server;
+			if(!isIpLiteral(hostFromEndpoint(fallback)))
+				return fallback;
+			return resolvedHost(address, fallback);
+		}
+		return record.server;
+	}
+	
+	private void registerServerAlias(String host, int port, String label)
+	{
+		if(host == null || host.isBlank() || label == null || label.isBlank()
+			|| isIpLiteral(label))
+			return;
+		String normalized = host.toLowerCase(Locale.ROOT);
+		savedServerHosts.putIfAbsent(endpointKey(normalized + ":" + port),
+			label);
+		savedServerHostsByHost.putIfAbsent(normalized, label);
+	}
+	
+	private void resolveServerAliases(ServerAddress address, String label)
+	{
+		try
+		{
+			Optional<ServerAddress> redirect = ServerRedirectHandler
+				.createDnsSrvRedirectHandler().lookupRedirect(address);
+			if(redirect.isPresent())
+			{
+				ServerAddress target = redirect.get();
+				registerServerAlias(target.getHost(), target.getPort(), label);
+				resolveServerAddresses(target, label);
+			}
+		}catch(Exception ignored)
+		{}
+		resolveServerAddresses(address, label);
+	}
+	
+	private void resolveServerAddresses(ServerAddress address, String label)
+	{
+		try
+		{
+			for(InetAddress resolved : InetAddress
+				.getAllByName(address.getHost()))
+				registerServerAlias(resolved.getHostAddress(),
+					address.getPort(), label);
+		}catch(Exception ignored)
+		{}
+	}
+	
+	private String resolvedHost(String address, String fallback)
+	{
+		if(!isIpLiteral(address))
+			return address;
+		Optional<String> cached = reverseDnsCache.get(address);
+		if(cached != null && cached.isPresent())
+			return cached.get();
+		requestReverseDns(address);
+		return fallback;
+	}
+	
+	private void requestReverseDns(String address)
+	{
+		if(!pendingReverseDns.add(address))
+			return;
+		java.util.concurrent.CompletableFuture.runAsync(() -> {
+			String hostname = null;
+			try
+			{
+				String candidate =
+					InetAddress.getByName(address).getCanonicalHostName();
+				if(!candidate.equalsIgnoreCase(address)
+					&& !isIpLiteral(candidate))
+					hostname = candidate.toLowerCase(Locale.ROOT);
+			}catch(Exception ignored)
+			{}
+			reverseDnsCache.put(address, Optional.ofNullable(hostname));
+			pendingReverseDns.remove(address);
+		});
+	}
+	
+	private void loadSavedServerAliases()
+	{
+		if(serverAliasesLoaded)
+			return;
+		Minecraft minecraft = WurstClient.MC;
+		if(minecraft == null)
+			return;
+		serverAliasesLoaded = true;
+		try
+		{
+			ServerList serverList = new ServerList(minecraft);
+			serverList.load();
+			for(int i = 0; i < serverList.size(); i++)
+			{
+				ServerData server = serverList.get(i);
+				if(server == null || server.ip == null || server.ip.isBlank())
+					continue;
+				ServerAddress address = ServerAddress.parseString(server.ip);
+				String host = address.getHost().toLowerCase(Locale.ROOT);
+				if(isIpLiteral(host))
+				{
+					String serverName = serverNameFallback(server.name);
+					if(!serverName.equals("Saved server"))
+					{
+						savedServerNames.put(host, serverName);
+						savedServerHostsByHost.put(host, serverName);
+					}
+					requestReverseDns(host);
+				}else
+				{
+					registerServerAlias(host, address.getPort(), host);
+					java.util.concurrent.CompletableFuture
+						.runAsync(() -> resolveServerAliases(address, host));
+				}
+			}
+		}catch(RuntimeException e)
+		{
+			serverAliasesLoaded = false;
+		}
+	}
+	
+	private static String proxyHost(String label, String fallback)
+	{
+		if(label == null)
+			return fallback;
+		String marker = " proxy exit IP ";
+		int index = label.toLowerCase(Locale.ROOT).lastIndexOf(marker);
+		if(index < 0)
+			return fallback;
+		String endpoint = label.substring(index + marker.length());
+		String host = hostFromEndpoint(endpoint);
+		return isIpLiteral(host) ? fallback : host;
+	}
+	
+	private static String serverNameFallback(String name)
+	{
+		if(name == null || name.isBlank()
+			|| isIpLiteral(hostFromEndpoint(name)))
+			return "Saved server";
+		return name;
+	}
+	
+	private static String endpointKey(String endpoint)
+	{
+		if(endpoint == null || endpoint.isBlank())
+			return "";
+		try
+		{
+			ServerAddress address = ServerAddress.parseString(endpoint);
+			return address.getHost().toLowerCase(Locale.ROOT) + ":"
+				+ address.getPort();
+		}catch(RuntimeException e)
+		{
+			return endpoint.trim().toLowerCase(Locale.ROOT);
+		}
+	}
+	
+	private static String hostFromEndpoint(String endpoint)
+	{
+		if(endpoint == null || endpoint.isBlank())
+			return "Saved server";
+		try
+		{
+			return ServerAddress.parseString(endpoint).getHost()
+				.toLowerCase(Locale.ROOT);
+		}catch(RuntimeException e)
+		{
+			return endpoint.toLowerCase(Locale.ROOT);
+		}
+	}
+	
+	private static boolean isIpLiteral(String host)
+	{
+		if(host == null)
+			return false;
+		if(host.indexOf(':') >= 0)
+			return host.matches("[0-9a-fA-F:.%]+") && host.contains(":");
+		if(!host.matches("[0-9.]+"))
+			return false;
+		String[] octets = host.split("\\.", -1);
+		if(octets.length != 4)
+			return false;
+		for(String octet : octets)
+			try
+			{
+				if(octet.isEmpty() || Integer.parseInt(octet) > 255)
+					return false;
+			}catch(NumberFormatException e)
+			{
+				return false;
+			}
+		return true;
 	}
 	
 	private static List<BanHistoryEntry> sortedHistory(
@@ -195,8 +423,9 @@ public final class BanMemoryManager
 			if(!entry.identity().isBlank())
 				lines.add(Component.literal("Address: " + entry.identity())
 					.withStyle(ChatFormatting.GRAY));
-			String reason = safe(entry.reason(), "Reason not recorded")
-				.replaceAll("[\\r\\n\\t]+", " ");
+			String reason =
+				safe(cleanReason(entry.reason()), "Reason not recorded")
+					.replaceAll("[\\r\\n\\t]+", " ");
 			if(reason.length() > 120)
 				reason = reason.substring(0, 117) + "...";
 			lines.add(Component.literal(reason).withStyle(ChatFormatting.GRAY));
@@ -264,9 +493,24 @@ public final class BanMemoryManager
 		
 		String host = address.getHost().toLowerCase(Locale.ROOT);
 		String serverKey = host + ":" + address.getPort();
-		return new ConnectionContext(serverKey, host + ":" + address.getPort(),
-			accountName, accountUuid, identity, identityLabel,
-			proxy == null ? "" : proxyKey(proxy));
+		String configuredHost = host;
+		int configuredPort = address.getPort();
+		if(server.ip != null && !server.ip.isBlank())
+		{
+			ServerAddress configured = ServerAddress.parseString(server.ip);
+			configuredHost = configured.getHost().toLowerCase(Locale.ROOT);
+			configuredPort = configured.getPort();
+		}
+		String displayHost = isIpLiteral(configuredHost)
+			? resolvedHost(configuredHost,
+				serverNameFallback(server.name).equals("Saved server")
+					? configuredHost : serverNameFallback(server.name))
+			: configuredHost;
+		registerServerAlias(configuredHost, configuredPort, displayHost);
+		registerServerAlias(host, address.getPort(), configuredHost);
+		return new ConnectionContext(serverKey,
+			displayHost + ":" + configuredPort, accountName, accountUuid,
+			identity, identityLabel, proxy == null ? "" : proxyKey(proxy));
 	}
 	
 	private String resolvePublicIp(SocksProxy proxy, String cacheKey)
@@ -379,6 +623,7 @@ public final class BanMemoryManager
 		
 		ServerRecord record = load(context.serverKey());
 		record.server = context.serverKey();
+		record.serverLabel = context.serverLabel();
 		long now = System.currentTimeMillis();
 		AccountRecord account = ensureAccount(record, context);
 		account.lastSeen = now;
@@ -450,7 +695,7 @@ public final class BanMemoryManager
 		ServerRecord record = load(context.serverKey());
 		AccountRecord account = ensureAccount(record, context);
 		IdentityRecord identity = ensureIdentity(record, context);
-		String text = normalizedReason(reason);
+		String text = displayReason(reason);
 		long now = System.currentTimeMillis();
 		account.lastBanReason = text;
 		account.lastBanType = type.name();
@@ -497,7 +742,7 @@ public final class BanMemoryManager
 	{
 		if(text == null)
 			return false;
-		for(String token : text.split("[^a-z]+"))
+		for(String token : text.toLowerCase(Locale.ROOT).split("[^a-z]+"))
 			if(token.equals("ip") || token.equals("address"))
 				return true;
 		return false;
@@ -509,6 +754,33 @@ public final class BanMemoryManager
 			return "";
 		return StringUtil.stripColor(reason.getString() + " " + reason)
 			.toLowerCase(Locale.ROOT);
+	}
+	
+	private static String displayReason(Component reason)
+	{
+		if(reason == null)
+			return "";
+		return StringUtil.stripColor(reason.getString()).trim();
+	}
+	
+	/**
+	 * Older records stored the component's debug text, which includes the raw
+	 * translation key after the actual message.
+	 */
+	static String cleanReason(String reason)
+	{
+		if(reason == null)
+			return "";
+		String lower = reason.toLowerCase(Locale.ROOT);
+		int cut = reason.length();
+		for(String marker : new String[]{"translation{key=",
+			"translatablecomponent{", "textcomponent{", "component{key="})
+		{
+			int index = lower.indexOf(marker);
+			if(index >= 0 && index < cut)
+				cut = index;
+		}
+		return reason.substring(0, cut).trim();
 	}
 	
 	private String identityNoun(ConnectionContext context)
@@ -689,6 +961,7 @@ public final class BanMemoryManager
 	private static final class ServerRecord
 	{
 		String server;
+		String serverLabel;
 		List<AccountRecord> accounts = new ArrayList<>();
 		List<IdentityRecord> identities = new ArrayList<>();
 		List<VisitRecord> visits = new ArrayList<>();
