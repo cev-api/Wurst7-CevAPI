@@ -16,7 +16,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.Container;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.player.Inventory;
-import net.minecraft.world.inventory.ContainerInput;
+import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.ShulkerBoxMenu;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
@@ -66,9 +66,9 @@ public final class ShulkerInventoryScreen extends ShulkerBoxScreen
 	
 	@Override
 	public void slotClicked(Slot slot, int slotId, int button,
-		ContainerInput actionType)
+		ClickType actionType)
 	{
-		if(actionType == ContainerInput.THROW)
+		if(actionType == ClickType.THROW)
 		{
 			ItemStack thrown = slotId == -999 ? menu.getCarried()
 				: slot == null ? ItemStack.EMPTY : slot.getItem();
@@ -110,7 +110,7 @@ public final class ShulkerInventoryScreen extends ShulkerBoxScreen
 	public void onClose()
 	{
 		if(minecraft != null)
-			minecraft.gui.setScreen(previousScreen);
+			minecraft.setScreen(previousScreen);
 	}
 	
 	private static List<ItemStack> snapshot(Container container)

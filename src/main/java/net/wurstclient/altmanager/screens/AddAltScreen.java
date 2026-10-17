@@ -472,7 +472,7 @@ public final class AddAltScreen extends AltEditorScreen
 		else
 			return;
 		
-		minecraft.gui.setScreen(prevScreen);
+		minecraft.setScreen(prevScreen);
 	}
 	
 	private int getAddAltButtonY()

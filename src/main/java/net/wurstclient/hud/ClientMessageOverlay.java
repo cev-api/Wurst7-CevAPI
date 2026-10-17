@@ -1167,8 +1167,8 @@ public final class ClientMessageOverlay
 	{
 		var info = INSTANCE.findOnlinePlayer(name);
 		if(info != null && info.getTeam() != null
-			&& info.getTeam().getColor().isPresent())
-			return info.getTeam().getColor().get().rgb();
+			&& info.getTeam().getColor() != null)
+			return info.getTeam().getColor().getColor();
 		return -1;
 	}
 	

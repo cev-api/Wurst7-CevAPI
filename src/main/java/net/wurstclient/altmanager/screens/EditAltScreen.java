@@ -76,7 +76,7 @@ public final class EditAltScreen extends AltEditorScreen
 	
 	private void openProxyManager()
 	{
-		minecraft.gui.setScreen(new ProxyManagerScreen(this,
+		minecraft.setScreen(new ProxyManagerScreen(this,
 			WurstClient.INSTANCE.getProxyManager(), proxy -> {
 				altManager.setProxyAssociation(editedAlt, proxy);
 				proxyButton.setMessage(getProxyButtonText());

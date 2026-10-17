@@ -53,10 +53,10 @@ public abstract class ConnectScreenMixin extends Screen
 		}
 		
 		ci.cancel();
-		minecraft.gui.setScreen(new ConfirmScreen(confirmed -> {
+		minecraft.setScreen(new ConfirmScreen(confirmed -> {
 			if(!confirmed)
 			{
-				minecraft.gui.setScreen(previousScreen);
+				minecraft.setScreen(previousScreen);
 				return;
 			}
 			

@@ -151,7 +151,7 @@ public final class AntiCheatDetectHack extends Hack
 			String detected = WURST
 				.translate("message.wurst.anticheatdetect.detected", antiCheat);
 			ChatUtils.message(detected);
-			SystemToast.add(MC.gui.toastManager(),
+			SystemToast.add(MC.getToastManager(),
 				SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
 				Component.literal("[AntiCheatDetect]"),
 				Component.literal("Detected Anti-Cheat: " + antiCheat));

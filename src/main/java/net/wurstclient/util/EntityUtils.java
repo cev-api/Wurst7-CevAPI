@@ -100,7 +100,8 @@ public enum EntityUtils
 	 */
 	public static Stream<LivingEntity> getValidLivingEntities()
 	{
-		return getAliveEntities(LivingEntity.class).filter(IS_VALID_LIVING_ENTITY);
+		return getAliveEntities(LivingEntity.class)
+			.filter(IS_VALID_LIVING_ENTITY);
 	}
 	
 	public static final Predicate<LivingEntity> IS_VALID_LIVING_ENTITY =

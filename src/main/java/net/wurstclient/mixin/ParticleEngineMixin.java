@@ -21,6 +21,7 @@ import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.particles.SpellParticleOption;
 import net.wurstclient.WurstClient;
 import net.wurstclient.util.EffectParticleTracker;
+import net.wurstclient.util.McVersionCompat;
 
 @Mixin(ParticleEngine.class)
 public class ParticleEngineMixin
@@ -51,10 +52,7 @@ public class ParticleEngineMixin
 	@Unique
 	private boolean isGeyserParticle(ParticleOptions options)
 	{
-		return options.getType() == ParticleTypes.GEYSER
-			|| options.getType() == ParticleTypes.GEYSER_BASE
-			|| options.getType() == ParticleTypes.GEYSER_POOF
-			|| options.getType() == ParticleTypes.GEYSER_PLUME;
+		return McVersionCompat.isGeyserParticle(options);
 	}
 	
 	@Unique

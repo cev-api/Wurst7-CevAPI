@@ -132,8 +132,8 @@ public final class QuickShulkerHack extends Hack
 			return false;
 		
 		Inventory inv = MC.player.getInventory();
-		Screen previous = MC.gui.screen();
-		MC.gui.setScreen(ShulkerInventoryScreen.open(this, previous, inv,
+		Screen previous = MC.screen;
+		MC.setScreen(ShulkerInventoryScreen.open(this, previous, inv,
 			slot.getContainerSlot(), shulker.copy()));
 		return true;
 	}
@@ -302,8 +302,8 @@ public final class QuickShulkerHack extends Hack
 				continue;
 			if(original.isEmpty())
 				continue;
-			MC.gameMode.handleContainerInput(handler.containerId, i, 0,
-				ContainerInput.QUICK_MOVE, player);
+			MC.gameMode.handleInventoryMouseClick(handler.containerId, i, 0,
+				ClickType.QUICK_MOVE, player);
 			safeSleep(45);
 		}
 		
@@ -327,25 +327,25 @@ public final class QuickShulkerHack extends Hack
 			if(sourceStack.getCount() < wanted.getCount())
 				continue;
 			
-			MC.gameMode.handleContainerInput(handler.containerId, handlerSource,
-				0, ContainerInput.PICKUP, player);
+			MC.gameMode.handleInventoryMouseClick(handler.containerId,
+				handlerSource, 0, ClickType.PICKUP, player);
 			safeSleep(35);
 			if(sourceStack.getCount() == wanted.getCount())
 			{
-				MC.gameMode.handleContainerInput(handler.containerId, target, 0,
-					ContainerInput.PICKUP, player);
+				MC.gameMode.handleInventoryMouseClick(handler.containerId,
+					target, 0, ClickType.PICKUP, player);
 				safeSleep(50);
 				continue;
 			}
 			
 			for(int count = 0; count < wanted.getCount(); count++)
 			{
-				MC.gameMode.handleContainerInput(handler.containerId, target, 1,
-					ContainerInput.PICKUP, player);
+				MC.gameMode.handleInventoryMouseClick(handler.containerId,
+					target, 1, ClickType.PICKUP, player);
 				safeSleep(25);
 			}
-			MC.gameMode.handleContainerInput(handler.containerId, handlerSource,
-				0, ContainerInput.PICKUP, player);
+			MC.gameMode.handleInventoryMouseClick(handler.containerId,
+				handlerSource, 0, ClickType.PICKUP, player);
 			safeSleep(50);
 		}
 		
@@ -374,15 +374,15 @@ public final class QuickShulkerHack extends Hack
 				ItemStack current = inv.getItem(slot);
 				if(current.getCount() <= remaining)
 				{
-					IMC.getInteractionManager()
+					IMC.getGameMode()
 						.windowClick_THROW(InventoryUtils.toNetworkSlot(slot));
 					remaining -= current.getCount();
 				}else
 				{
 					int networkSlot = InventoryUtils.toNetworkSlot(slot);
-					MC.gameMode.handleContainerInput(
+					MC.gameMode.handleInventoryMouseClick(
 						inv.player.inventoryMenu.containerId, networkSlot, 0,
-						ContainerInput.THROW, inv.player);
+						ClickType.THROW, inv.player);
 					remaining--;
 				}
 				safeSleep(60);

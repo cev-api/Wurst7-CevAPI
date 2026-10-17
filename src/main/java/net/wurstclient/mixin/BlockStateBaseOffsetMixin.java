@@ -14,13 +14,13 @@ import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import net.minecraft.core.BlockPos;
-import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.BlockBehaviour.BlockStateBase;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.WurstClient;
 import net.wurstclient.hack.HackList;
 import net.wurstclient.hacks.TextureRotatorHack;
+import net.wurstclient.util.McVersionCompat;
 
 /**
  * Handles the "position offset" half of the coordinate exploit: blocks such
@@ -40,7 +40,8 @@ public abstract class BlockStateBaseOffsetMixin
 		TextureRotatorHack textureRotator = getTextureRotator();
 		if(textureRotator == null || !textureRotator.isEnabled())
 			return;
-		if(((BlockState)(Object)this).is(Blocks.POTENT_SULFUR))
+		if(McVersionCompat.is((BlockState)(Object)this,
+			McVersionCompat.POTENT_SULFUR))
 			return;
 		
 		if(textureRotator.isNoRotationMode())
@@ -56,8 +57,8 @@ public abstract class BlockStateBaseOffsetMixin
 	{
 		TextureRotatorHack textureRotator = getTextureRotator();
 		if(textureRotator == null || !textureRotator.isEnabled()
-			|| textureRotator.isNoRotationMode()
-			|| ((BlockState)(Object)this).is(Blocks.POTENT_SULFUR))
+			|| textureRotator.isNoRotationMode() || McVersionCompat
+				.is((BlockState)(Object)this, McVersionCompat.POTENT_SULFUR))
 			return pos;
 		
 		return textureRotator.getRandomizedOffsetPos(pos);

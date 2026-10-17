@@ -179,7 +179,7 @@ public final class EditTokenAltScreen extends Screen
 	
 	private void openProxyManager()
 	{
-		minecraft.gui.setScreen(new ProxyManagerScreen(this,
+		minecraft.setScreen(new ProxyManagerScreen(this,
 			WurstClient.INSTANCE.getProxyManager(), proxy -> {
 				altManager.setProxyAssociation(tokenAlt, proxy);
 				proxyButton.setMessage(getProxyButtonText());

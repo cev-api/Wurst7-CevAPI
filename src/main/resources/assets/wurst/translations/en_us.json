@@ -759,8 +759,6 @@
   "description.wurst.setting.follow.filter_interactions": "Won't follow interaction entities, which are invisible hitboxes that some servers use to create custom mobs or buttons.",
   "description.wurst.setting.noclip.show_passable_blocks": "Outlines blocks you can teleport through near the crosshair.\n§agreen§r = passable without elytra\n§bcyan§r = passable only with elytra",
   "description.wurst.setting.playeresp.filter_invisible": "Won't show invisible players, including mannequins.",
-  "description.wurst.setting.remoteview.interact_from": "What your left/right/middle clicks should target while RemoteView is active.",
-  "description.wurst.setting.remoteview.hide_hand": "Hides your hand and held items while using RemoteView.",
   "description.wurst.setting.remoteview.filter_creative": "Won't view players in Creative mode.",
   "description.wurst.setting.remoteview.filter_hostile": "Won't view hostile mobs, including spiders, wardens, creakings, giants, and killer bunnies.\n\nThis filter does not affect endermen, non-brute piglins, zombified piglins, or tiny green slimes.",
   "description.wurst.setting.remoteview.filter_passive": "Won't view passive mobs, including dolphins, foxes, llamas, player-built iron golems, baby piglins, tiny green slimes, and most pandas.\n\nThis filter does not affect pufferfish, goats, nautiluses, pandas with the aggressive personality, or killer bunnies.",
@@ -785,7 +783,5 @@
   "description.wurst.setting.generic.filter_projectiles_combat": "Won't attack projectiles, including shulker bullets, ghast fireballs, and wind charges.",
   "description.wurst.setting.generic.filter_slimes_combat": "Won't attack green slimes of any size.\n\nThis filter does not affect magma cubes.",
   "description.wurst.setting.generic.filter_slimes_vision": "Won't show green slimes of any size.\n\nThis filter does not affect magma cubes.",
-  "description.wurst.setting.generic.interact_from.camera": "Clicks target what the camera is looking at. This allows you to interact with blocks and entities behind walls as long as they're not too far away from your character.",
-  "description.wurst.setting.generic.interact_from.player": "Clicks target what your character is looking at.",
   "description.wurst.setting.globaltoggle.esp_text_background": "Shows a semi-transparent black background behind world-space ESP text labels."
 }

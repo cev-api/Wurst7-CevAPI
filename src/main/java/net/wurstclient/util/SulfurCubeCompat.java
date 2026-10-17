@@ -13,7 +13,6 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
@@ -36,9 +35,9 @@ public enum SulfurCubeCompat
 	private static final String SULFUR_CUBE_CLASS_NAME =
 		"net.minecraft.world.entity.monster.cubemob.SulfurCube";
 	
-	private static final TagKey<Item> SULFUR_CUBE_FOOD = TagKey.create(
-		Registries.ITEM,
-		Identifier.fromNamespaceAndPath("minecraft", "sulfur_cube_food"));
+	private static final TagKey<Item> SULFUR_CUBE_FOOD =
+		TagKey.create(Registries.ITEM,
+			Identifier.fromNamespaceAndPath("minecraft", "sulfur_cube_food"));
 	
 	public static boolean isSulfurCube(Entity entity)
 	{
@@ -82,12 +81,12 @@ public enum SulfurCubeCompat
 		return false;
 	}
 	
-	private static boolean invokeBoolean(LivingEntity entity, String method)
+	private static boolean invokeBoolean(Entity entity, String method)
 	{
 		try
 		{
-			return Boolean.TRUE.equals(
-				entity.getClass().getMethod(method).invoke(entity));
+			return Boolean.TRUE
+				.equals(entity.getClass().getMethod(method).invoke(entity));
 		}catch(ReflectiveOperationException | RuntimeException e)
 		{
 			return false;

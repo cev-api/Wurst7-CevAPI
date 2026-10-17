@@ -12,13 +12,13 @@ import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
-import net.minecraft.world.level.block.Blocks;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.PacketInputListener;
 import net.wurstclient.events.PacketInputListener.PacketInputEvent;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.CheckboxSetting;
+import net.wurstclient.util.McVersionCompat;
 
 /** Prevents the upward relative teleport used by 26.2 Potent Sulfur geysers. */
 @SearchTags({"anti geyser", "no geyser push", "geyser", "potent sulfur"})
@@ -56,10 +56,10 @@ public final class AntiGeyserHack extends Hack implements PacketInputListener
 	{
 		Packet<?> packet = event.getPacket();
 		if(!(packet instanceof ClientboundSetEntityMotionPacket motion)
-			|| MC.player == null || motion.id() != MC.player.getId())
+			|| MC.player == null || motion.getId() != MC.player.getId())
 			return;
 		
-		Vec3 movement = motion.movement();
+		Vec3 movement = motion.getMovement();
 		if(movement.y > 0.0 && isOverPotentSulfur(MC.player))
 			event.cancel();
 	}
@@ -78,8 +78,8 @@ public final class AntiGeyserHack extends Hack implements PacketInputListener
 		
 		BlockPos playerPos = entity.blockPosition();
 		for(int i = 1; i <= 6; i++)
-			if(MC.level.getBlockState(playerPos.below(i))
-				.is(Blocks.POTENT_SULFUR))
+			if(McVersionCompat.is(MC.level.getBlockState(playerPos.below(i)),
+				McVersionCompat.POTENT_SULFUR))
 				return true;
 			
 		return false;

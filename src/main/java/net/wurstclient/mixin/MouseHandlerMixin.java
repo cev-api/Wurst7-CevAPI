@@ -18,7 +18,6 @@ import com.llamalad7.mixinextras.injector.v2.WrapWithCondition;
 
 import net.minecraft.client.MouseHandler;
 import net.minecraft.client.input.MouseButtonInfo;
-import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.entity.player.Inventory;
@@ -28,7 +27,6 @@ import net.wurstclient.events.MouseButtonPressListener.MouseButtonPressEvent;
 import net.wurstclient.events.MouseScrollListener.MouseScrollEvent;
 import net.wurstclient.events.MouseUpdateListener.MouseUpdateEvent;
 import net.wurstclient.hud.ClientMessageOverlay;
-import net.wurstclient.hacks.FreecamHack;
 import net.wurstclient.hacks.QuickShulkerHack;
 
 @Mixin(value = MouseHandler.class, priority = 3000)
@@ -68,8 +66,7 @@ public abstract class MouseHandlerMixin
 		QuickShulkerHack quickShulker =
 			WurstClient.INSTANCE.getHax().quickShulkerHack;
 		if(quickShulker == null || !quickShulker.isShulkerInventoryEnabled()
-			|| !(WurstClient.MC.gui
-				.screen() instanceof AbstractContainerScreen<?> screen))
+			|| !(WurstClient.MC.screen instanceof AbstractContainerScreen<?> screen))
 			return false;
 		
 		double mouseX = WurstClient.MC.mouseHandler.xpos()
