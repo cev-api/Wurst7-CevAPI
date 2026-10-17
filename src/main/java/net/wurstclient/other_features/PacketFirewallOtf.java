@@ -47,7 +47,6 @@ import net.wurstclient.SearchTags;
 import net.wurstclient.events.ConnectionPacketOutputListener;
 import net.wurstclient.events.ConnectionPacketOutputListener.ConnectionPacketOutputEvent;
 import net.wurstclient.events.BlockBreakingProgressListener;
-import net.wurstclient.events.KnockbackListener;
 import net.wurstclient.events.PacketInputListener;
 import net.wurstclient.events.PacketInputListener.PacketInputEvent;
 import net.wurstclient.events.PacketOutputListener;
@@ -710,7 +709,6 @@ public final class PacketFirewallOtf extends OtherFeature
 		
 		return hack instanceof PacketOutputListener
 			|| hack instanceof ConnectionPacketOutputListener
-			|| hack instanceof KnockbackListener
 			|| hack instanceof PlayerAttacksEntityListener
 			|| hack instanceof BlockBreakingProgressListener
 			|| hack instanceof RightClickListener;

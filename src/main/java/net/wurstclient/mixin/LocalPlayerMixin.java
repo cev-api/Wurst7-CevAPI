@@ -174,6 +174,13 @@ public abstract class LocalPlayerMixin extends AbstractClientPlayer
 	}
 	
 	@Override
+	public void lerpMotion(Vec3 vec)
+	{
+		super.lerpMotion(WurstClient.INSTANCE.getHax().antiKnockbackHack
+			.modifyKnockback(vec));
+	}
+	
+	@Override
 	public boolean isInWater()
 	{
 		boolean inWater = super.isInWater();
