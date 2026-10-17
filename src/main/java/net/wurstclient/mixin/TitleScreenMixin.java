@@ -14,9 +14,11 @@ import com.mojang.blaze3d.platform.NativeImage;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.minecraft.client.gui.components.LogoRenderer;
@@ -97,7 +99,7 @@ public abstract class TitleScreenMixin extends Screen
 	 * run in demo mode, as the Realms button doesn't exist there.
 	 */
 	@Inject(method = "createNormalMenuOptions(II)I", at = @At("RETURN"))
-	private void onAddNormalWidgets(int y, int spacingY,
+	private void onCreateNormalMenuOptions(int y, int spacingY,
 		CallbackInfoReturnable<Integer> cir)
 	{
 		if(!WurstClient.INSTANCE.isEnabled())
@@ -173,18 +175,19 @@ public abstract class TitleScreenMixin extends Screen
 	 * Replaces the vanilla Minecraft logo on the title screen with the client
 	 * supplied CevAPI logo.
 	 */
-	@Redirect(method = "render(Lnet/minecraft/client/gui/GuiGraphics;IIF)V",
+	@WrapOperation(
+		method = "render(Lnet/minecraft/client/gui/GuiGraphics;IIF)V",
 		at = @At(value = "INVOKE",
 			target = "Lnet/minecraft/client/gui/components/LogoRenderer;renderLogo(Lnet/minecraft/client/gui/GuiGraphics;IF)V"))
 	private void onRenderLogo(LogoRenderer logoRenderer, GuiGraphics graphics,
-		int width, float fade)
+		int width, float fade, Operation<Void> original)
 	{
 		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
 		{
 			// If UI mixins are hidden, render the vanilla logo instead of
 			// suppressing the call entirely so the title screen still shows
 			// a logo.
-			logoRenderer.renderLogo(graphics, width, fade);
+			original.call(logoRenderer, graphics, width, fade);
 			return;
 		}
 		
@@ -253,7 +256,7 @@ public abstract class TitleScreenMixin extends Screen
 		method = "getMultiplayerDisabledReason()Lnet/minecraft/network/chat/Component;",
 		at = @At("HEAD"),
 		cancellable = true)
-	private void onGetMultiplayerDisabledText(
+	private void onGetMultiplayerDisabledReason(
 		CallbackInfoReturnable<Component> cir)
 	{
 		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())

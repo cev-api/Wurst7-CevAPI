@@ -7,11 +7,16 @@
  */
 package net.wurstclient.hacks;
 
+import java.awt.Color;
+import java.util.Optional;
+
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.MoverType;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec2;
@@ -32,18 +37,16 @@ import net.wurstclient.hack.Hack;
 import net.wurstclient.hacks.freecam.FreecamInitialPosSetting;
 import net.wurstclient.hacks.freecam.FreecamInputSetting;
 import net.wurstclient.hacks.freecam.FreecamInputSetting.ApplyInputTo;
-import net.wurstclient.hacks.freecam.FreecamInteractionSetting;
-import net.wurstclient.hacks.freecam.FreecamInteractionSetting.InteractFrom;
 import net.wurstclient.mixinterface.IKeyMapping;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ColorSetting;
+import net.wurstclient.settings.InteractFromSetting;
+import net.wurstclient.settings.InteractFromSetting.InteractFrom;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
 import net.wurstclient.util.EntityUtils;
 import net.wurstclient.util.FakePlayerEntity;
 import net.wurstclient.util.RenderUtils;
-import net.wurstclient.util.RotationUtils;
-import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 
 @DontSaveState
 @SearchTags({"free camera", "spectator"})
@@ -55,8 +58,8 @@ public final class FreecamHack extends Hack implements UpdateListener,
 	
 	private final FreecamInputSetting applyInputTo = new FreecamInputSetting();
 	
-	private final FreecamInteractionSetting interactFrom =
-		new FreecamInteractionSetting();
+	private final InteractFromSetting interactFrom =
+		new InteractFromSetting(this, InteractFrom.CAMERA);
 	
 	private final SliderSetting horizontalSpeed =
 		new SliderSetting("Horizontal speed",
@@ -149,6 +152,11 @@ public final class FreecamHack extends Hack implements UpdateListener,
 	@Override
 	protected void onEnable()
 	{
+		Entity cameraEntity =
+			Optional.ofNullable(MC.getCameraEntity()).orElse(MC.player);
+		
+		WURST.getHax().remoteViewHack.setEnabled(false);
+		
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(VisGraphListener.class, this);
 		EVENTS.add(CameraTransformViewBobbingListener.class, this);
@@ -158,11 +166,10 @@ public final class FreecamHack extends Hack implements UpdateListener,
 		EVENTS.add(IsNormalCubeListener.class, this);
 		
 		lastHealth = Float.MIN_VALUE;
-		camPos = RotationUtils.getEyesPos()
-			.add(initialPos.getSelected().getOffset());
+		camPos = initialPos.getSelected().getPos(cameraEntity);
 		prevCamPos = camPos;
-		camYaw = MC.player.getYRot();
-		camPitch = MC.player.getXRot();
+		camYaw = cameraEntity.getViewYRot(1);
+		camPitch = cameraEntity.getViewXRot(1);
 	}
 	
 	@Override

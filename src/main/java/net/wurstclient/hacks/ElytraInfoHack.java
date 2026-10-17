@@ -421,9 +421,9 @@ public final class ElytraInfoHack extends Hack implements UpdateListener
 		int source = InventoryUtils.toNetworkSlot(inventorySlot);
 		final int chestArmorSlot = 6;
 		
-		IMC.getInteractionManager().windowClick_PICKUP(source);
-		IMC.getInteractionManager().windowClick_PICKUP(chestArmorSlot);
-		IMC.getInteractionManager().windowClick_PICKUP(source);
+		IMC.getGameMode().windowClick_PICKUP(source);
+		IMC.getGameMode().windowClick_PICKUP(chestArmorSlot);
+		IMC.getGameMode().windowClick_PICKUP(source);
 	}
 	
 	private double getChestplateScore(ItemStack stack)

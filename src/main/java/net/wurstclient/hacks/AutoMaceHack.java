@@ -327,7 +327,7 @@ public final class AutoMaceHack extends Hack implements UpdateListener
 		if(entity == null || entity == MC.player)
 			return false;
 		
-		if(!EntityUtils.IS_ATTACKABLE.test(entity))
+		if(!EntityUtils.IS_ATTACKABLE_MELEE.test(entity))
 			return false;
 		
 		if(!(entity instanceof LivingEntity living) || living.isDeadOrDying()
@@ -700,7 +700,7 @@ public final class AutoMaceHack extends Hack implements UpdateListener
 		double maxDistanceSq = 36.0; // 6 blocks
 		double maxHorizontal = 5.5;
 		
-		return EntityUtils.getAttackableEntities()
+		return EntityUtils.getMeleeAttackableEntities()
 			.filter(this::isTargetCandidate)
 			.filter(e -> MC.player.distanceToSqr(e) <= maxDistanceSq)
 			.filter(e -> getTopAimPoint(e).y < playerPos.y)

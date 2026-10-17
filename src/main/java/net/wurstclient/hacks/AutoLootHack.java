@@ -337,10 +337,10 @@ public final class AutoLootHack extends Hack
 			{
 				if(MC.player.getInventory().getFreeSlot() < 0)
 					return false;
-				IMC.getInteractionManager()
+				IMC.getGameMode()
 					.windowClick_QUICK_MOVE(8 - armorSlot.getIndex());
 			}
-			IMC.getInteractionManager()
+			IMC.getGameMode()
 				.windowClick_QUICK_MOVE(InventoryUtils.toNetworkSlot(i));
 			return true;
 		}
@@ -453,7 +453,7 @@ public final class AutoLootHack extends Hack
 	
 	private void throwInventorySlot(int inventorySlot)
 	{
-		IMC.getInteractionManager()
+		IMC.getGameMode()
 			.windowClick_THROW(InventoryUtils.toNetworkSlot(inventorySlot));
 	}
 	

@@ -16,7 +16,7 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContex
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.ChestBlock;
@@ -44,13 +44,13 @@ public final class ChestEspRenderingTest extends SingleplayerTest
 	{
 		logger.info("Testing ChestESP rendering");
 		ChestEspHack chestEsp = WurstClient.INSTANCE.getHax().chestEspHack;
-		context.runOnClient(_ -> chestEsp.setEnabled(true));
+		context.runOnClient(ignored -> chestEsp.setEnabled(true));
 		List<Entity> vehicles = buildTestRig();
 		
 		waitForScreenshotMatch("chestesp_default_settings",
 			"https://i.imgur.com/BmAZ812.png");
 		
-		context.runOnClient(_ -> chestEsp.getSettings().values().stream()
+		context.runOnClient(ignored -> chestEsp.getSettings().values().stream()
 			.filter(CheckboxSetting.class::isInstance)
 			.map(CheckboxSetting.class::cast)
 			.forEach(checkbox -> checkbox.setChecked(true)));
@@ -65,7 +65,7 @@ public final class ChestEspRenderingTest extends SingleplayerTest
 		assertScreenshotEquals("chestesp_lines_and_boxes",
 			"https://i.imgur.com/xq2Qes0.png");
 		
-		context.runOnClient(_ -> {
+		context.runOnClient(ignored -> {
 			List<ColorSetting> colorSettings = chestEsp.getSettings().values()
 				.stream().filter(ColorSetting.class::isInstance)
 				.map(ColorSetting.class::cast).toList();
@@ -80,7 +80,7 @@ public final class ChestEspRenderingTest extends SingleplayerTest
 			"https://i.imgur.com/UR6gktJ.png");
 		
 		// Clean up
-		context.runOnClient(_ -> {
+		context.runOnClient(ignored -> {
 			chestEsp.setEnabled(false);
 			for(Setting setting : chestEsp.getSettings().values())
 				setting.resetToDefault();
@@ -130,10 +130,10 @@ public final class ChestEspRenderingTest extends SingleplayerTest
 		});
 		
 		List<Entity> vehicles =
-			List.of(spawnEntity(EntityTypes.CHEST_MINECART, 5, -59, 7, 90),
-				spawnEntity(EntityTypes.HOPPER_MINECART, 3, -59, 7, 90),
-				spawnEntity(EntityTypes.OAK_CHEST_BOAT, 1, -59, 7, 180),
-				spawnEntity(EntityTypes.BAMBOO_CHEST_RAFT, -1, -59, 7, 180));
+			List.of(spawnEntity(EntityType.CHEST_MINECART, 5, -59, 7, 90),
+				spawnEntity(EntityType.HOPPER_MINECART, 3, -59, 7, 90),
+				spawnEntity(EntityType.OAK_CHEST_BOAT, 1, -59, 7, 180),
+				spawnEntity(EntityType.BAMBOO_CHEST_RAFT, -1, -59, 7, 180));
 		context.waitFor(mc -> vehicles.stream()
 			.allMatch(vehicle -> mc.level.getEntity(vehicle.getId()) != null));
 		context.waitTick();// to trigger ChestEspHack.onUpdate()

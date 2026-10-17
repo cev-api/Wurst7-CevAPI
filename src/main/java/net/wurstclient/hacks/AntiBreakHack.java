@@ -196,9 +196,9 @@ public final class AntiBreakHack extends Hack implements UpdateListener
 			|| !MC.player.inventoryMenu.getCarried().isEmpty())
 			return false;
 		
-		IMC.getInteractionManager().windowClick_PICKUP(sourceSlot);
-		IMC.getInteractionManager().windowClick_PICKUP(targetSlot);
-		IMC.getInteractionManager().windowClick_PICKUP(sourceSlot);
+		IMC.getGameMode().windowClick_PICKUP(sourceSlot);
+		IMC.getGameMode().windowClick_PICKUP(targetSlot);
+		IMC.getGameMode().windowClick_PICKUP(sourceSlot);
 		swapTimer = 2;
 		return true;
 	}

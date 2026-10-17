@@ -140,7 +140,7 @@ public final class ShieldSwingHack extends Hack implements HandleInputListener
 			return;
 		
 		Entity target = eHitResult.getEntity();
-		if(target == null || !EntityUtils.IS_ATTACKABLE.test(target))
+		if(target == null || !EntityUtils.IS_ATTACKABLE_MELEE.test(target))
 			return;
 		
 		WURST.getHax().autoSwordHack.setSlot(target);
@@ -195,7 +195,7 @@ public final class ShieldSwingHack extends Hack implements HandleInputListener
 	private void moveToOffhand(int itemSlot)
 	{
 		boolean offhandEmpty = MC.player.getOffhandItem().isEmpty();
-		IMultiPlayerGameMode interactionManager = IMC.getInteractionManager();
+		IMultiPlayerGameMode interactionManager = IMC.getGameMode();
 		interactionManager.windowClick_PICKUP(itemSlot);
 		interactionManager.windowClick_PICKUP(45);
 		
@@ -208,7 +208,7 @@ public final class ShieldSwingHack extends Hack implements HandleInputListener
 		if(nextTickSlot == -1 || MC.player == null)
 			return;
 		
-		IMultiPlayerGameMode interactionManager = IMC.getInteractionManager();
+		IMultiPlayerGameMode interactionManager = IMC.getGameMode();
 		interactionManager.windowClick_PICKUP(nextTickSlot);
 		nextTickSlot = -1;
 	}

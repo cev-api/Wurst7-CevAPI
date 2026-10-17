@@ -14,8 +14,12 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import com.llamalad7.mixinextras.sugar.Local;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.toasts.SystemToast;
 import net.minecraft.client.multiplayer.ClientCommonPacketListenerImpl;
@@ -79,7 +83,7 @@ public abstract class ClientPacketListenerMixin
 	@Inject(
 		method = "handleLogin(Lnet/minecraft/network/protocol/game/ClientboundLoginPacket;)V",
 		at = @At("TAIL"))
-	public void onOnGameJoin(ClientboundLoginPacket packet, CallbackInfo ci)
+	public void onHandleLogin(ClientboundLoginPacket packet, CallbackInfo ci)
 	{
 		WurstClient wurst = WurstClient.INSTANCE;
 		if(!wurst.isEnabled())
@@ -257,7 +261,6 @@ public abstract class ClientPacketListenerMixin
 	private void onLoadChunk(int x, int z,
 		ClientboundLevelChunkPacketData chunkData, CallbackInfo ci)
 	{
-		WurstClient.INSTANCE.getHax().newChunksHack.afterLoadChunk(x, z);
 		WurstClient.INSTANCE.getHax().newerNewChunksHack.afterLoadChunk(x, z);
 		if(minecraft.level != null)
 			WurstClient.INSTANCE.getHax().autoFlyHack
@@ -279,8 +282,6 @@ public abstract class ClientPacketListenerMixin
 	private void onOnBlockUpdate(ClientboundBlockUpdatePacket packet,
 		CallbackInfo ci)
 	{
-		WurstClient.INSTANCE.getHax().newChunksHack
-			.afterUpdateBlock(packet.getPos());
 		WurstClient.INSTANCE.getHax().newerNewChunksHack
 			.afterUpdateBlock(packet.getPos());
 		WurstClient.INSTANCE.getHax().autoFlyHack
@@ -296,7 +297,6 @@ public abstract class ClientPacketListenerMixin
 		packet.runUpdates((pos, state) -> {
 			WurstClient.INSTANCE.getHax().autoFlyHack.onPathBlockUpdate(pos,
 				state);
-			WurstClient.INSTANCE.getHax().newChunksHack.afterUpdateBlock(pos);
 			WurstClient.INSTANCE.getHax().newerNewChunksHack
 				.afterChunkDeltaUpdate(pos, state);
 		});
@@ -320,13 +320,14 @@ public abstract class ClientPacketListenerMixin
 		minecraft.execute(() -> funCreepers.spawnPartyEffects(center));
 	}
 	
-	@Redirect(
+	@WrapOperation(
 		method = "handleExplosion(Lnet/minecraft/network/protocol/game/ClientboundExplodePacket;)V",
 		at = @At(value = "INVOKE",
 			target = "Lnet/minecraft/client/multiplayer/ClientLevel;playLocalSound(DDDLnet/minecraft/sounds/SoundEvent;Lnet/minecraft/sounds/SoundSource;FFZ)V"))
 	private void wurst$funCreepersSound(ClientLevel level, double x, double y,
 		double z, SoundEvent sound, SoundSource source, float volume,
-		float pitch, boolean useDistanceDelay, ClientboundExplodePacket packet)
+		float pitch, boolean useDistanceDelay, Operation<Void> original,
+		@Local(argsOnly = true) ClientboundExplodePacket packet)
 	{
 		var funCreepers = WurstClient.INSTANCE.getHax().funCreepersHack;
 		if(funCreepers.shouldPartyifyExplosion(packet.center()))
@@ -342,7 +343,7 @@ public abstract class ClientPacketListenerMixin
 			}
 		}
 		
-		level.playLocalSound(x, y, z, sound, source, volume, pitch,
+		original.call(level, x, y, z, sound, source, volume, pitch,
 			useDistanceDelay);
 	}
 	

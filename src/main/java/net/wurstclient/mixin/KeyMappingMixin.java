@@ -42,10 +42,16 @@ public abstract class KeyMappingMixin implements IKeyMapping
 	
 	@Override
 	@Unique
-	@Deprecated // use IKeyMapping.resetPressedState() instead
-	public void wurst_resetPressedState()
+	@Deprecated // use IKeyMapping.resetDownState() instead
+	public void wurst_resetDownState()
 	{
 		setDown(wurst_isActuallyDown());
+	}
+	
+	@Override
+	public void wurst_resetPressedState()
+	{
+		wurst_resetDownState();
 	}
 	
 	@Override

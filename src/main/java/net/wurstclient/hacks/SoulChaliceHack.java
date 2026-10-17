@@ -144,8 +144,8 @@ public final class SoulChaliceHack extends Hack implements UpdateListener
 	private void moveToOffhand(int itemSlot)
 	{
 		boolean offhandEmpty = MC.player.getOffhandItem().isEmpty();
-		IMC.getInteractionManager().windowClick_PICKUP(itemSlot);
-		IMC.getInteractionManager().windowClick_PICKUP(45);
+		IMC.getGameMode().windowClick_PICKUP(itemSlot);
+		IMC.getGameMode().windowClick_PICKUP(45);
 		if(!offhandEmpty)
 			nextTickSlot = itemSlot;
 	}
@@ -155,7 +155,7 @@ public final class SoulChaliceHack extends Hack implements UpdateListener
 		if(nextTickSlot == -1)
 			return;
 		
-		IMC.getInteractionManager().windowClick_PICKUP(nextTickSlot);
+		IMC.getGameMode().windowClick_PICKUP(nextTickSlot);
 		nextTickSlot = -1;
 	}
 	
@@ -387,7 +387,7 @@ public final class SoulChaliceHack extends Hack implements UpdateListener
 		
 		if(targetSlot != 1)
 		{
-			IMC.getInteractionManager()
+			IMC.getGameMode()
 				.windowClick_SWAP(InventoryUtils.toNetworkSlot(targetSlot), 1);
 		}
 		

@@ -18,8 +18,7 @@ public interface IKeyMapping extends IKeyBinding
 	}
 	
 	/**
-	 * Returns the given KeyMapping object as an IKeyMapping, allowing you to
-	 * access the resetPressedState() method.
+	 * Returns the given KeyMapping object as an IKeyMapping.
 	 */
 	public static IKeyMapping get(KeyMapping kb)
 	{
@@ -35,6 +34,17 @@ public interface IKeyMapping extends IKeyBinding
 	{
 		return asVanilla().isDown();
 	}
+	
+	/**
+	 * Resets the down state to whether or not the user is actually pressing
+	 * this key.
+	 */
+	default void resetDownState()
+	{
+		wurst_resetDownState();
+	}
+	
+	void wurst_resetDownState();
 	
 	default InputConstants.Key getBoundKey()
 	{

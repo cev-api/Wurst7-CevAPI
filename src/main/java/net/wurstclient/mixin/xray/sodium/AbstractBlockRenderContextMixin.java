@@ -12,8 +12,10 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Desc;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.state.BlockState;
@@ -22,8 +24,8 @@ import net.wurstclient.hacks.XRayHack;
 
 /**
  * Last updated for <a href=
- * "https://github.com/CaffeineMC/sodium/blob/148316fbfca6c3c88274ad79e1010310c6a3749b/common/src/main/java/net/caffeinemc/mods/sodium/client/render/model/AbstractBlockRenderContext.java">Sodium
- * mc26.1-0.8.7</a>
+ * "https://github.com/CaffeineMC/sodium/blob/1ddf7faacbf7be60aff3f00b49d90d199fdd706a/common/src/main/java/net/caffeinemc/mods/sodium/client/render/model/AbstractBlockRenderContext.java">Sodium
+ * mc1.21.11-0.8.0</a>
  */
 @Pseudo
 @Mixin(targets = {
@@ -39,10 +41,12 @@ public class AbstractBlockRenderContextMixin
 	/**
 	 * Hides and shows blocks when using X-Ray with Sodium installed.
 	 */
-	@Inject(method = "isFaceCulled(Lnet/minecraft/core/Direction;)Z",
+	@Inject(
+		target = @Desc(value = "isFaceCulled",
+			ret = boolean.class,
+			args = Direction.class),
 		at = @At("HEAD"),
 		cancellable = true,
-		remap = false,
 		require = 0)
 	private void onIsFaceCulled(@Nullable Direction face,
 		CallbackInfoReturnable<Boolean> cir)

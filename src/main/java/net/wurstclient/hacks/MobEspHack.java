@@ -18,8 +18,9 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
+import net.minecraft.world.entity.Avatar;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.Interaction;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.monster.Creeper;
 import net.minecraft.world.entity.player.Player;
@@ -111,9 +112,10 @@ public final class MobEspHack extends Hack implements UpdateListener,
 			FilterAllaysSetting.genericVision(false),
 			FilterInvisibleSetting.genericVision(false),
 			FilterNamedSetting.genericVision(false),
-			FilterArmorStandsSetting.genericVision(true));
+			FilterArmorStandsSetting.genericVision(true),
+			FilterInteractionsSetting.genericVision(false));
 	
-	private final ArrayList<LivingEntity> mobs = new ArrayList<>();
+	private final ArrayList<Entity> mobs = new ArrayList<>();
 	private final ArrayList<ShulkerBullet> shulkerBullets = new ArrayList<>();
 	private final ArrayList<WitherSkull> witherSkulls = new ArrayList<>();
 	private final Map<UUID, MerchantOffers> librarianOffers = new HashMap<>();
@@ -222,11 +224,9 @@ public final class MobEspHack extends Hack implements UpdateListener,
 		witherSkulls.clear();
 		updateLastAttackerTracking();
 		
-		Stream<LivingEntity> stream = StreamSupport
-			.stream(MC.level.entitiesForRendering().spliterator(), false)
-			.filter(LivingEntity.class::isInstance).map(e -> (LivingEntity)e)
-			.filter(e -> !(e instanceof Player))
-			.filter(e -> !e.isRemoved() && e.getHealth() > 0);
+		Stream<Entity> stream = EntityUtils.getAliveEntities()
+			.filter(e -> e instanceof LivingEntity || e instanceof Interaction)
+			.filter(e -> !(e instanceof Avatar));
 		// optionally filter out mobs below the configured Y level
 		if(onlyAboveGround.isChecked())
 			stream = stream.filter(e -> e.getY() >= aboveGroundY.getValue());
@@ -314,7 +314,7 @@ public final class MobEspHack extends Hack implements UpdateListener,
 		{
 			double extraSize = drawShape ? boxSize.getExtraSize() / 2D : 0;
 			
-			for(LivingEntity e : mobs)
+			for(Entity e : mobs)
 			{
 				AABB lerpedBox = EntityUtils.getLerpedBox(e, partialTicks);
 				float[] rgb = getColorRgb();
@@ -474,7 +474,7 @@ public final class MobEspHack extends Hack implements UpdateListener,
 			&& isLibrarian(villager))
 			pointedVillager = villager;
 		
-		for(LivingEntity e : mobs)
+		for(Entity e : mobs)
 		{
 			if(!(e instanceof Villager villager))
 				continue;

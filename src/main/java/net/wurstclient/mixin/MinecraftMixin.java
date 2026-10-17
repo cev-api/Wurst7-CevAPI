@@ -43,13 +43,13 @@ import net.wurstclient.events.LeftClickListener.LeftClickEvent;
 import net.wurstclient.events.RightClickListener.RightClickEvent;
 import net.wurstclient.render.globalesp.GlobalEspManager;
 import net.wurstclient.mixinterface.ILocalPlayer;
-import net.wurstclient.mixinterface.IMinecraftClient;
+import net.wurstclient.mixinterface.IMinecraft;
 import net.wurstclient.mixinterface.IMultiPlayerGameMode;
 
 @Mixin(Minecraft.class)
 public abstract class MinecraftMixin
 	extends ReentrantBlockableEventLoop<Runnable>
-	implements WindowEventHandler, IMinecraftClient
+	implements WindowEventHandler, IMinecraft
 {
 	@Shadow
 	@Final
@@ -64,7 +64,7 @@ public abstract class MinecraftMixin
 	@Unique
 	private User wurstOriginalSession;
 	
-	private User wurstSession;
+	private User wurstUser;
 	private ProfileKeyPairManager wurstProfileKeys;
 	
 	private MinecraftMixin(WurstClient wurst, String name)
@@ -91,7 +91,7 @@ public abstract class MinecraftMixin
 		at = @At(value = "INVOKE",
 			target = "Lnet/minecraft/client/gui/Gui;overlay()Lnet/minecraft/client/gui/screens/Overlay;",
 			ordinal = 0))
-	private void onHandleInputEvents(CallbackInfo ci)
+	private void onHandleKeybinds(CallbackInfo ci)
 	{
 		// Make sure this event is not fired outside of gameplay
 		if(player == null)
@@ -105,7 +105,7 @@ public abstract class MinecraftMixin
 			target = "Lnet/minecraft/client/Minecraft;hitResult:Lnet/minecraft/world/phys/HitResult;",
 			ordinal = 0),
 		cancellable = true)
-	private void onDoAttack(CallbackInfoReturnable<Boolean> cir)
+	private void onStartAttack(CallbackInfoReturnable<Boolean> cir)
 	{
 		LeftClickEvent event = new LeftClickEvent();
 		EventManager.fire(event);
@@ -119,7 +119,7 @@ public abstract class MinecraftMixin
 			target = "Lnet/minecraft/client/Minecraft;rightClickDelay:I",
 			ordinal = 0),
 		cancellable = true)
-	private void onDoItemUse(CallbackInfo ci)
+	private void onStartUseItem(CallbackInfo ci)
 	{
 		RightClickEvent event = new RightClickEvent();
 		EventManager.fire(event);
@@ -129,7 +129,7 @@ public abstract class MinecraftMixin
 	}
 	
 	@Inject(method = "pickBlock()V", at = @At("HEAD"))
-	private void onDoItemPick(CallbackInfo ci)
+	private void onPickBlock(CallbackInfo ci)
 	{
 		if(!WurstClient.INSTANCE.isEnabled())
 			return;
@@ -164,7 +164,7 @@ public abstract class MinecraftMixin
 	 * own. Useful for Nuker-like hacks.
 	 */
 	@Inject(method = "continueAttack(Z)V", at = @At("HEAD"), cancellable = true)
-	private void onHandleBlockBreaking(boolean breaking, CallbackInfo ci)
+	private void onContinueAttack(boolean breaking, CallbackInfo ci)
 	{
 		HandleBlockBreakingEvent event = new HandleBlockBreakingEvent();
 		EventManager.fire(event);
@@ -176,10 +176,10 @@ public abstract class MinecraftMixin
 	@Inject(method = "getUser()Lnet/minecraft/client/User;",
 		at = @At("HEAD"),
 		cancellable = true)
-	private void onGetSession(CallbackInfoReturnable<User> cir)
+	private void onGetUser(CallbackInfoReturnable<User> cir)
 	{
-		if(wurstSession != null)
-			cir.setReturnValue(wurstSession);
+		if(wurstUser != null)
+			cir.setReturnValue(wurstUser);
 	}
 	
 	@Inject(method = "getGameProfile()Lcom/mojang/authlib/GameProfile;",
@@ -187,12 +187,12 @@ public abstract class MinecraftMixin
 		cancellable = true)
 	public void onGetGameProfile(CallbackInfoReturnable<GameProfile> cir)
 	{
-		if(wurstSession == null)
+		if(wurstUser == null)
 			return;
 		
 		GameProfile oldProfile = cir.getReturnValue();
-		GameProfile newProfile = new GameProfile(wurstSession.getProfileId(),
-			wurstSession.getName(), oldProfile.properties());
+		GameProfile newProfile = new GameProfile(wurstUser.getProfileId(),
+			wurstUser.getName(), oldProfile.properties());
 		cir.setReturnValue(newProfile);
 	}
 	
@@ -200,7 +200,7 @@ public abstract class MinecraftMixin
 		method = "getProfileKeyPairManager()Lnet/minecraft/client/multiplayer/ProfileKeyPairManager;",
 		at = @At("HEAD"),
 		cancellable = true)
-	private void onGetProfileKeys(
+	private void onGetProfileKeyPairManager(
 		CallbackInfoReturnable<ProfileKeyPairManager> cir)
 	{
 		if(WurstClient.INSTANCE.getOtfs().noChatReportsOtf.isActive())
@@ -242,41 +242,40 @@ public abstract class MinecraftMixin
 	}
 	
 	@Override
-	public IMultiPlayerGameMode getInteractionManager()
+	public IMultiPlayerGameMode getGameMode()
 	{
 		return (IMultiPlayerGameMode)gameMode;
 	}
 	
 	@Override
-	public User getWurstSession()
+	public User getWurstUser()
 	{
-		return wurstSession;
+		return wurstUser;
 	}
 	
 	@Override
-	public void setWurstSession(User session)
+	public void setWurstUser(User user)
 	{
-		if(session != null && wurstOriginalSession == null)
+		if(user != null && wurstOriginalSession == null)
 			wurstOriginalSession = ((Minecraft)(Object)this).getUser();
 		
-		wurstSession = session;
+		wurstUser = user;
 		if(WurstClient.INSTANCE.getOtfs() != null)
 			WurstClient.INSTANCE.getOtfs().packetToolsOtf
 				.logVerboseSessionChange(
-					session != null ? "setWurstSession" : "clearWurstSession",
-					session);
-		if(session == null)
+					user != null ? "setWurstUser" : "clearWurstUser", user);
+		if(user == null)
 		{
 			wurstProfileKeys = null;
 			return;
 		}
 		
-		String accessToken = session.getAccessToken();
+		String accessToken = user.getAccessToken();
 		boolean isOffline = accessToken == null || accessToken.isBlank()
 			|| accessToken.equals("0") || accessToken.equals("null");
 		UserApiService userApiService = isOffline ? UserApiService.OFFLINE
 			: wurstAuthenticationService.createUserApiService(accessToken);
-		wurstProfileKeys = ProfileKeyPairManager.create(userApiService, session,
+		wurstProfileKeys = ProfileKeyPairManager.create(userApiService, user,
 			gameDirectory.toPath());
 	}
 	
@@ -290,7 +289,7 @@ public abstract class MinecraftMixin
 	public boolean restoreOriginalSession()
 	{
 		User original = wurstOriginalSession;
-		setWurstSession(null);
+		setWurstUser(null);
 		if(original != null && WurstClient.INSTANCE.getOtfs() != null)
 			WurstClient.INSTANCE.getOtfs().packetToolsOtf
 				.logVerboseSessionChange("restoreOriginalSession", original);

@@ -18,10 +18,9 @@ public enum LoginManager
 	
 	public static void changeCrackedName(String newName)
 	{
-		User session =
-			new User(newName, UUIDUtil.createOfflinePlayerUUID(newName), "",
-				Optional.empty(), Optional.empty());
+		User user = new User(newName, UUIDUtil.createOfflinePlayerUUID(newName),
+			"", Optional.empty(), Optional.empty());
 		
-		WurstClient.IMC.setWurstSession(session);
+		WurstClient.IMC.setWurstUser(user);
 	}
 }

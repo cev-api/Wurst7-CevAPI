@@ -326,8 +326,7 @@ public final class BookBotHack extends Hack implements UpdateListener
 		if(slot < 0 || slot == MC.player.getInventory().getSelectedSlot())
 			return;
 		
-		IMC.getInteractionManager().windowClick_SWAP(
-			InventoryUtils.toNetworkSlot(slot),
+		IMC.getGameMode().windowClick_SWAP(InventoryUtils.toNetworkSlot(slot),
 			MC.player.getInventory().getSelectedSlot());
 		inventoryCooldown = 2;
 	}
@@ -343,7 +342,7 @@ public final class BookBotHack extends Hack implements UpdateListener
 		if(!MC.player.inventoryMenu.getCarried().isEmpty())
 			return false;
 		
-		var im = IMC.getInteractionManager();
+		var im = IMC.getGameMode();
 		
 		for(int gridSlot = 1; gridSlot <= 4; gridSlot++)
 			if(!MC.player.inventoryMenu.getSlot(gridSlot).getItem().isEmpty())

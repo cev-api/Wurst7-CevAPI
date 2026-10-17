@@ -55,6 +55,4 @@ public final class TimerHack extends Hack implements UpdateListener
 	{
 		return isEnabled() ? speed.getValueF() : 1;
 	}
-	
-	// See DeltaTrackerTimerMixin
 }

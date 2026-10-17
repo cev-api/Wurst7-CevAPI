@@ -128,7 +128,7 @@ public final class JesusHack extends Hack
 			return;
 		
 		LocalPlayer player = MC.player;
-		boolean inWater = IMC.getPlayer().isTouchingWaterBypass();
+		boolean inWater = IMC.getPlayer().isInWaterBypass();
 		boolean inLava = player.isInLava();
 		
 		// Bob mode handling (simple): gently bob in water/lava
@@ -183,7 +183,7 @@ public final class JesusHack extends Hack
 			return;
 		
 		// check inWater/lava and whether it should be solid
-		if(IMC.getPlayer().isTouchingWaterBypass() && !waterShouldBeSolid())
+		if(IMC.getPlayer().isInWaterBypass() && !waterShouldBeSolid())
 			return;
 		if(MC.player.isInLava() && !lavaShouldBeSolid())
 			return;
@@ -259,7 +259,7 @@ public final class JesusHack extends Hack
 	{
 		return isEnabled() && MC.player != null && MC.player.fallDistance <= 3
 			&& !MC.options.keyShift.isDown()
-			&& !IMC.getPlayer().isTouchingWaterBypass() && !MC.player.isInLava()
+			&& !IMC.getPlayer().isInWaterBypass() && !MC.player.isInLava()
 			&& !WURST.getHax().flightHack.isEnabled()
 			&& !MC.player.getAbilities().flying;
 	}

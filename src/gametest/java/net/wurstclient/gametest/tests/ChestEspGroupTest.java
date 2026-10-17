@@ -17,7 +17,7 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.EntityBlock;
@@ -56,10 +56,10 @@ public final class ChestEspGroupTest extends SingleplayerTest
 		assertMatchesOnly(gm, Blocks.CRAFTER, gm.crafters);
 		assertMatchesOnly(gm, Blocks.FURNACE, gm.furnaces);
 		
-		assertMatchesOnly(gm, EntityTypes.CHEST_MINECART, gm.chestCarts);
-		assertMatchesOnly(gm, EntityTypes.OAK_CHEST_BOAT, gm.chestBoats);
-		assertMatchesOnly(gm, EntityTypes.BAMBOO_CHEST_RAFT, gm.chestBoats);
-		assertMatchesOnly(gm, EntityTypes.HOPPER_MINECART, gm.hopperCarts);
+		assertMatchesOnly(gm, EntityType.CHEST_MINECART, gm.chestCarts);
+		assertMatchesOnly(gm, EntityType.OAK_CHEST_BOAT, gm.chestBoats);
+		assertMatchesOnly(gm, EntityType.BAMBOO_CHEST_RAFT, gm.chestBoats);
+		assertMatchesOnly(gm, EntityType.HOPPER_MINECART, gm.hopperCarts);
 		
 		if(!WurstTest.IS_LOOTR_INSTALLED)
 			return;

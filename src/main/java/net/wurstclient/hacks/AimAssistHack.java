@@ -95,6 +95,7 @@ public final class AimAssistHack extends Hack
 	private final EntityFilterList entityFilters =
 		new EntityFilterList(FilterPlayersSetting.genericCombat(false),
 			FilterNpcsSetting.genericCombat(true),
+			FilterCreativeSetting.genericCombat(false),
 			FilterSleepingSetting.genericCombat(false),
 			FilterFlyingSetting.genericCombat(0),
 			FilterHostileSetting.genericCombat(false),
@@ -119,9 +120,10 @@ public final class AimAssistHack extends Hack
 			FilterShulkersSetting.genericCombat(false),
 			FilterInvisibleSetting.genericCombat(true),
 			FilterNamedSetting.genericCombat(false),
-			FilterShulkerBulletSetting.genericCombat(false),
+			FilterProjectilesSetting.genericCombat(false),
 			FilterArmorStandsSetting.genericCombat(true),
-			FilterCrystalsSetting.genericCombat(true));
+			FilterCrystalsSetting.genericCombat(true),
+			FilterInteractionsSetting.genericCombat(true));
 	
 	private Entity target;
 	private float nextYaw;
@@ -285,7 +287,7 @@ public final class AimAssistHack extends Hack
 	
 	private void chooseTarget()
 	{
-		Stream<Entity> stream = EntityUtils.getAttackableEntities();
+		Stream<Entity> stream = EntityUtils.getMeleeAttackableEntities();
 		
 		double rangeSq = getRangeSq();
 		stream =
@@ -473,7 +475,7 @@ public final class AimAssistHack extends Hack
 		if(entity instanceof LivingEntity living && !living.isAlive())
 			return false;
 		
-		if(!EntityUtils.IS_ATTACKABLE.test(entity))
+		if(!EntityUtils.IS_ATTACKABLE_MELEE.test(entity))
 			return false;
 		
 		return true;

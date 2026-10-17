@@ -6,7 +6,7 @@ buildscript {
 
 plugins {
 	id "fabric-loom" version "${loom_version}" apply false
-	id "com.diffplug.spotless" version "8.6.0"
+	id "com.diffplug.spotless" version "8.10.4"
 	id "net.wimods.github-compile-summary" version "0.1.1"
 }
 
@@ -83,24 +83,25 @@ repositories {
 	}
 }
 
-dependencies {
-	// To change the versions see the gradle.properties file
-	minecraft "com.mojang:minecraft:${project.minecraft_version}"
-	mappings loom.officialMojangMappings()
-	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
-	
-	// Fabric API. This is technically optional, but you probably want it anyway.
-	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
-	
-	// net.wurstclient.ai.PathPos extends net.minecraft.util.math.BlockPos,
-	// which uses javax.annotation.concurrent.Immutable, which is part of
-	// the JSR305 library.
-	//
-	// In other words, Wurst won't compile without this library,
-	// even though it's Minecraft that actually uses it.
-	modImplementation "com.google.code.findbugs:jsr305:3.0.2"
-	
-}
+if(!formattingOnly)
+	dependencies {
+		// To change the versions see the gradle.properties file
+		minecraft "com.mojang:minecraft:${project.minecraft_version}"
+		mappings loom.officialMojangMappings()
+		modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+		
+		// Fabric API. This is technically optional, but you probably want it anyway.
+		modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+		
+		// net.wurstclient.ai.PathPos extends net.minecraft.util.math.BlockPos,
+		// which uses javax.annotation.concurrent.Immutable, which is part of
+		// the JSR305 library.
+		//
+		// In other words, Wurst won't compile without this library,
+		// even though it's Minecraft that actually uses it.
+		modImplementation "com.google.code.findbugs:jsr305:3.0.2"
+		
+	}
 
 // MCProtocolLib provides the lightweight protocol-bot connections used by the
 // AltBot multi-account system, and the SOCKS proxy modules extend Netty for
@@ -156,34 +157,24 @@ dependencies {
 sourceSets.main.compileClasspath += configurations.altbotLibs
 sourceSets.main.runtimeClasspath += configurations.altbotLibs
 
-fabricApi.configureTests {
-	createSourceSet = true
-	enableGameTests = false
-	enableClientGameTests = true
-	modId = "wurst_testmod"
-	username = "Wurst-Bot"
-}
-
-loom {
-	accessWidenerPath = file("src/main/resources/wurst.accesswidener")
-	mods {
-		wurst {
-			sourceSet sourceSets.main
-			sourceSet sourceSets.gametest
-		}
+if(!formattingOnly)
+	fabricApi.configureTests {
+		createSourceSet = true
+		enableGameTests = false
+		enableClientGameTests = true
+		modId = "wurst_testmod"
+		username = "Wurst-Bot"
 	}
-	
-	runs {
-		clientWithMods {
-			environment = "client"
-			inherit client
-		}
-	}
-}
 
-	if(!formattingOnly)
-		loom {
+if(!formattingOnly)
+	loom {
 		accessWidenerPath = file("src/main/resources/wurst.accesswidener")
+		mods {
+			wurst {
+				sourceSet sourceSets.main
+				sourceSet sourceSets.gametest
+			}
+		}
 		
 		runs {
 			clientGameTest {
@@ -407,6 +398,7 @@ jar {
 spotless {
 	lineEndings = "WINDOWS"
 	java {
+		target("src/*/java/**/*.java")
 		targetExclude("build/generated/sources/buildConfig/java/**/*.java")
 		removeUnusedImports()
 		leadingSpacesToTabs()
@@ -421,7 +413,7 @@ spotless {
 	}
 	json {
 		target("src/**/*.json", "src/**/*.mcmeta")
-		gson().indentWithSpaces(2).version("2.11.0")
+		gson().indentWithSpaces(2).version("2.14.0")
 	}
 }
 
@@ -452,30 +444,39 @@ def getChangelog(String platform, String from) {
 	return prefix + getChangelogLink(platform, from) + getChangelogImage(from + imgQuery)
 }
 
+import org.gradle.jvm.tasks.Jar
 import org.kohsuke.github.GHReleaseBuilder
 import org.kohsuke.github.GitHub
 
-task github(dependsOn: build) {
+tasks.register("github") {
+	dependsOn tasks.named("build")
+
+	def githubToken = providers.environmentVariable("GITHUB_TOKEN")
+	def repoId = project.mcx_repo_id
+	def ghVersion = getGhVersion()
+	def changelogImage = getChangelogImage("github.com/${repoId}/releases/tag/${ghVersion}")
+	def jarFile = tasks.named("remapJar", Jar).flatMap { it.archiveFile }
+	def sourcesJarFile = tasks.named("remapSourcesJar", Jar).flatMap { it.archiveFile }
+	inputs.files(jarFile, sourcesJarFile)
+
 	onlyIf {
-		ENV.GITHUB_TOKEN
+		!githubToken.getOrElse("").isEmpty()
 	}
 	
 	doLast {
-		def github = GitHub.connectUsingOAuth(ENV.GITHUB_TOKEN as String)
-		def repoId = project.mcx_repo_id
+		def github = GitHub.connectUsingOAuth(githubToken.get())
 		def repository = github.getRepository(repoId)
-		def ghVersion = getGhVersion()
 		
 		def ghRelease = repository.getReleaseByTagName(ghVersion as String)
 		if(ghRelease == null) {
 			def releaseBuilder = new GHReleaseBuilder(repository, ghVersion as String)
-			releaseBuilder.body(getChangelogImage("github.com/${repoId}/releases/tag/${ghVersion}"))
+			releaseBuilder.body(changelogImage)
 			releaseBuilder.prerelease(ghVersion.contains("pre"))
 			ghRelease = releaseBuilder.create()
 		}
 		
-		ghRelease.uploadAsset(remapJar.archiveFile.get().getAsFile(), "application/java-archive")
-		ghRelease.uploadAsset(remapSourcesJar.archiveFile.get().getAsFile(), "application/java-archive")
+		ghRelease.uploadAsset(jarFile.get().asFile, "application/java-archive")
+		ghRelease.uploadAsset(sourcesJarFile.get().asFile, "application/java-archive")
 	}
 }
 
@@ -483,18 +484,21 @@ import org.kohsuke.github.GHIssueState
 import org.kohsuke.github.GHMilestoneState
 import java.time.Instant
 
-task closeMilestone {
+tasks.register("closeMilestone") {
+	def githubToken = providers.environmentVariable("GITHUB_TOKEN")
+	def repoId = project.gh_repo_id
+	def ghVersion = getGhVersion()
+	def changelog = getChangelog("GitHub", "github.com/${repoId}/milestone/${ghVersion}")
+
 	onlyIf {
-		ENV.GITHUB_TOKEN
+		!githubToken.getOrElse("").isEmpty()
 	}
 	
 	doLast {
-		def github = GitHub.connectUsingOAuth(ENV.GITHUB_TOKEN as String)
-		def repoId = project.gh_repo_id
+		def github = GitHub.connectUsingOAuth(githubToken.get())
 		def repository = github.getRepository(repoId)
-		def ghVersion = getGhVersion()
 		
-		// Weird API design: listMilestones() requires GHIssueState while everything else uses GHMilestoneState.
+		// Weird API design: listMilestones() requires GHIssueState while everything else uses GHMilestoneState
 		def milestone = repository.listMilestones(GHIssueState.ALL).find { it.title == ghVersion }
 		if (milestone == null) {
 			milestone = repository.createMilestone(ghVersion, "")
@@ -502,7 +506,7 @@ task closeMilestone {
 		
 		if (milestone.getState() != GHMilestoneState.CLOSED) {
 			milestone.setDueOn(Date.from(Instant.now()))
-			milestone.setDescription(getChangelog("GitHub", "github.com/${repoId}/milestone/${ghVersion}"))
+			milestone.setDescription(changelog)
 			milestone.close()
 		}
 	}

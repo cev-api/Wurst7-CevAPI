@@ -106,7 +106,7 @@ public final class OutreachHack extends Hack implements UpdateListener
 		
 		double rangeSq = range.getValueSq();
 		double halfFov = fov.getValue() / 2.0;
-		Stream<Entity> stream = EntityUtils.getAttackableEntities();
+		Stream<Entity> stream = EntityUtils.getMeleeAttackableEntities();
 		stream = stream.filter(e -> MC.player.distanceToSqr(e) <= rangeSq);
 		
 		if(fov.getValue() < 360.0)

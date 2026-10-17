@@ -165,7 +165,7 @@ public final class JoinDropHack extends Hack implements UpdateListener
 			return;
 		
 		pendingDrops.putIfAbsent(invSlot, DroppedStack.from(stack));
-		IMC.getInteractionManager().windowClick_THROW(invSlot);
+		IMC.getGameMode().windowClick_THROW(invSlot);
 	}
 	
 	private void dropOffhandMatch(Inventory inv)

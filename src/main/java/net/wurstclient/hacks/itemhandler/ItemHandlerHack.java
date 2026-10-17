@@ -400,7 +400,7 @@ public class ItemHandlerHack extends Hack
 					if(foundSlot < 0)
 						break;
 					int networkSlot = InventoryUtils.toNetworkSlot(foundSlot);
-					IMC.getInteractionManager().windowClick_THROW(networkSlot);
+					IMC.getGameMode().windowClick_THROW(networkSlot);
 					remainingToDrop--;
 				}
 				// skip rejected-rules logic for this id
@@ -444,7 +444,7 @@ public class ItemHandlerHack extends Hack
 					break;
 				
 				int networkSlot = InventoryUtils.toNetworkSlot(foundSlot);
-				IMC.getInteractionManager().windowClick_THROW(networkSlot);
+				IMC.getGameMode().windowClick_THROW(networkSlot);
 				remainingToDrop--;
 				
 				// update rejected rules amounts (consume rules in insertion

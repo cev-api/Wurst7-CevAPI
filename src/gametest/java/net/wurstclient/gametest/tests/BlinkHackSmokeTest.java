@@ -25,9 +25,9 @@ public final class BlinkHackSmokeTest extends SingleplayerTest
 	{
 		logger.info("Testing Blink hack");
 		
-		context.runOnClient(
-			_ -> WurstClient.INSTANCE.getHax().blinkHack.setEnabled(true));
-		context.runOnClient(
-			_ -> WurstClient.INSTANCE.getHax().blinkHack.setEnabled(false));
+		context.runOnClient(ignored -> WurstClient.INSTANCE.getHax().blinkHack
+			.setEnabled(true));
+		context.runOnClient(ignored -> WurstClient.INSTANCE.getHax().blinkHack
+			.setEnabled(false));
 	}
 }

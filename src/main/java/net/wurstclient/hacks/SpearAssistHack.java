@@ -819,7 +819,7 @@ public final class SpearAssistHack extends Hack
 		double nearDistSq = nearDist * nearDist;
 		double farDistSq = farSetting * farSetting;
 		
-		EntityUtils.getAttackableEntities().sequential()
+		EntityUtils.getMeleeAttackableEntities().sequential()
 			.filter(LivingEntity.class::isInstance)
 			.map(LivingEntity.class::cast).forEach(entity -> {
 				if(entity == MC.player)

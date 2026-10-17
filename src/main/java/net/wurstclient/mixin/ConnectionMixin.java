@@ -7,14 +7,14 @@
  */
 package net.wurstclient.mixin;
 
-import java.util.concurrent.ConcurrentLinkedQueue;
-
 import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
@@ -32,9 +32,6 @@ import net.wurstclient.hacks.NbtFilterHack;
 public abstract class ConnectionMixin
 	extends SimpleChannelInboundHandler<Packet<?>>
 {
-	private ConcurrentLinkedQueue<ConnectionPacketOutputEvent> events =
-		new ConcurrentLinkedQueue<>();
-	
 	@Inject(
 		method = "channelRead0(Lio/netty/channel/ChannelHandlerContext;Lnet/minecraft/network/protocol/Packet;)V",
 		at = @At(value = "INVOKE",
@@ -51,12 +48,11 @@ public abstract class ConnectionMixin
 			ci.cancel();
 	}
 	
-	// These mixins target the second "send" method. The one with two arguments.
-	
-	@ModifyVariable(
-		method = "send(Lnet/minecraft/network/protocol/Packet;Lio/netty/channel/ChannelFutureListener;)V",
-		at = @At("HEAD"))
-	public Packet<?> modifyPacket(Packet<?> packet)
+	@WrapMethod(
+		method = "send(Lnet/minecraft/network/protocol/Packet;Lio/netty/channel/ChannelFutureListener;Z)V")
+	private void wrapSend(Packet<?> packet,
+		@Nullable ChannelFutureListener listener, boolean flush,
+		Operation<Void> original)
 	{
 		if(packet instanceof ServerboundMovePlayerPacket move
 			&& WurstClient.INSTANCE != null
@@ -69,42 +65,15 @@ public abstract class ConnectionMixin
 			packet = WurstClient.INSTANCE.getHax().noFallHack
 				.protectFlightMovementPacket(move);
 		}
+		
+		if(NbtFilterHack.shouldCancelOutgoingPacket(packet))
+			return;
+		
 		ConnectionPacketOutputEvent event =
 			new ConnectionPacketOutputEvent(packet);
-		events.add(event);
 		EventManager.fire(event);
-		return event.getPacket();
-	}
-	
-	@Inject(
-		method = "send(Lnet/minecraft/network/protocol/Packet;Lio/netty/channel/ChannelFutureListener;)V",
-		at = @At("HEAD"),
-		cancellable = true)
-	private void onSend(Packet<?> packet,
-		@Nullable ChannelFutureListener callback, CallbackInfo ci)
-	{
-		if(NbtFilterHack.shouldCancelOutgoingPacket(packet))
-		{
-			ci.cancel();
-			return;
-		}
 		
-		ConnectionPacketOutputEvent event = getEvent(packet);
-		if(event == null)
-			return;
-		
-		if(event.isCancelled())
-			ci.cancel();
-		
-		events.remove(event);
-	}
-	
-	private ConnectionPacketOutputEvent getEvent(Packet<?> packet)
-	{
-		for(ConnectionPacketOutputEvent event : events)
-			if(event.getPacket() == packet)
-				return event;
-			
-		return null;
+		if(!event.isCancelled())
+			original.call(event.getPacket(), listener, flush);
 	}
 }

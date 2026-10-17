@@ -38,7 +38,7 @@ import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.WurstClient;
 import net.wurstclient.hack.Hack;
-import net.wurstclient.mixinterface.IMinecraftClient;
+import net.wurstclient.mixinterface.IMinecraft;
 import net.wurstclient.settings.EnumSetting;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ItemListSetting;
@@ -804,8 +804,8 @@ public final class QuickShulkerHack extends Hack
 			return ItemSwap.keepSelection(targetHotbarSlot);
 		}
 		
-		IMinecraftClient imc = WurstClient.IMC;
-		imc.getInteractionManager().windowClick_SWAP(
+		IMinecraft imc = WurstClient.IMC;
+		imc.getGameMode().windowClick_SWAP(
 			InventoryUtils.toNetworkSlot(sourceSlot), targetHotbarSlot);
 		inv.setSelectedSlot(targetHotbarSlot);
 		return new ItemSwap(targetHotbarSlot, sourceSlot, true);
@@ -818,7 +818,7 @@ public final class QuickShulkerHack extends Hack
 		
 		if(swap.storageSlot >= 0)
 		{
-			WurstClient.IMC.getInteractionManager().windowClick_SWAP(
+			WurstClient.IMC.getGameMode().windowClick_SWAP(
 				InventoryUtils.toNetworkSlot(swap.storageSlot),
 				swap.restoreSlot);
 		}

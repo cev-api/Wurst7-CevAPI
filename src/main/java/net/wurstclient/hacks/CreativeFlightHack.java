@@ -180,7 +180,7 @@ public final class CreativeFlightHack extends Hack implements UpdateListener
 	
 	private void restoreSneakKey()
 	{
-		IKeyMapping.get(MC.options.keyShift).resetPressedState();
+		IKeyMapping.get(MC.options.keyShift).resetDownState();
 		suppressedSneakKey = false;
 	}
 }

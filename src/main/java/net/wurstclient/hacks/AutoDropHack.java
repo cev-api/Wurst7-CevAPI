@@ -101,7 +101,7 @@ public final class AutoDropHack extends Hack implements UpdateListener
 			if(packetOnly.isChecked())
 				sendThrowPacket(slot, adjustedSlot);
 			else
-				IMC.getInteractionManager().windowClick_THROW(slot);
+				IMC.getGameMode().windowClick_THROW(slot);
 		}
 	}
 	

@@ -11,10 +11,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
-import net.minecraft.client.multiplayer.ClientLevel;
-import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.Interaction;
 import net.minecraft.world.entity.LivingEntity;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
@@ -27,7 +25,7 @@ import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
 import net.wurstclient.settings.filterlists.EntityFilterList;
 import net.wurstclient.settings.filters.*;
-import net.wurstclient.util.FakePlayerEntity;
+import net.wurstclient.util.EntityUtils;
 
 @SearchTags({"MiniMap", "mini map"})
 public final class RadarHack extends Hack implements UpdateListener
@@ -42,13 +40,17 @@ public final class RadarHack extends Hack implements UpdateListener
 	
 	private final EntityFilterList entityFilters =
 		new EntityFilterList(FilterPlayersSetting.genericVision(false),
+			FilterCreativeSetting.genericVision(false),
 			FilterSleepingSetting.genericVision(false),
 			FilterHostileSetting.genericVision(false),
+			FilterNeutralSetting
+				.genericVision(AttackDetectingEntityFilter.Mode.OFF),
 			FilterPassiveSetting.genericVision(false),
 			FilterPassiveWaterSetting.genericVision(false),
 			FilterBatsSetting.genericVision(true),
 			FilterSlimesSetting.genericVision(false),
-			FilterInvisibleSetting.genericVision(false));
+			FilterInvisibleSetting.genericVision(false),
+			FilterInteractionsSetting.genericVision(false));
 	
 	public RadarHack()
 	{
@@ -82,16 +84,10 @@ public final class RadarHack extends Hack implements UpdateListener
 	@Override
 	public void onUpdate()
 	{
-		LocalPlayer player = MC.player;
-		ClientLevel world = MC.level;
-		
 		entities.clear();
-		Stream<Entity> stream = StreamSupport
-			.stream(world.entitiesForRendering().spliterator(), true)
-			.filter(e -> !e.isRemoved() && e != player)
-			.filter(e -> !(e instanceof FakePlayerEntity))
-			.filter(LivingEntity.class::isInstance)
-			.filter(e -> ((LivingEntity)e).getHealth() > 0);
+		Stream<Entity> stream = EntityUtils.getAliveEntities()
+			.filter(e -> e instanceof LivingEntity || e instanceof Interaction)
+			.filter(EntityUtils.IS_NOT_SELF);
 		
 		stream = entityFilters.applyTo(stream);
 		

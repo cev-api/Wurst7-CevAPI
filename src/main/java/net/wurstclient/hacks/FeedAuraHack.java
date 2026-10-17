@@ -7,15 +7,15 @@
  */
 package net.wurstclient.hacks;
 
-import com.mojang.blaze3d.vertex.PoseStack;
-import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.multiplayer.MultiPlayerGameMode;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.TamableAnimal;
 import net.minecraft.world.entity.animal.Animal;
 import net.minecraft.world.entity.animal.equine.AbstractHorse;
@@ -46,23 +46,19 @@ public final class FeedAuraHack extends Hack
 		5, 1, 10, 0.05, ValueDisplay.DECIMAL);
 	
 	private final FilterBabiesSetting filterBabies =
-		new FilterBabiesSetting("Won't feed baby animals.\n"
-			+ "Saves food, but doesn't speed up baby growth.", true);
+		new FilterBabiesSetting(this, true);
 	
 	private final CheckboxSetting filterUntamed =
 		new CheckboxSetting("Filter untamed",
-			"Won't feed tameable animals that haven't been tamed yet.", false);
+			"description.wurst.setting.feedaura.filter_untamed", false);
 	
-	private final CheckboxSetting filterHorses = new CheckboxSetting(
-		"Filter horse-like animals",
-		"Won't feed horses, llamas, donkeys, etc.\n"
-			+ "Recommended in Minecraft versions before 1.20.3 due to MC-233276,"
-			+ "which causes these animals to consume items indefinitely.",
-		false);
+	private final CheckboxSetting filterHorses =
+		new CheckboxSetting("Filter horse-like animals",
+			"description.wurst.setting.feedaura.filter_horses", false);
 	
 	private final Random random = new Random();
-	private Animal target;
-	private Animal renderTarget;
+	private LivingEntity target;
+	private LivingEntity renderTarget;
 	
 	public FeedAuraHack()
 	{
@@ -77,15 +73,6 @@ public final class FeedAuraHack extends Hack
 	@Override
 	protected void onEnable()
 	{
-		// disable other auras
-		WURST.getHax().clickAuraHack.setEnabled(false);
-		WURST.getHax().fightBotHack.setEnabled(false);
-		WURST.getHax().killauraLegitHack.setEnabled(false);
-		WURST.getHax().multiAuraHack.setEnabled(false);
-		WURST.getHax().protectHack.setEnabled(false);
-		WURST.getHax().triggerBotHack.setEnabled(false);
-		WURST.getHax().tpAuraHack.setEnabled(false);
-		
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(HandleInputListener.class, this);
 		EVENTS.add(RenderListener.class, this);
@@ -108,9 +95,10 @@ public final class FeedAuraHack extends Hack
 		ItemStack heldStack = MC.player.getInventory().getSelectedItem();
 		
 		double rangeSq = range.getValueSq();
-		Stream<Animal> stream = EntityUtils.getValidAnimals()
-			.filter(e -> EntityUtils.distanceToHitboxSq(e) <= rangeSq)
-			.filter(e -> e.isFood(heldStack)).filter(Animal::canFallInLove);
+		Stream<LivingEntity> stream =
+			EntityUtils.getAliveEntities(LivingEntity.class)
+				.filter(e -> EntityUtils.distanceToHitboxSq(e) <= rangeSq)
+				.filter(e -> canFeed(e, heldStack));
 		
 		if(filterBabies.isChecked())
 			stream = stream.filter(filterBabies);
@@ -121,11 +109,8 @@ public final class FeedAuraHack extends Hack
 		if(filterHorses.isChecked())
 			stream = stream.filter(e -> !(e instanceof AbstractHorse));
 		
-		// convert targets to list
-		ArrayList<Animal> targets =
-			stream.collect(Collectors.toCollection(ArrayList::new));
-		
-		// pick a target at random
+		// Pick a target at random
+		List<LivingEntity> targets = stream.toList();
 		target = targets.isEmpty() ? null
 			: targets.get(random.nextInt(targets.size()));
 		
@@ -135,6 +120,25 @@ public final class FeedAuraHack extends Hack
 		
 		WURST.getRotationFaker()
 			.faceVectorPacket(target.getBoundingBox().getCenter());
+	}
+	
+	private boolean canFeed(LivingEntity entity, ItemStack stack)
+	{
+		if(entity instanceof Animal animal)
+			return animal.isFood(stack) && animal.canFallInLove();
+		
+		return false;
+	}
+	
+	private boolean isUntamed(LivingEntity e)
+	{
+		if(e instanceof AbstractHorse horse && !horse.isTamed())
+			return true;
+		
+		if(e instanceof TamableAnimal tame && !tame.isTame())
+			return true;
+		
+		return false;
 	}
 	
 	@Override
@@ -183,16 +187,5 @@ public final class FeedAuraHack extends Hack
 		
 		RenderUtils.drawSolidBox(matrixStack, box, quadColor, false);
 		RenderUtils.drawOutlinedBox(matrixStack, box, lineColor, false);
-	}
-	
-	private boolean isUntamed(Animal e)
-	{
-		if(e instanceof AbstractHorse horse && !horse.isTamed())
-			return true;
-		
-		if(e instanceof TamableAnimal tame && !tame.isTame())
-			return true;
-		
-		return false;
 	}
 }

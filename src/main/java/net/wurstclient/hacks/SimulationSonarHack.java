@@ -719,7 +719,7 @@ public final class SimulationSonarHack extends Hack
 			s.entityLastTick.put(entity.id, tick);
 			s.entityLastActive.put(entity.id, now);
 			s.entities.add(entity.id);
-			s.entityTypes.add(entity.type);
+			s.EntityType.add(entity.type);
 		}
 		if(dedupeKey != Long.MIN_VALUE)
 			s.blockLastTick.put(dedupeKey, tick);
@@ -1229,7 +1229,7 @@ public final class SimulationSonarHack extends Hack
 		Confidence confidence;
 		Confidence displayConfidence;
 		final Set<Integer> entities = new HashSet<>();
-		final Set<String> entityTypes = new HashSet<>();
+		final Set<String> EntityType = new HashSet<>();
 		final Set<Integer> recentEntities = new HashSet<>();
 		final Map<Evidence, Integer> counts = new EnumMap<>(Evidence.class);
 		final Map<Evidence, Double> weights = new EnumMap<>(Evidence.class);

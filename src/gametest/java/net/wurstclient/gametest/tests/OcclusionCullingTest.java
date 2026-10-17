@@ -43,14 +43,14 @@ public final class OcclusionCullingTest extends SingleplayerTest
 			"Occlusion culling did not hide the test chest");
 		
 		// Test that the chest becomes visible with Freecam
-		context.runOnClient(
-			_ -> WurstClient.INSTANCE.getHax().freecamHack.setEnabled(true));
+		context.runOnClient(ignored -> WurstClient.INSTANCE.getHax().freecamHack
+			.setEnabled(true));
 		assertChestVisibility(true,
 			"Occlusion culling was not disabled in Freecam");
 		
 		// Clean up
-		context.runOnClient(
-			_ -> WurstClient.INSTANCE.getHax().freecamHack.setEnabled(false));
+		context.runOnClient(ignored -> WurstClient.INSTANCE.getHax().freecamHack
+			.setEnabled(false));
 		setBlocksAndWait(blocks -> blocks.set(200, -56, 248, Blocks.AIR));
 		fillSurroundingSections(Blocks.AIR);
 		teleportPlayer(0, -57, 0);

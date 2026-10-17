@@ -12,7 +12,6 @@ import java.util.Comparator;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.util.Mth;
@@ -43,7 +42,6 @@ import net.wurstclient.settings.filterlists.EntityFilterList;
 import net.wurstclient.util.BlockUtils;
 import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.EntityUtils;
-import net.wurstclient.util.FakePlayerEntity;
 import net.wurstclient.util.InventoryUtils;
 import net.wurstclient.util.RotationUtils;
 
@@ -246,7 +244,7 @@ public final class AnchorAuraHack extends Hack implements UpdateListener
 			faceTarget.face(hitVec);
 			
 			// place block
-			IMC.getInteractionManager().rightClickBlock(pos, side, hitVec);
+			IMC.getGameMode().rightClickBlock(pos, side, hitVec);
 			
 			return true;
 		}
@@ -292,8 +290,8 @@ public final class AnchorAuraHack extends Hack implements UpdateListener
 			faceTarget.face(hitVec);
 			
 			// place block
-			IMC.getInteractionManager().rightClickBlock(neighbor,
-				side.getOpposite(), hitVec);
+			IMC.getGameMode().rightClickBlock(neighbor, side.getOpposite(),
+				hitVec);
 			
 			return true;
 		}
@@ -328,15 +326,9 @@ public final class AnchorAuraHack extends Hack implements UpdateListener
 			Comparator.<Entity> comparingDouble(EntityUtils::distanceToHitboxSq)
 				.reversed();
 		
-		Stream<Entity> stream = StreamSupport
-			.stream(MC.level.entitiesForRendering().spliterator(), false)
-			.filter(e -> !e.isRemoved())
-			.filter(e -> e instanceof LivingEntity
-				&& ((LivingEntity)e).getHealth() > 0)
-			.filter(e -> e != MC.player)
-			.filter(e -> !(e instanceof FakePlayerEntity))
-			.filter(e -> !WURST.getFriends().contains(e.getName().getString()))
-			.filter(e -> EntityUtils.distanceToHitboxSq(e) <= rangeSq);
+		Stream<LivingEntity> stream =
+			EntityUtils.getExplosionWorthyAttackableEntities()
+				.filter(e -> EntityUtils.distanceToHitboxSq(e) <= rangeSq);
 		
 		stream = entityFilters.applyTo(stream);
 		

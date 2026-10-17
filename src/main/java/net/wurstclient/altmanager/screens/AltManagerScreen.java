@@ -68,7 +68,7 @@ import net.wurstclient.altbot.AltBotState;
 import net.wurstclient.altbot.BotState;
 import net.wurstclient.altmanager.*;
 import net.wurstclient.clickgui.widgets.MultiSelectEntryListWidget;
-import net.wurstclient.mixinterface.IMinecraftClient;
+import net.wurstclient.mixinterface.IMinecraft;
 import net.wurstclient.proxy.SocksProxy;
 import net.wurstclient.proxy.ProxyManagerScreen;
 import net.wurstclient.util.MultiProcessingUtils;
@@ -324,8 +324,7 @@ public final class AltManagerScreen extends Screen
 		editButton.active = hasSingleSelection;
 		deleteButton.active = selectionCount > 0;
 		
-		logoutButton.active =
-			((IMinecraftClient)minecraft).getWurstSession() != null;
+		logoutButton.active = ((IMinecraft)minecraft).getWurstUser() != null;
 		
 		checkButton.active = !autoCheckInProgress
 			&& altManager.getList().stream().anyMatch(alt -> !alt.isCracked());
@@ -519,8 +518,8 @@ public final class AltManagerScreen extends Screen
 	
 	private void runRandomLogin()
 	{
-		IMinecraftClient imc = (IMinecraftClient)minecraft;
-		User previousSession = imc.getWurstSession();
+		IMinecraft imc = (IMinecraft)minecraft;
+		User previousSession = imc.getWurstUser();
 		boolean keepNewSession = false;
 		
 		try
@@ -583,13 +582,13 @@ public final class AltManagerScreen extends Screen
 		}finally
 		{
 			if(!keepNewSession)
-				imc.setWurstSession(previousSession);
+				imc.setWurstUser(previousSession);
 		}
 	}
 	
 	private void pressLogout()
 	{
-		IMinecraftClient imc = (IMinecraftClient)minecraft;
+		IMinecraft imc = (IMinecraft)minecraft;
 		User original = imc.getOriginalSession();
 		boolean restored = imc.restoreOriginalSession();
 		String currentName = minecraft.getUser().getName();
@@ -1210,6 +1209,9 @@ public final class AltManagerScreen extends Screen
 				continue;
 			}
 			
+			// Limit to 2 parts so that passwords containing ":" stay intact.
+			data = trimmed.split(":", 2);
+			
 			switch(data.length)
 			{
 				case 1:
@@ -1255,8 +1257,8 @@ public final class AltManagerScreen extends Screen
 		if(lines.isEmpty())
 			return Collections.emptyList();
 		
-		IMinecraftClient imc = (IMinecraftClient)minecraft;
-		User previousSession = imc.getWurstSession();
+		IMinecraft imc = (IMinecraft)minecraft;
+		User previousSession = imc.getWurstUser();
 		LinkedHashMap<String, TokenAlt> byName = new LinkedHashMap<>();
 		ArrayList<Alt> unresolved = new ArrayList<>();
 		
@@ -1312,7 +1314,7 @@ public final class AltManagerScreen extends Screen
 			
 		}finally
 		{
-			imc.setWurstSession(previousSession);
+			imc.setWurstUser(previousSession);
 		}
 		
 		ArrayList<Alt> result = new ArrayList<>();
@@ -1411,8 +1413,8 @@ public final class AltManagerScreen extends Screen
 	private void runAutoCheckAndDedupe(List<Alt> prioritized,
 		List<Alt> remaining, List<SocksProxy> proxies)
 	{
-		IMinecraftClient imc = (IMinecraftClient)minecraft;
-		User previousSession = imc.getWurstSession();
+		IMinecraft imc = (IMinecraft)minecraft;
+		User previousSession = imc.getWurstUser();
 		boolean changed = false;
 		int proxyIndex = 0;
 		
@@ -1501,7 +1503,7 @@ public final class AltManagerScreen extends Screen
 			
 		}finally
 		{
-			imc.setWurstSession(previousSession);
+			imc.setWurstUser(previousSession);
 			autoCheckInProgress = false;
 			minecraft.execute(() -> {
 				if(minecraft.screen == this)
@@ -1882,7 +1884,7 @@ public final class AltManagerScreen extends Screen
 			context.drawCenteredString(font, editValidationStatus, width / 2,
 				58, 0xFFFF55);
 		
-		if(((IMinecraftClient)minecraft).getWurstSession() != null)
+		if(((IMinecraft)minecraft).getWurstUser() != null)
 			context.drawCenteredString(font,
 				"Logged in as " + minecraft.getUser().getName(), width / 2, 50,
 				0x55FF55);

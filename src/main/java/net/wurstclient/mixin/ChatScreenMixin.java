@@ -13,6 +13,10 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+import com.llamalad7.mixinextras.sugar.Local;
+import com.llamalad7.mixinextras.sugar.ref.LocalRef;
+
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.ChatScreen;
@@ -46,31 +50,33 @@ public abstract class ChatScreenMixin extends Screen
 	}
 	
 	@Inject(method = "handleChatInput(Ljava/lang/String;Z)V",
-		at = @At("HEAD"),
+		at = @At(value = "INVOKE",
+			target = "Ljava/lang/String;isEmpty()Z",
+			shift = At.Shift.AFTER),
 		cancellable = true)
-	public void onSendMessage(String message, boolean addToHistory,
-		CallbackInfo ci)
+	private void onHandleChatInput(String messageDontUse, boolean addToHistory,
+		CallbackInfo ci, @Local(argsOnly = true) LocalRef<String> message)
 	{
-		// Ignore empty messages just like vanilla
-		if((message = normalizeChatMessage(message)).isEmpty())
+		if(message.get().isEmpty())
 			return;
 		
 		if(WurstClient.INSTANCE.getOtfs() != null)
 		{
-			String kind = UiUtilsCommandSystem.isUiUtilsCommand(message)
+			String kind = UiUtilsCommandSystem.isUiUtilsCommand(message.get())
 				? "uiutils_command"
-				: message.startsWith("/") ? "command" : "chat";
+				: message.get().startsWith("/") ? "command" : "chat";
 			WurstClient.INSTANCE.getOtfs().packetToolsOtf
-				.logVerboseChatInput("ChatScreen", message, kind);
+				.logVerboseChatInput("ChatScreen", message.get(), kind);
 		}
 		
-		if(UiUtilsCommandSystem.isUiUtilsCommand(message))
+		if(UiUtilsCommandSystem.isUiUtilsCommand(message.get()))
 		{
-			String command = UiUtilsCommandSystem.extractCommandBody(message);
+			String command =
+				UiUtilsCommandSystem.extractCommandBody(message.get());
 			String result = UiUtilsCommandSystem.execute(command);
 			
 			if(addToHistory)
-				minecraft.gui.getChat().addRecentChat(message);
+				minecraft.gui.getChat().addRecentChat(message.get());
 			
 			if(minecraft.player != null && !result.isEmpty())
 				for(String line : result.split("\n"))
@@ -82,32 +88,21 @@ public abstract class ChatScreenMixin extends Screen
 			return;
 		}
 		
-		// Create and fire the chat output event
-		ChatOutputEvent event = new ChatOutputEvent(message);
+		ChatOutputEvent event = new ChatOutputEvent(message.get());
 		EventManager.fire(event);
 		
-		// If the event hasn't been modified or cancelled,
-		// let the vanilla method handle the message
-		boolean cancelled = event.isCancelled();
-		if(!cancelled && !event.isModified())
+		if(event.isCancelled())
+		{
+			// Preserve history even for cancelled messages
+			// Otherwise the up/down arrows won't work correctly
+			if(addToHistory)
+				minecraft.gui.getChat().addRecentChat(event.getMessage());
+			
+			ci.cancel();
 			return;
+		}
 		
-		// Otherwise, cancel the vanilla method and handle the message here
-		ci.cancel();
-		
-		// Add the message to history, even if it was cancelled
-		// Otherwise the up/down arrows won't work correctly
-		String newMessage = event.getMessage();
-		if(addToHistory)
-			minecraft.gui.getChat().addRecentChat(newMessage);
-		
-		// If the event isn't cancelled, send the modified message
-		if(!cancelled)
-			if(newMessage.startsWith("/"))
-				minecraft.player.connection
-					.sendCommand(newMessage.substring(1));
-			else
-				minecraft.player.connection.sendChat(newMessage);
+		message.set(event.getMessage());
 	}
 	
 	@Inject(method = "render(Lnet/minecraft/client/gui/GuiGraphics;IIF)V",
@@ -195,7 +190,4 @@ public abstract class ChatScreenMixin extends Screen
 			return ".";
 		}
 	}
-	
-	@Shadow
-	public abstract String normalizeChatMessage(String chatText);
 }

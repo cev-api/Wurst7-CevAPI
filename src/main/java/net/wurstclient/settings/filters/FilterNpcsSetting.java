@@ -10,27 +10,28 @@ package net.wurstclient.settings.filters;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.wurstclient.util.NpcUtils;
+import net.wurstclient.util.text.WText;
 
 public final class FilterNpcsSetting extends EntityFilterCheckbox
 {
-	public FilterNpcsSetting(String description, boolean checked)
+	public FilterNpcsSetting(WText description, boolean checked)
 	{
 		super("Filter NPCs", description, checked);
 	}
 	
 	@Override
-	public boolean test(Entity e)
+	protected boolean filtersOut(Entity e)
 	{
 		if(!(e instanceof Player player))
-			return true;
+			return false;
 		
-		return !NpcUtils.isLikelyNpcPlayer(player);
+		return NpcUtils.isLikelyNpcPlayer(player);
 	}
 	
 	public static FilterNpcsSetting genericCombat(boolean checked)
 	{
-		return new FilterNpcsSetting(
-			"Won't target likely server-side NPCs (tab-list mismatch, no tab entry, or NPC-style names).",
+		return new FilterNpcsSetting(WText.literal(
+			"Won't target likely server-side NPCs (tab-list mismatch, no tab entry, or NPC-style names)."),
 			checked);
 	}
 }

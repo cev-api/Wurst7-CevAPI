@@ -71,7 +71,7 @@ public final class TriggerBotHack extends Hack
 		false);
 	
 	private final EntityFilterList entityFilters =
-		EntityFilterList.genericCombat();
+		EntityFilterList.genericMeleeCombat();
 	
 	private final MobWeaponRuleSetting[] weaponRuleSettings =
 		new MobWeaponRuleSetting[]{new MobWeaponRuleSetting("Mob Tool Rule 1"),
@@ -198,7 +198,7 @@ public final class TriggerBotHack extends Hack
 	
 	private boolean isCorrectEntity(Entity entity)
 	{
-		if(!EntityUtils.IS_ATTACKABLE.test(entity))
+		if(!EntityUtils.IS_ATTACKABLE_MELEE.test(entity))
 			return false;
 		
 		if(EntityUtils.distanceToHitboxSq(entity) > range.getValueSq())

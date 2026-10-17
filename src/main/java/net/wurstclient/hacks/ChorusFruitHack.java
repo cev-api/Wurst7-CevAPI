@@ -248,7 +248,7 @@ public final class ChorusFruitHack extends Hack
 			if(slot != oldSlot)
 			{
 				swappedSlot = slot;
-				IMC.getInteractionManager().windowClick_SWAP(
+				IMC.getGameMode().windowClick_SWAP(
 					InventoryUtils.toNetworkSlot(slot), oldSlot);
 			}
 			
@@ -259,14 +259,14 @@ public final class ChorusFruitHack extends Hack
 		}else
 		{
 			swappedSlot = slot;
-			IMC.getInteractionManager()
+			IMC.getGameMode()
 				.windowClick_SWAP(InventoryUtils.toNetworkSlot(slot), oldSlot);
 		}
 		
 		consuming = true;
 		useStartTick = MC.player.tickCount;
 		MC.options.keyUse.setDown(true);
-		IMC.getInteractionManager().rightClickItem();
+		IMC.getGameMode().rightClickItem();
 	}
 	
 	private void keepConsuming()
@@ -274,7 +274,7 @@ public final class ChorusFruitHack extends Hack
 		if(packetSpam.isChecked())
 		{
 			for(int i = 0; i < 3; i++)
-				IMC.getInteractionManager().rightClickItem();
+				IMC.getGameMode().rightClickItem();
 			
 			MC.rightClickDelay = 0;
 			
@@ -304,7 +304,7 @@ public final class ChorusFruitHack extends Hack
 		{
 			if(swappedSlot != -1)
 			{
-				IMC.getInteractionManager().windowClick_SWAP(
+				IMC.getGameMode().windowClick_SWAP(
 					InventoryUtils.toNetworkSlot(swappedSlot), oldSlot);
 				swappedSlot = -1;
 			}

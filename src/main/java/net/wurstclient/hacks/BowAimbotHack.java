@@ -12,7 +12,9 @@ import java.awt.Color;
 import java.util.Comparator;
 import java.util.function.ToDoubleFunction;
 import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
+
+import com.mojang.blaze3d.vertex.PoseStack;
+
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.player.LocalPlayer;
@@ -56,7 +58,7 @@ public final class BowAimbotHack extends Hack
 		0.2, 0, 2, 0.01, ValueDisplay.PERCENTAGE);
 	
 	private final EntityFilterList entityFilters =
-		EntityFilterList.genericCombat();
+		EntityFilterList.genericRangedCombat();
 	
 	private final ColorSetting color = new ColorSetting("ESP color",
 		"Color of the box that BowAimbot draws around the target.", Color.RED);
@@ -129,8 +131,7 @@ public final class BowAimbotHack extends Hack
 		
 		// set target
 		if(filterEntities(Stream.of(target)) == null)
-			target = filterEntities(StreamSupport
-				.stream(MC.level.entitiesForRendering().spliterator(), true));
+			target = filterEntities(EntityUtils.getEntities());
 		
 		if(target == null)
 			return;
@@ -177,7 +178,7 @@ public final class BowAimbotHack extends Hack
 	
 	private Entity filterEntities(Stream<Entity> s)
 	{
-		Stream<Entity> stream = s.filter(EntityUtils.IS_ATTACKABLE);
+		Stream<Entity> stream = s.filter(EntityUtils.IS_ATTACKABLE_RANGED);
 		stream = entityFilters.applyTo(stream);
 		
 		return stream.min(priority.getSelected().comparator).orElse(null);

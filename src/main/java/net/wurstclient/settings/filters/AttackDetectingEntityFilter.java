@@ -13,13 +13,14 @@ import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.EnumSetting;
 import net.wurstclient.settings.Setting;
 import net.wurstclient.settings.filterlists.EntityFilterList.EntityFilter;
+import net.wurstclient.util.text.WText;
 
 public abstract class AttackDetectingEntityFilter implements EntityFilter
 {
 	private final Setting setting;
 	private final Supplier<Mode> mode;
 	
-	protected AttackDetectingEntityFilter(String name, String description,
+	protected AttackDetectingEntityFilter(String name, WText description,
 		Mode selected, boolean checked)
 	{
 		if(selected == null)
@@ -38,20 +39,15 @@ public abstract class AttackDetectingEntityFilter implements EntityFilter
 		}
 	}
 	
-	public abstract boolean onTest(Entity e);
-	
-	public abstract boolean ifCalmTest(Entity e);
-	
 	@Override
 	public final boolean test(Entity e)
 	{
-		return mode.get() == Mode.IF_CALM ? ifCalmTest(e) : onTest(e);
-	}
-	
-	@Override
-	public final boolean isFilterEnabled()
-	{
-		return mode.get() != Mode.OFF;
+		return switch(mode.get())
+		{
+			case ON -> !onFiltersOut(e);
+			case IF_CALM -> !ifCalmFiltersOut(e);
+			case OFF -> true;
+		};
 	}
 	
 	@Override
@@ -59,6 +55,10 @@ public abstract class AttackDetectingEntityFilter implements EntityFilter
 	{
 		return setting;
 	}
+	
+	protected abstract boolean onFiltersOut(Entity e);
+	
+	protected abstract boolean ifCalmFiltersOut(Entity e);
 	
 	public enum Mode
 	{
