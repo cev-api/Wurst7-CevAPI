@@ -595,3 +595,10 @@ tasks.register("closeMilestone") {
 		}
 	}
 }
+
+// The regression suites in src/test are plain main() harnesses rather than
+// JUnit tests, so the default "test sources but no tests discovered" guard
+// would fail every build.
+tasks.named("test") {
+	failOnNoDiscoveredTests = false
+}

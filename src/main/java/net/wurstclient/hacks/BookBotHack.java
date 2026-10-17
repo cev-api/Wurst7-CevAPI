@@ -64,7 +64,7 @@ import net.wurstclient.util.BookBotShelfWindow;
 import net.wurstclient.util.BookBotInventoryPlan;
 import net.minecraft.network.HashedStack;
 import net.minecraft.network.protocol.game.ServerboundContainerClickPacket;
-import net.minecraft.world.inventory.ContainerInput;
+import net.minecraft.world.inventory.ClickType;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import net.wurstclient.util.InventoryUtils;
 import net.wurstclient.util.ShelfTransferTargeting;
@@ -615,8 +615,7 @@ public final class BookBotHack extends Hack implements UpdateListener
 			confirmedRevision = MC.player.inventoryMenu.getStateId();
 			syncPending = true;
 			inventoryDeadline = now + 5_000_000_000L;
-			sendInventoryClick(-1, 0, ContainerInput.PICKUP,
-				"CHECK_CURSOR_EMPTY");
+			sendInventoryClick(-1, 0, ClickType.PICKUP, "CHECK_CURSOR_EMPTY");
 			return false;
 		}
 		if(inventoryPlan == null)
@@ -678,7 +677,7 @@ public final class BookBotHack extends Hack implements UpdateListener
 		return true;
 	}
 	
-	private void sendInventoryClick(int slot, int button, ContainerInput input,
+	private void sendInventoryClick(int slot, int button, ClickType input,
 		String stage)
 	{
 		// Vanilla processes the click then broadcasts a full snapshot on a

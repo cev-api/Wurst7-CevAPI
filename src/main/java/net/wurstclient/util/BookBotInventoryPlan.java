@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import net.minecraft.world.inventory.ContainerInput;
+import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
@@ -21,10 +21,9 @@ import net.minecraft.world.item.Items;
  */
 public final class BookBotInventoryPlan
 {
-	public record Click(String stage, int slot, int button,
-		ContainerInput input, ItemStack cursor,
-		Map<Integer, ItemStack> expected, ItemStack beforeCursor,
-		Map<Integer, ItemStack> before)
+	public record Click(String stage, int slot, int button, ClickType input,
+		ItemStack cursor, Map<Integer, ItemStack> expected,
+		ItemStack beforeCursor, Map<Integer, ItemStack> before)
 	{}
 	
 	private final ArrayDeque<Click> steps = new ArrayDeque<>();
@@ -105,7 +104,7 @@ public final class BookBotInventoryPlan
 		BookBotInventoryPlan plan =
 			new BookBotInventoryPlan(hotbar + 36, revision);
 		plan.steps.add(new Click("MOVE_TO_HOTBAR", source, hotbar,
-			ContainerInput.SWAP, ItemStack.EMPTY,
+			ClickType.SWAP, ItemStack.EMPTY,
 			Map.of(source, slots.get(hotbar + 36).copy(), hotbar + 36,
 				slots.get(source).copy()),
 			ItemStack.EMPTY, Map.of(source, slots.get(source).copy(),
@@ -117,7 +116,7 @@ public final class BookBotInventoryPlan
 		Map<Integer, ItemStack> expected, ItemStack beforeCursor,
 		Map<Integer, ItemStack> before)
 	{
-		steps.add(new Click(stage, slot, button, ContainerInput.PICKUP, cursor,
+		steps.add(new Click(stage, slot, button, ClickType.PICKUP, cursor,
 			expected, beforeCursor, before));
 	}
 	

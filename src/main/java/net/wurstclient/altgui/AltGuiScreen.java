@@ -1432,7 +1432,7 @@ public final class AltGuiScreen extends Screen
 			component.setY(y1);
 			component.setWidth(settingsX + settingsW - 12 - x);
 			component.setHeight(y2 - y1);
-			component.extractRenderState(context, mouseX, mouseY, 0);
+			component.render(context, mouseX, mouseY, 0);
 			return;
 		}
 		
@@ -2499,13 +2499,13 @@ public final class AltGuiScreen extends Screen
 		
 		if(setting instanceof PlayerMuteListSetting muteList)
 		{
-			minecraft.gui.setScreen(new EditPlayerMuteScreen(this, muteList));
+			minecraft.setScreen(new EditPlayerMuteScreen(this, muteList));
 			return true;
 		}
 		
 		if(setting instanceof SoundListSetting soundList)
 		{
-			minecraft.gui.setScreen(new EditSoundListScreen(this, soundList));
+			minecraft.setScreen(new EditSoundListScreen(this, soundList));
 			return true;
 		}
 		
