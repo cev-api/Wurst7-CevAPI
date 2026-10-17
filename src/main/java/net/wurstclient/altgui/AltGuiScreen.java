@@ -40,6 +40,8 @@ import net.wurstclient.clickgui.screens.EditColorScreen;
 import net.wurstclient.clickgui.screens.EditEntityTypeListScreen;
 import net.wurstclient.clickgui.screens.EditFriendListScreen;
 import net.wurstclient.clickgui.screens.EditItemListScreen;
+import net.wurstclient.clickgui.screens.EditPlayerMuteScreen;
+import net.wurstclient.clickgui.screens.EditSoundListScreen;
 import net.wurstclient.clickgui.screens.SelectFileScreen;
 import net.wurstclient.clickgui.screens.WaypointsScreen;
 import net.wurstclient.hack.Hack;
@@ -54,6 +56,7 @@ import net.wurstclient.keybinds.Keybind;
 import net.wurstclient.keybinds.PossibleKeybind;
 import net.wurstclient.other_feature.OtherFeature;
 import net.wurstclient.other_features.PacketFirewallOtf;
+import net.wurstclient.other_features.HackListOtf;
 import net.wurstclient.settings.BlockListSetting;
 import net.wurstclient.settings.BlockSetting;
 import net.wurstclient.settings.BookOffersSetting;
@@ -67,9 +70,11 @@ import net.wurstclient.settings.FriendListSetting;
 import net.wurstclient.settings.ItemListSetting;
 import net.wurstclient.settings.MobWeaponRuleSetting;
 import net.wurstclient.settings.PlantTypeSetting;
+import net.wurstclient.settings.PlayerMuteListSetting;
 import net.wurstclient.settings.Setting;
 import net.wurstclient.settings.SettingGroup;
 import net.wurstclient.settings.SliderSetting;
+import net.wurstclient.settings.SoundListSetting;
 import net.wurstclient.settings.SpacerSetting;
 import net.wurstclient.settings.StringDropdownSetting;
 import net.wurstclient.settings.TextFieldSetting;
@@ -150,6 +155,8 @@ public final class AltGuiScreen extends Screen
 	
 	private final HashSet<String> expandedFeatures = new HashSet<>();
 	private final HashSet<SettingGroup> expandedGroups = new HashSet<>();
+	private final Map<Setting, net.wurstclient.clickgui.Component> customComponents =
+		new IdentityHashMap<>();
 	private String hoverTooltip = "";
 	private int pendingScrollRestore = -1;
 	private boolean searchVisibleInLayout;
@@ -636,7 +643,7 @@ public final class AltGuiScreen extends Screen
 		if(handleCategoryClick(mouseX, mouseY))
 			return true;
 		
-		if(handleSelectedFeatureSettingsClick(mouseX, mouseY, button))
+		if(handleSelectedFeatureSettingsClick(mouseX, mouseY, button, context))
 			return true;
 		
 		if(handleModuleClick(mouseX, mouseY, button))
@@ -649,6 +656,14 @@ public final class AltGuiScreen extends Screen
 	public boolean mouseDragged(MouseButtonEvent context, double dragX,
 		double dragY)
 	{
+		if(selectedFeature != null)
+			for(SettingRow row : getSettingRows(selectedFeature))
+				if(isHackListSelector(row))
+				{
+					if(getCustomComponent(row.setting())
+						.handleMouseDrag(context.x(), context.y()))
+						return true;
+				}
 		if(draggingSlider == null)
 			return super.mouseDragged(context, dragX, dragY);
 		
@@ -661,6 +676,9 @@ public final class AltGuiScreen extends Screen
 	@Override
 	public boolean mouseReleased(MouseButtonEvent context)
 	{
+		for(net.wurstclient.clickgui.Component component : customComponents
+			.values())
+			component.handleMouseRelease(context.button());
 		draggingSlider = null;
 		return super.mouseReleased(context);
 	}
@@ -679,6 +697,12 @@ public final class AltGuiScreen extends Screen
 		if(mouseX >= settingsX && mouseX <= settingsX + settingsW
 			&& mouseY >= moduleY && mouseY <= moduleY + moduleH)
 		{
+			if(selectedFeature != null)
+				for(SettingRow row : getSettingRows(selectedFeature))
+					if(isHackListSelector(row)
+						&& getCustomComponent(row.setting())
+							.handleMouseScroll(mouseX, mouseY, verticalAmount))
+						return true;
 			settingsScroll -= (int)(verticalAmount * cfg().getRowHeight());
 			clampScroll();
 			return true;
@@ -1179,6 +1203,22 @@ public final class AltGuiScreen extends Screen
 		
 		for(DisplayEntry entry : entries)
 		{
+			if(entry.categoryLabel() != null)
+			{
+				int rowTop = contentY;
+				int rowBottom = rowTop + rowH;
+				if(rowBottom >= viewTop && rowTop <= viewBottom)
+				{
+					context.fill(moduleX + 8, rowTop, contentBottomX, rowBottom,
+						withAlpha(cfg().getPanelLightColor(), 0.9F));
+					drawStringScaled(context, font, entry.categoryLabel(),
+						moduleX + 14, centeredTextY(font, rowTop, rowBottom),
+						cfg().getAccentColor(), false);
+				}
+				contentY += rowH;
+				totalContentHeight += rowH;
+				continue;
+			}
 			Feature feature = entry.feature();
 			boolean expanded = expandedFeatures.contains(feature.getName());
 			boolean settingsOpen = feature == selectedFeature;
@@ -1383,6 +1423,19 @@ public final class AltGuiScreen extends Screen
 	private void renderSettingRow(GuiGraphicsExtractor context, Font font,
 		int mouseX, int mouseY, SettingRow row, int y1, int y2)
 	{
+		if(isHackListSelector(row))
+		{
+			int x = settingsX + 16 + row.depth() * scaleRightSettingWidth(10);
+			net.wurstclient.clickgui.Component component =
+				getCustomComponent(row.setting());
+			component.setX(x);
+			component.setY(y1);
+			component.setWidth(settingsX + settingsW - 12 - x);
+			component.setHeight(y2 - y1);
+			component.extractRenderState(context, mouseX, mouseY, 0);
+			return;
+		}
+		
 		if(row.isKeybindRow())
 		{
 			int rowX1 =
@@ -2105,6 +2158,11 @@ public final class AltGuiScreen extends Screen
 		
 		for(DisplayEntry entry : entries)
 		{
+			if(entry.categoryLabel() != null)
+			{
+				contentY += rowH;
+				continue;
+			}
 			Feature feature = entry.feature();
 			int rowTop = contentY;
 			int rowBottom = rowTop + rowH;
@@ -2178,7 +2236,7 @@ public final class AltGuiScreen extends Screen
 	}
 	
 	private boolean handleSelectedFeatureSettingsClick(double mouseX,
-		double mouseY, int button)
+		double mouseY, int button, MouseButtonEvent context)
 	{
 		if(selectedFeature == null || !isInside(mouseX, mouseY, settingsX,
 			moduleY, settingsX + settingsW, moduleY + moduleH))
@@ -2193,15 +2251,29 @@ public final class AltGuiScreen extends Screen
 		{
 			int y2 = y + row.height();
 			if(isInside(mouseX, mouseY, x1, y, x2, y2))
-				return handleSettingClick(row, mouseX, mouseY, button, y, y2);
+				return handleSettingClick(row, mouseX, mouseY, button, context,
+					y, y2);
 			y = y2;
 		}
 		return true;
 	}
 	
 	private boolean handleSettingClick(SettingRow row, double mouseX,
-		double mouseY, int button, int y1, int y2)
+		double mouseY, int button, MouseButtonEvent context, int y1, int y2)
 	{
+		if(isHackListSelector(row))
+		{
+			net.wurstclient.clickgui.Component component =
+				getCustomComponent(row.setting());
+			int x = settingsX + 16 + row.depth() * scaleRightSettingWidth(10);
+			component.setX(x);
+			component.setY(y1);
+			component.setWidth(settingsX + settingsW - 12 - x);
+			component.setHeight(y2 - y1);
+			component.handleMouseClick(mouseX, mouseY, button, context);
+			return true;
+		}
+		
 		if(editingTextField != null
 			&& !(row.setting() instanceof TextFieldSetting textField
 				&& textField == editingTextField))
@@ -2424,6 +2496,18 @@ public final class AltGuiScreen extends Screen
 		if(setting instanceof FriendListSetting friendList)
 		{
 			minecraft.gui.setScreen(new EditFriendListScreen(this, friendList));
+			return true;
+		}
+		
+		if(setting instanceof PlayerMuteListSetting muteList)
+		{
+			minecraft.gui.setScreen(new EditPlayerMuteScreen(this, muteList));
+			return true;
+		}
+		
+		if(setting instanceof SoundListSetting soundList)
+		{
+			minecraft.gui.setScreen(new EditSoundListScreen(this, soundList));
 			return true;
 		}
 		
@@ -2828,7 +2912,47 @@ public final class AltGuiScreen extends Screen
 		for(String staleName : staleNames)
 			RECENTLY_DISABLED_HACKS.remove(staleName);
 		
+		if(cfg().isSeparateEnabledByCategory())
+		{
+			entries.sort(Comparator
+				.comparingInt(
+					(DisplayEntry entry) -> categoryOrder(entry.feature()))
+				.thenComparing(entry -> categoryName(entry.feature()),
+					String.CASE_INSENSITIVE_ORDER)
+				.thenComparing(entry -> entry.feature().getName(),
+					String.CASE_INSENSITIVE_ORDER));
+			ArrayList<DisplayEntry> grouped = new ArrayList<>();
+			String previousCategory = null;
+			for(DisplayEntry entry : entries)
+			{
+				String category = categoryName(entry.feature());
+				if(!category.equals(previousCategory))
+				{
+					grouped.add(new DisplayEntry(null, false, category));
+					previousCategory = category;
+				}
+				grouped.add(entry);
+			}
+			return grouped;
+		}
+		
 		return entries;
+	}
+	
+	private int categoryOrder(Feature feature)
+	{
+		String name = categoryName(feature);
+		Category[] categories = Category.values();
+		for(int i = 0; i < categories.length; i++)
+			if(categories[i].getName().equalsIgnoreCase(name))
+				return i;
+		return categories.length;
+	}
+	
+	private String categoryName(Feature feature)
+	{
+		String name = feature.getCategoryName();
+		return name == null || name.isBlank() ? Category.OTHER.getName() : name;
 	}
 	
 	private List<Feature> getClientSettingsFeatures()
@@ -3012,6 +3136,8 @@ public final class AltGuiScreen extends Screen
 			? Math.max(6, scaleRightSettingHeight(8))
 			: Math.max(cfg().getMinimumRowHeight(), Math
 				.round(cfg().getRowHeight() * getRightSettingsHeightScale()));
+		if(owner instanceof HackListOtf && setting.getName().equals("Hacks"))
+			h = Math.max(h, getCustomComponent(setting).getHeight());
 		rows.add(new SettingRow(owner, setting, depth, h, false));
 		
 		if(setting instanceof SettingGroup group)
@@ -3022,6 +3148,18 @@ public final class AltGuiScreen extends Screen
 			for(Setting child : group.getChildren())
 				appendSettingRows(rows, owner, child, depth + 1, true);
 		}
+	}
+	
+	private boolean isHackListSelector(SettingRow row)
+	{
+		return row.owner() instanceof HackListOtf && row.setting() != null
+			&& row.setting().getName().equals("Hacks");
+	}
+	
+	private net.wurstclient.clickgui.Component getCustomComponent(
+		Setting setting)
+	{
+		return customComponents.computeIfAbsent(setting, s -> s.getComponent());
 	}
 	
 	private String getSettingName(Setting setting)
@@ -3555,8 +3693,14 @@ public final class AltGuiScreen extends Screen
 		return false;
 	}
 	
-	private record DisplayEntry(Feature feature, boolean recentDisabled)
-	{}
+	private record DisplayEntry(Feature feature, boolean recentDisabled,
+		String categoryLabel)
+	{
+		private DisplayEntry(Feature feature, boolean recentDisabled)
+		{
+			this(feature, recentDisabled, null);
+		}
+	}
 	
 	private record ViewState(String featureName, int settingsScroll)
 	{}

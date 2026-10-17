@@ -12,6 +12,7 @@ import java.awt.Color;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
@@ -70,6 +71,10 @@ public final class AirPlaceHack extends Hack
 	@Override
 	public void onRightClick(RightClickEvent event)
 	{
+		// Let entity interactions such as mounting Happy Ghasts pass through.
+		if(MC.hitResult instanceof EntityHitResult)
+			return;
+		
 		BlockHitResult hitResult = getHitResultIfMissed();
 		if(hitResult == null)
 			return;
