@@ -57,6 +57,7 @@ import net.wurstclient.util.TitleBackgroundModeManager;
 import net.wurstclient.util.timer.TimerManager;
 import net.wurstclient.util.json.JsonException;
 import net.wurstclient.nicewurst.NiceWurstModule;
+import net.wurstclient.patreon.SupporterManager;
 import net.wurstclient.config.BuildConfig;
 import net.wurstclient.config.CustomBuildDefaults;
 
@@ -100,6 +101,7 @@ public enum WurstClient
 	private WurstUpdater updater;
 	private ForkUpdateChecker forkUpdateChecker;
 	private ProblematicResourcePackDetector problematicPackDetector;
+	private SupporterManager supporterManager;
 	private Path wurstFolder;
 	
 	public void initialize()
@@ -218,6 +220,8 @@ public enum WurstClient
 		
 		Path altsFile = wurstFolder.resolve("alts.encrypted_json");
 		Path encFolder = Encryption.chooseEncryptionFolder();
+		supporterManager = new SupporterManager(wurstFolder, encFolder);
+		supporterManager.load();
 		altManager = new AltManager(altsFile, encFolder);
 		Path proxiesFile = wurstFolder.resolve("proxies.encrypted_json");
 		proxyManager = new ProxyManager(proxiesFile, encFolder);
@@ -487,6 +491,11 @@ public enum WurstClient
 		{
 			hax.panicHack.setEnabled(true);
 		}
+	}
+	
+	public SupporterManager getSupporterManager()
+	{
+		return supporterManager;
 	}
 	
 	public WurstUpdater getUpdater()

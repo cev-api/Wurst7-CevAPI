@@ -36,6 +36,8 @@ import net.wurstclient.other_features.ConnectionLogOverlayOtf;
 import net.wurstclient.other_features.DiscordRpcOtf;
 import net.wurstclient.other_features.VanillaSpoofOtf;
 import net.wurstclient.other_features.WurstOptionsOtf;
+import net.wurstclient.patreon.PatreonSettingsScreen;
+import net.wurstclient.patreon.SupporterManager;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.settings.SliderSetting;
@@ -86,6 +88,7 @@ public final class WurstOptionsScreen extends Screen
 		addPrivacySection();
 		addToolsSection();
 		addLinksSection();
+		addSupporterSection();
 		
 		backButtonY = height - 26;
 		int viewTop = contentTop - 2;
@@ -297,6 +300,12 @@ public final class WurstOptionsScreen extends Screen
 				+ onOff(tabListPingColors.isChecked()),
 			tabListPingColors.getDescription(),
 			b -> tabListPingColors.setChecked(!tabListPingColors.isChecked()));
+	}
+	
+	private String getSupporterStatusLabel()
+	{
+		SupporterManager manager = WurstClient.INSTANCE.getSupporterManager();
+		return manager == null ? "Unavailable" : manager.getShortStatus();
 	}
 	
 	private void addPrivacySection()
@@ -545,6 +554,17 @@ public final class WurstOptionsScreen extends Screen
 		addButton(column, () -> "Changelog",
 			"Open latest release notes/changelog.",
 			b -> WurstClient.INSTANCE.getOtfs().changelogOtf.doPrimaryAction());
+	}
+	
+	private void addSupporterSection()
+	{
+		int column = beginSection("Supporter", 3);
+		addButton(column, () -> "Patreon: " + getSupporterStatusLabel(),
+			"Manage your Patreon supporter authentication and the startup promotion.",
+			b -> minecraft.setScreen(new PatreonSettingsScreen(this)));
+		addButton(column, () -> "Open CevAPI Patreon",
+			"Support CevAPI on Patreon.", b -> Util.getPlatform()
+				.openUri("https://www.patreon.com/cw/cevapi_dev"));
 	}
 	
 	private void addButton(int column, Supplier<String> messageSupplier,

@@ -39,6 +39,8 @@ import net.wurstclient.WurstClient;
 import net.wurstclient.config.BuildConfig;
 import net.wurstclient.nicewurst.NiceWurstModule;
 import net.wurstclient.options.WurstOptionsScreen;
+import net.wurstclient.patreon.PatreonPromoScreen;
+import net.wurstclient.patreon.SupporterManager;
 
 @Mixin(TitleScreen.class)
 public abstract class TitleScreenMixin extends Screen
@@ -62,9 +64,11 @@ public abstract class TitleScreenMixin extends Screen
 		new String[]{"custom_menu_logo.png"};
 	private static final String[] NICEWURST_TITLE_TEXTURES =
 		new String[]{"nicewurst_title.png"};
+	private static final long PROMO_SETTLE_MS = 1_000L;
 	
 	private static int titleWidth = -1;
 	private static int titleHeight = -1;
+	private static long titleScreenFirstTickAt = -1L;
 	
 	private AbstractWidget realmsButton = null;
 	private Button wurstOptionsButton;
@@ -84,7 +88,9 @@ public abstract class TitleScreenMixin extends Screen
 		boolean screenInstanceChanged =
 			LAST_TITLE_SCREEN_INSTANCE != (Screen)(Object)this;
 		boolean baseChanged = !currentBase.equals(CURRENT_TITLE_BASE);
-		
+		if(screenInstanceChanged)
+			titleScreenFirstTickAt = -1L;
+			
 		// Keep the same title on resize/re-init, but reroll when we actually
 		// enter a new title screen instance (or when switching title base).
 		if(screenInstanceChanged || baseChanged)
@@ -143,6 +149,21 @@ public abstract class TitleScreenMixin extends Screen
 	@Inject(method = "tick()V", at = @At("RETURN"))
 	private void onTick(CallbackInfo ci)
 	{
+		if(titleScreenFirstTickAt < 0L)
+			titleScreenFirstTickAt = System.currentTimeMillis();
+			
+		// Let the vanilla menu finish fading in before covering it, otherwise
+		// the promotion makes the title screen look like it only flashed.
+		SupporterManager supporter = WurstClient.INSTANCE.getSupporterManager();
+		if(supporter != null
+			&& System.currentTimeMillis()
+				- titleScreenFirstTickAt >= PROMO_SETTLE_MS
+			&& supporter.shouldShowPromotionNow())
+		{
+			minecraft.setScreen(new PatreonPromoScreen((Screen)(Object)this));
+			return;
+		}
+		
 		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
 			return;
 		

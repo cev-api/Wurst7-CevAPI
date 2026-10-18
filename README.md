@@ -1,47 +1,53 @@
-# Wurst Client v7.54.1 (MC1.21.11) - Modified by CevAPI 
-
-![CevAPI Logo](https://i.imgur.com/K5U1OHe.jpeg)
+# Wurst Client v7.56.1 (MC1.21.11) - Modified by CevAPI
+![CevAPI Logo](https://i.imgur.com/WS95aOA.png)
 
 - Original Repo: https://github.com/Wurst-Imperium/Wurst7  
 - Installation guide: [https://www.wurstclient.net/tutorials/how-to-install/](https://go.wimods.net/from/github.com/Wurst-Imperium/Wurst7?to=https%3A%2F%2Fwww.wurstclient.net%2Ftutorials%2Fhow-to-install%2F%3Futm_source%3DGitHub%26utm_medium%3DWurst7%2Brepo)  
 - Original Wurst Wiki: [https://wurst.wiki/](https://go.wimods.net/from/github.com/Wurst-Imperium/Wurst7?to=https%3A%2F%2Fwurst.wiki%2F%3Futm_source%3DGitHub%26utm_medium%3DWurst7%2Brepo)  
 - Wurst 7 CevAPI Wiki: https://github.com/cev-api/Wurst7-CevAPI/wiki
 - CevAPI Discord: https://discord.gg/5fddQNST84
+- CevAPI Patreon: https://www.patreon.com/cw/cevapi_dev
+
+## 1.21.11 Is Now Paywalled! (Not Really)
+
+Maintaining 1.21.11 alongside the latest Minecraft versions takes extra time, effort and testing. So, I've decided to introduce a little incentive to support its continued development.
+
+If you're not a [Patreon supporter](https://www.patreon.com/cw/cevapi_dev), you'll be greeted by a rather annoying promotional popup when launching the client, reminding you that maintaining older versions doesn't happen by magic.
+
+**That's it. No locked features, no paid-only builds, just a little persistent encouragement to support CevAPI.**
+
+Your support helps keep older versions alive while funding new features, tools, mods and other projects.
+
+❤️ **[Support development on Patreon](https://www.patreon.com/cw/cevapi_dev)**
 
 ## Download
 Pre-compiled versioned and polished releases are available on the [Release Page](https://github.com/cev-api/Wurst7-CevAPI/releases). 
 
 [![](https://i.imgur.com/YVRiTjH.png)](https://github.com/cev-api/Wurst7-CevAPI/releases)
 
-I have versions for [1.21.1](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.1), [1.21.8](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.8), [1.21.10](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.10), [1.21.11](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.11), [26.1.2](https://github.com/cev-api/Wurst7-CevAPI/tree/26.1.2) but I only update and maintain the latest; [26.2.x](https://github.com/cev-api/Wurst7-CevAPI/tree/master)
+I have versions for [1.21.1](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.1), [1.21.8](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.8), [1.21.10](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.10), [1.21.11](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.11), [26.1.2](https://github.com/cev-api/Wurst7-CevAPI/tree/26.1.2), [26.2](https://github.com/cev-api/Wurst7-CevAPI/tree/26.2) but I only update and maintain the latest; [26.3](https://github.com/cev-api/Wurst7-CevAPI/tree/master)
 
-Not happy with the supported versions? Download [ViaFabricPlus](https://modrinth.com/mod/viafabricplus) and use latest release on an older server.
+**Not happy with the supported versions?** Download [ViaFabricPlus](https://modrinth.com/mod/viafabricplus) and use latest release on an older server.
 
-### Note On Updates
+## Pre-Releases
 
-I make changes very often but I publish releases sparingly, so if you want the latest patches/bug fixes and features you **must** compile it yourself. 
+Sick of seeing 100s of commits since the last release? Want to use the latest version **now?**
 
-![Release](https://i.imgur.com/tq9mfbd.png)
+![Release](https://i.imgur.com/MLkQ7md.png)
 
-### Compiling Yourself (Pre-Releases)
-Don't want to wait for a proper public release? **Grab a compiled copy from the Actions tab in my GitHub page!**
+All you have to do is visit the [releases page](https://github.com/cev-api/Wurst7-CevAPI/releases/) and  **[download the pre-release version!](https://github.com/cev-api/Wurst7-CevAPI/releases/tag/latest-build)**
 
-The benefit of this is that it is the exact code here on this repo, no need to download it and setup your own environment to compile, Github has done it for you!
+![Impatient](https://i.imgur.com/JEMIcBv.png)
 
-- Sign into Github
-- Click the **Actions** tab
-- Click latest build at the top with a green tick
-- In the **Artifacts** section click **jar** to download
+The benefit of this is that it is the exact code here on this repo, no need to download it and setup your own environment to compile, Github has done it for you! Just treat it like any other version; download and run it.
 
-![Step1](https://i.imgur.com/In0c8MI.png)
-![Step2](https://i.imgur.com/REX2bSz.png)
 
 **Caveats:**
 - May be buggy
 - May have unlabelled or hidden features
 - Features added may be removed/changed
-- Will likely not say its a new version
-- Will only support MC26.2
+- Might not say its a new version
+- Will only support MC26.3
 - No NiceWurst
 
 ## Custom Builds
@@ -49,6 +55,8 @@ The benefit of this is that it is the exact code here on this repo, no need to d
 Too many hacks? Well you can now make your own custom build of Wurst7-CevAPI!
 
 Run `scripts/custom_build_gui.bat` (or `python scripts/custom_build_gui.py`) to select included hacks, commands, features, and Wurst Options settings, and import custom icons, shaders, or defaults.
+
+![GUI](https://i.imgur.com/aHxTyMr.png)
 
 Custom builds use `Wurst7-CevAPI-<suffix>` branding, while the Fabric ID and `.minecraft/wurst` config folder remain fixed. Disable the profile toggle for a normal build; enabled profiles are saved to `custom-build/profile.json`.
 
@@ -134,7 +142,7 @@ All features, hacks, and detailed explanations are documented in the wiki:
 
 ➡️ https://github.com/cev-api/Wurst7-CevAPI/wiki
 
-Note: Wiki is seldom maintained, it is likely out of date. Read release notes in situ. 
+**Note: Wiki is seldom maintained, it is likely out of date. Read release notes in situ.**
 
 ### Sections
 
