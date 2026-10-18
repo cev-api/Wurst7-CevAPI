@@ -14,6 +14,8 @@ import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.navigation.ScreenRectangle;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.PanoramaRenderer;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.texture.AbstractTexture;
 import net.wurstclient.TitleScreenShaderPipelines;
 import net.wurstclient.WurstClient;
@@ -52,7 +54,21 @@ public enum TitleScreenBackgroundRenderer
 			ShadertoyBackgroundManager.createCustomTextureSetup(texture), pose,
 			-1, -1, 1, -1, 1, 1, -1, 1, packedColor, packedColor, packedColor,
 			packedColor, null, bounds));
+		drawPanoramaOverlay(context, width, height);
 		drawControlsHint(context, width);
+	}
+	
+	/**
+	 * Vanilla draws this gradient inside {@code PanoramaRenderer.render}, which
+	 * is skipped together with the panorama. Without it the shader background
+	 * washes out and menu text becomes hard to read.
+	 */
+	private static void drawPanoramaOverlay(GuiGraphics context, int width,
+		int height)
+	{
+		context.blit(RenderPipelines.GUI_TEXTURED,
+			PanoramaRenderer.PANORAMA_OVERLAY, 0, 0, 0.0F, 0.0F, width, height,
+			16, 128);
 	}
 	
 	private static void updateCameraMovement()

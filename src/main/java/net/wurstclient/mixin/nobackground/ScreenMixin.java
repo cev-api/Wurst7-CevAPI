@@ -16,7 +16,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.components.events.AbstractContainerEventHandler;
-import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.wurstclient.WurstClient;
 import net.wurstclient.other_features.WurstOptionsOtf;
@@ -34,13 +33,20 @@ public abstract class ScreenMixin extends AbstractContainerEventHandler
 	@Inject(method = "renderPanorama(Lnet/minecraft/client/gui/GuiGraphics;F)V",
 		at = @At("HEAD"),
 		cancellable = true)
-	private void wurst$renderTitleShaderBackground(GuiGraphics context,
+	private void wurst$renderShaderBackground(GuiGraphics context,
 		float deltaTicks, CallbackInfo ci)
 	{
+		// Screen.renderBackground() routes every menu through renderPanorama
+		// whenever no world is loaded, so gating on the level (rather than on
+		// TitleScreen) gives the multiplayer, options and loading screens the
+		// same shader background.
+		if(WurstClient.MC.level != null
+			|| WurstClient.INSTANCE.shouldHideWurstUiMixins())
+			return;
+		
 		WurstOptionsOtf options =
 			WurstClient.INSTANCE.getOtfs().wurstOptionsOtf;
-		if(!((Object)this instanceof TitleScreen)
-			|| !options.isTitleScreenShadertoyBackgroundEnabled())
+		if(!options.isTitleScreenShadertoyBackgroundEnabled())
 			return;
 		
 		TitleScreenBackgroundRenderer.addBackground(context, width, height);
