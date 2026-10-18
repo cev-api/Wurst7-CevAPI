@@ -19,6 +19,7 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
@@ -294,6 +295,22 @@ public abstract class UiModernScreen extends Screen
 		// an estimate and misses manually rendered content.
 		placeItems();
 		settleExtent();
+	}
+	
+	/**
+	 * Escape always closes the screen, independent of whatever the vanilla
+	 * {@code shouldCloseOnEsc()} path decides.
+	 */
+	@Override
+	public boolean keyPressed(KeyEvent event)
+	{
+		if(event.isEscape())
+		{
+			onClose();
+			return true;
+		}
+		
+		return super.keyPressed(event);
 	}
 	
 	/**

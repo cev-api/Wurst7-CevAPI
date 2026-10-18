@@ -68,6 +68,7 @@ public final class UiUtilsVerboseServerScanScreen extends UiModernScreen
 	@Override
 	protected void buildContent(UiContent c)
 	{
+		c.headerButton("Close", this::onClose);
 		if(!scansStarted)
 		{
 			scansStarted = true;
@@ -184,7 +185,8 @@ public final class UiUtilsVerboseServerScanScreen extends UiModernScreen
 		UiUtilsScanHistory.recordVerboseFingerprint(
 			UiUtilsScanHistory.serverKey(this.minecraft),
 			UiUtilsServerFingerprintCollector.snapshot());
-		McCompat.setScreen(this.minecraft, parent);
+		// Direct call: the reflective fallback could silently do nothing.
+		this.minecraft.setScreen(parent);
 	}
 	
 	public static String buildReport()

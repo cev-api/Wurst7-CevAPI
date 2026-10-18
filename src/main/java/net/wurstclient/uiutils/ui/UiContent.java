@@ -30,6 +30,8 @@ import net.minecraft.util.FormattedCharSequence;
  */
 public final class UiContent
 {
+	private static final int HEADER_BUTTON_WIDTH = 44;
+	
 	public enum Pin
 	{
 		CONTENT,
@@ -443,6 +445,17 @@ public final class UiContent
 	public void footerRow(Slot... slots)
 	{
 		placeRow(slots, Pin.FOOTER);
+	}
+	
+	/** Adds a compact button to the pinned header band. */
+	public UiButton headerButton(String label, Runnable action)
+	{
+		UiButton button = new UiButton(0, 0, 0, UiTheme.ROW_HEIGHT,
+			Component.literal(label), action);
+		button.style(UiButton.Kind.SECONDARY);
+		button.setWidth(HEADER_BUTTON_WIDTH);
+		placeRow(new Slot[]{fixed(button, HEADER_BUTTON_WIDTH)}, Pin.HEADER);
+		return button;
 	}
 	
 	/** Adds a button to the pinned footer band. */

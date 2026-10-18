@@ -79,6 +79,7 @@ public final class UiUtilsCommandScannerScreen extends UiModernScreen
 	@Override
 	protected void buildContent(UiContent c)
 	{
+		c.headerButton("Close", this::onClose);
 		c.section("Command scanning");
 		scannerModeButton = c.button("", () -> {
 			boolean packet = !"CLIENT_SIDE_ENUMERATION"
@@ -445,7 +446,8 @@ public final class UiUtilsCommandScannerScreen extends UiModernScreen
 	@Override
 	public void onClose()
 	{
-		McCompat.setScreen(this.minecraft, parent);
+		// Direct call: the reflective fallback could silently do nothing.
+		this.minecraft.setScreen(parent);
 	}
 	
 	private List<Line> buildLines()

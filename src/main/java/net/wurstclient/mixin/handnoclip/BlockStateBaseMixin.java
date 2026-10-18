@@ -61,7 +61,11 @@ public abstract class BlockStateBaseMixin extends StateHolder<Block, BlockState>
 			return;
 		
 		HandNoClipHack handNoClipHack = hax.handNoClipHack;
-		if(!handNoClipHack.isEnabled() || handNoClipHack.isBlockInList(pos))
+		// shouldClearBlock() honors "Enable On Target", so ordinary breaking
+		// keeps its outline shape unless the crosshair is on a listed block.
+		if((!handNoClipHack.isEnabled()
+			|| !handNoClipHack.shouldClearBlock(pos))
+			&& !hax.bedBreakAuraHack.shouldClearBlock(pos))
 			return;
 		
 		cir.setReturnValue(Shapes.empty());
