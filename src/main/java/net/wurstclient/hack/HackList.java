@@ -440,6 +440,10 @@ public final class HackList implements UpdateListener
 		}
 		
 		eventManager.add(UpdateListener.class, this);
+		
+		// Register the per-source culling exceptions before the settings file
+		// is loaded so they persist across restarts.
+		globalToggleHack.initializeViewCullExceptions(this);
 	}
 	
 	public void addHack(Hack hack)

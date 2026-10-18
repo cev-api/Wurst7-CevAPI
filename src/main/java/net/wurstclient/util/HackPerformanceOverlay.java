@@ -198,6 +198,8 @@ public final class HackPerformanceOverlay
 			lines.add(sb.toString());
 		}
 		
+		net.wurstclient.render.esp.EspCullingStats.appendOverlay(lines);
+		
 		return lines;
 	}
 	

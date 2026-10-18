@@ -34,6 +34,7 @@ import net.minecraft.world.phys.Vec3;
 import net.wurstclient.WurstClient;
 import net.wurstclient.WurstRenderLayers;
 import net.wurstclient.nicewurst.NiceWurstModule;
+import net.wurstclient.render.esp.EspViewCulling;
 import net.wurstclient.render.globalesp.GlobalEspManager;
 
 public enum RenderUtils
@@ -798,6 +799,9 @@ public enum RenderUtils
 	public static void drawSolidBox(PoseStack matrices, AABB box, int color,
 		boolean depthTest)
 	{
+		if(EspViewCulling.shouldCull(box))
+			return;
+		
 		boolean overlay = NiceWurstModule.shouldOverlayEntityShapes();
 		if(overlay && !isBoxVisible(box))
 			return;
@@ -833,6 +837,8 @@ public enum RenderUtils
 		{
 			for(AABB box : boxes)
 			{
+				if(EspViewCulling.shouldCull(box))
+					continue;
 				if(overlay && !isBoxVisible(box))
 					continue;
 				if(!tryReserveEspRenderSlot())
@@ -853,6 +859,8 @@ public enum RenderUtils
 		int boxesInBatch = 0;
 		for(AABB box : boxes)
 		{
+			if(EspViewCulling.shouldCull(box))
+				continue;
 			if(overlay && !isBoxVisible(box))
 				continue;
 			if(!tryReserveEspRenderSlot(box))
@@ -1215,6 +1223,9 @@ public enum RenderUtils
 	public static void drawOutlinedBox(PoseStack matrices, AABB box, int color,
 		boolean depthTest)
 	{
+		if(EspViewCulling.shouldCull(box))
+			return;
+		
 		boolean overlay = NiceWurstModule.shouldOverlayEntityShapes();
 		if(overlay && !isBoxVisible(box))
 			return;
@@ -1251,6 +1262,8 @@ public enum RenderUtils
 		{
 			for(AABB box : boxes)
 			{
+				if(EspViewCulling.shouldCull(box))
+					continue;
 				if(overlay && !isBoxVisible(box))
 					continue;
 				if(!tryReserveEspRenderSlot())
@@ -1271,6 +1284,8 @@ public enum RenderUtils
 		int boxesInBatch = 0;
 		for(AABB box : boxes)
 		{
+			if(EspViewCulling.shouldCull(box))
+				continue;
 			if(overlay && !isBoxVisible(box))
 				continue;
 			if(!tryReserveEspRenderSlot(box))
@@ -1485,6 +1500,9 @@ public enum RenderUtils
 	public static void drawCrossBox(PoseStack matrices, AABB box, int color,
 		boolean depthTest)
 	{
+		if(EspViewCulling.shouldCull(box))
+			return;
+		
 		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
 		if(!tryReserveEspRenderSlot())
 			return;
@@ -1514,6 +1532,8 @@ public enum RenderUtils
 		{
 			for(AABB box : boxes)
 			{
+				if(EspViewCulling.shouldCull(box))
+					continue;
 				if(!tryReserveEspRenderSlot())
 					break;
 				globalEsp.submitCrossBox(matrices, box.move(camOffset), color,
@@ -1529,6 +1549,8 @@ public enum RenderUtils
 		
 		for(AABB box : boxes)
 		{
+			if(EspViewCulling.shouldCull(box))
+				continue;
 			if(!tryReserveEspRenderSlot())
 				break;
 			drawCrossBox(matrices, buffer, box.move(camOffset), color);
@@ -1657,6 +1679,9 @@ public enum RenderUtils
 	public static void drawNode(PoseStack matrices, AABB box, int color,
 		boolean depthTest)
 	{
+		if(EspViewCulling.shouldCull(box))
+			return;
+		
 		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
 		if(!tryReserveEspRenderSlot())
 			return;
@@ -1686,6 +1711,8 @@ public enum RenderUtils
 		{
 			for(AABB box : boxes)
 			{
+				if(EspViewCulling.shouldCull(box))
+					continue;
 				if(!tryReserveEspRenderSlot())
 					break;
 				globalEsp.submitNode(matrices, box.move(camOffset), color,
@@ -1718,6 +1745,8 @@ public enum RenderUtils
 		{
 			for(ColoredBox box : boxes)
 			{
+				if(EspViewCulling.shouldCull(box.box()))
+					continue;
 				if(!tryReserveEspRenderSlot())
 					break;
 				globalEsp.submitNode(matrices, box.box().move(camOffset),
@@ -1733,6 +1762,8 @@ public enum RenderUtils
 		
 		for(ColoredBox box : boxes)
 		{
+			if(EspViewCulling.shouldCull(box.box()))
+				continue;
 			if(!tryReserveEspRenderSlot())
 				break;
 			drawNode(matrices, buffer, box.box().move(camOffset), box.color());

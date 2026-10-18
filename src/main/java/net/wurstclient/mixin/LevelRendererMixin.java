@@ -80,8 +80,16 @@ public class LevelRendererMixin
 		matrixStack.mulPose(positionMatrix);
 		float tickProgress = tickCounter.getGameTimeDeltaPartialTick(false);
 		RenderEvent event = new RenderEvent(matrixStack, tickProgress);
-		EventManager.fire(event);
-		GlobalEspManager.getInstance().endFrame(matrixStack);
-		net.wurstclient.util.RenderUtils.endTextFrame();
+		net.wurstclient.render.esp.EspViewCulling.beginFrame(projectionMatrix,
+			positionMatrix, camera);
+		try
+		{
+			EventManager.fire(event);
+			GlobalEspManager.getInstance().endFrame(matrixStack);
+			net.wurstclient.util.RenderUtils.endTextFrame();
+		}finally
+		{
+			net.wurstclient.render.esp.EspViewCulling.endFrame();
+		}
 	}
 }
