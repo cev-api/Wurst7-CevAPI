@@ -18,7 +18,6 @@ import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.components.events.AbstractContainerEventHandler;
 import net.minecraft.client.gui.screens.Screen;
 import net.wurstclient.WurstClient;
-import net.wurstclient.other_features.WurstOptionsOtf;
 import net.wurstclient.util.TitleScreenBackgroundRenderer;
 
 @Mixin(Screen.class)
@@ -37,16 +36,9 @@ public abstract class ScreenMixin extends AbstractContainerEventHandler
 		float deltaTicks, CallbackInfo ci)
 	{
 		// Screen.renderBackground() routes every menu through renderPanorama
-		// whenever no world is loaded, so gating on the level (rather than on
-		// TitleScreen) gives the multiplayer, options and loading screens the
-		// same shader background.
-		if(WurstClient.MC.level != null
-			|| WurstClient.INSTANCE.shouldHideWurstUiMixins())
-			return;
-		
-		WurstOptionsOtf options =
-			WurstClient.INSTANCE.getOtfs().wurstOptionsOtf;
-		if(!options.isTitleScreenShadertoyBackgroundEnabled())
+		// when no world is loaded, so this replaces the panorama on all of
+		// them, not just the title screen.
+		if(!TitleScreenBackgroundRenderer.shouldRenderShaderBackground())
 			return;
 		
 		TitleScreenBackgroundRenderer.addBackground(context, width, height);
@@ -71,8 +63,11 @@ public abstract class ScreenMixin extends AbstractContainerEventHandler
 		cancellable = true)
 	public void onRenderBlurredBackground(GuiGraphics context, CallbackInfo ci)
 	{
-		if(WurstClient.INSTANCE.getHax().noBackgroundHack
-			.shouldCancelBackground((Screen)(Object)this))
+		// Blurring the shader quad smears the animation and the menu background
+		// texture then covers it, so both are skipped while it is active.
+		if(TitleScreenBackgroundRenderer.shouldRenderShaderBackground()
+			|| WurstClient.INSTANCE.getHax().noBackgroundHack
+				.shouldCancelBackground((Screen)(Object)this))
 			ci.cancel();
 	}
 	
@@ -83,8 +78,9 @@ public abstract class ScreenMixin extends AbstractContainerEventHandler
 	public void onRenderMenuBackground(GuiGraphics context, int x, int y,
 		int width, int height, CallbackInfo ci)
 	{
-		if(WurstClient.INSTANCE.getHax().noBackgroundHack
-			.shouldCancelBackground((Screen)(Object)this))
+		if(TitleScreenBackgroundRenderer.shouldRenderShaderBackground()
+			|| WurstClient.INSTANCE.getHax().noBackgroundHack
+				.shouldCancelBackground((Screen)(Object)this))
 			ci.cancel();
 	}
 }

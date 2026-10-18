@@ -33,6 +33,26 @@ public enum TitleScreenBackgroundRenderer
 	private static long hintStartTime = -1L;
 	private static long lastHintFrameTime = -1L;
 	
+	/**
+	 * Backgrounds drawn by {@code Screen.renderBackground()} after the panorama
+	 * would otherwise composite over the shader quad: the blur stratum and the
+	 * {@code MENU_BACKGROUND} dirt texture.
+	 */
+	public static boolean shouldRenderShaderBackground()
+	{
+		Minecraft mc = Minecraft.getInstance();
+		if(mc == null || mc.level != null)
+			return false;
+		
+		WurstClient wurst = WurstClient.INSTANCE;
+		if(wurst == null || !wurst.isEnabled() || wurst.getOtfs() == null
+			|| wurst.shouldHideWurstUiMixins())
+			return false;
+		
+		return wurst.getOtfs().wurstOptionsOtf
+			.isTitleScreenShadertoyBackgroundEnabled();
+	}
+	
 	public static void addBackground(GuiGraphics context, int width, int height)
 	{
 		Matrix3x2f pose = new Matrix3x2f();
