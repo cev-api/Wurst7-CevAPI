@@ -263,21 +263,21 @@ public abstract class TitleScreenMixin extends Screen
 		CallbackInfo ci)
 	{
 		// Register only textures that actually exist in the resource pack.
-		for(String texture : NICEWURST_TITLE_TEXTURES)
-		{
-			textureManager.registerForNextReload(
-				Identifier.fromNamespaceAndPath("wurst", texture));
-		}
-		for(String texture : CUSTOM_TITLE_TEXTURES)
-		{
-			textureManager.registerForNextReload(
-				Identifier.fromNamespaceAndPath("wurst", texture));
-		}
-		for(String texture : CEVAPI_TITLE_TEXTURES)
-		{
-			textureManager.registerForNextReload(
-				Identifier.fromNamespaceAndPath("wurst", texture));
-		}
+		for(String[] textures : new String[][]{NICEWURST_TITLE_TEXTURES,
+			CUSTOM_TITLE_TEXTURES, CEVAPI_TITLE_TEXTURES})
+			for(String texture : textures)
+				registerIfPresent(textureManager, texture);
+	}
+	
+	private static void registerIfPresent(TextureManager textureManager,
+		String texture)
+	{
+		Identifier id = Identifier.fromNamespaceAndPath("wurst", texture);
+		if(WurstClient.MC == null || WurstClient.MC.getResourceManager() == null
+			|| WurstClient.MC.getResourceManager().getResource(id).isEmpty())
+			return;
+		
+		textureManager.registerForNextReload(id);
 	}
 	
 	/**

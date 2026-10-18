@@ -22,7 +22,7 @@ public final class LootSorterGameTest implements FabricClientGameTest
 		try(TestSingleplayerContext spContext = context.worldBuilder().create())
 		{
 			context.waitTicks(2);
-			spContext.getConnection().waitForChunksRender();
+			spContext.getClientWorld().waitForChunksRender();
 			new LootSorterModelTest(context).run();
 		}
 		WurstTest.LOGGER.info("LootSorter model tests passed");

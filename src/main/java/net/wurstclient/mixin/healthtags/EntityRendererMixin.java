@@ -29,7 +29,7 @@ public abstract class EntityRendererMixin<T extends Entity, S extends EntityRend
 	 * HealthTags is disabled.
 	 */
 	@Inject(
-		method = "render(Lnet/minecraft/world/entity/Entity;Lnet/minecraft/client/renderer/entity/state/EntityRenderState;F)V",
+		method = "extractRenderState(Lnet/minecraft/world/entity/Entity;Lnet/minecraft/client/renderer/entity/state/EntityRenderState;F)V",
 		at = @At("TAIL"))
 	private void addHealthToDisplayName(T entity, S state, float tickProgress,
 		CallbackInfo ci)

@@ -16,7 +16,6 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContex
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.ChestBlock;
@@ -44,13 +43,13 @@ public final class ChestEspRenderingTest extends SingleplayerTest
 	{
 		logger.info("Testing ChestESP rendering");
 		ChestEspHack chestEsp = WurstClient.INSTANCE.getHax().chestEspHack;
-		context.runOnClient(ignored -> chestEsp.setEnabled(true));
+		context.runOnClient(mc -> chestEsp.setEnabled(true));
 		List<Entity> vehicles = buildTestRig();
 		
 		waitForScreenshotMatch("chestesp_default_settings",
 			"https://i.imgur.com/BmAZ812.png");
 		
-		context.runOnClient(ignored -> chestEsp.getSettings().values().stream()
+		context.runOnClient(mc -> chestEsp.getSettings().values().stream()
 			.filter(CheckboxSetting.class::isInstance)
 			.map(CheckboxSetting.class::cast)
 			.forEach(checkbox -> checkbox.setChecked(true)));
@@ -65,7 +64,7 @@ public final class ChestEspRenderingTest extends SingleplayerTest
 		assertScreenshotEquals("chestesp_lines_and_boxes",
 			"https://i.imgur.com/xq2Qes0.png");
 		
-		context.runOnClient(ignored -> {
+		context.runOnClient(mc -> {
 			List<ColorSetting> colorSettings = chestEsp.getSettings().values()
 				.stream().filter(ColorSetting.class::isInstance)
 				.map(ColorSetting.class::cast).toList();
@@ -80,7 +79,7 @@ public final class ChestEspRenderingTest extends SingleplayerTest
 			"https://i.imgur.com/UR6gktJ.png");
 		
 		// Clean up
-		context.runOnClient(ignored -> {
+		context.runOnClient(mc -> {
 			chestEsp.setEnabled(false);
 			for(Setting setting : chestEsp.getSettings().values())
 				setting.resetToDefault();
@@ -122,7 +121,7 @@ public final class ChestEspRenderingTest extends SingleplayerTest
 			blocks.set(3, -57, 7, Blocks.DROPPER);
 			blocks.set(1, -57, 7, Blocks.HOPPER);
 			blocks.set(-1, -57, 7, Blocks.CRAFTER);
-			blocks.set(-3, -57, 7, Blocks.COPPER_CHEST.waxed().exposed());
+			blocks.set(-3, -57, 7, Blocks.WAXED_EXPOSED_COPPER_CHEST);
 			blocks.fill(5, -57, 6, -5, -57, 6, Blocks.SMOOTH_STONE_SLAB);
 			
 			// Fourth row: vehicle background

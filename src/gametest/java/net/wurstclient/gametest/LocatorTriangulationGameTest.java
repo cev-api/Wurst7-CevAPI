@@ -28,7 +28,7 @@ public final class LocatorTriangulationGameTest implements FabricClientGameTest
 		try(TestSingleplayerContext world = context.worldBuilder().create())
 		{
 			context.waitTicks(2);
-			world.getConnection().waitForChunksRender();
+			world.getClientWorld().waitForChunksRender();
 			context.runOnClient(this::testSessions);
 		}
 		WurstTest.LOGGER.info("Triangulator session regression tests passed");

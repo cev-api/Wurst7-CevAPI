@@ -14,9 +14,9 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContex
 import net.minecraft.client.gui.screens.achievement.StatsScreen;
 import net.wurstclient.gametest.SingleplayerTest;
 
-public final class PauseScreenTest extends SingleplayerTest
+public final class InGameMenuTest extends SingleplayerTest
 {
-	public PauseScreenTest(ClientGameTestContext context,
+	public InGameMenuTest(ClientGameTestContext context,
 		TestSingleplayerContext spContext)
 	{
 		super(context, spContext);
@@ -27,15 +27,12 @@ public final class PauseScreenTest extends SingleplayerTest
 	{
 		logger.info("Opening game menu");
 		input.pressKey(GLFW.GLFW_KEY_ESCAPE);
-		input.setCursorPos(427, 240);
-		context.waitTick();// for the tooltip to appear
 		assertScreenshotEquals("game_menu", "https://i.imgur.com/ruPsaNz.png");
 		
 		logger.info("Opening Wurst Options screen");
 		for(int i = 0; i < 7; i++)
 			input.pressKey(GLFW.GLFW_KEY_TAB);
 		input.pressKey(GLFW.GLFW_KEY_ENTER);
-		input.setCursorPos(427, 240);
 		assertScreenshotEquals("wurst_options_screen",
 			"https://i.imgur.com/ZCt7eiE.png");
 		// TODO: Test manager screens
@@ -45,7 +42,7 @@ public final class PauseScreenTest extends SingleplayerTest
 		for(int i = 0; i < 2; i++)
 			input.pressKey(GLFW.GLFW_KEY_TAB);
 		input.pressKey(GLFW.GLFW_KEY_ENTER);
-		context.waitFor(mc -> mc.gui.screen() instanceof StatsScreen statsScreen
+		context.waitFor(mc -> mc.screen instanceof StatsScreen statsScreen
 			&& !statsScreen.isLoading);
 		assertScreenshotEquals("statistics_screen",
 			"https://i.imgur.com/CPMAfzO.png");
@@ -63,13 +60,13 @@ public final class PauseScreenTest extends SingleplayerTest
 		logger.info("Opening game menu without Wurst Options");
 		input.pressKey(GLFW.GLFW_KEY_ESCAPE);
 		assertScreenshotEquals("game_menu_alt",
-			"https://i.imgur.com/RdY7QPA.png");
+			"https://i.imgur.com/5Yrnje0.png");
 		
 		logger.info("Opening statistics screen with Wurst Options");
 		for(int i = 0; i < 3; i++)
 			input.pressKey(GLFW.GLFW_KEY_TAB);
 		input.pressKey(GLFW.GLFW_KEY_ENTER);
-		context.waitFor(mc -> mc.gui.screen() instanceof StatsScreen statsScreen
+		context.waitFor(mc -> mc.screen instanceof StatsScreen statsScreen
 			&& !statsScreen.isLoading);
 		assertScreenshotEquals("statistics_screen_alt",
 			"https://i.imgur.com/e8q4hJo.png");

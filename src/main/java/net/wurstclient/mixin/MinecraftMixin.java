@@ -104,8 +104,8 @@ public abstract class MinecraftMixin
 	 * {@link Minecraft#tick()}.
 	 */
 	@Inject(method = "tick()V",
-		at = @At(value = "INVOKE",
-			target = "Lnet/minecraft/client/gui/Gui;overlay()Lnet/minecraft/client/gui/screens/Overlay;",
+		at = @At(value = "FIELD",
+			target = "Lnet/minecraft/client/Minecraft;overlay:Lnet/minecraft/client/gui/screens/Overlay;",
 			ordinal = 0))
 	private void onHandleKeybinds(CallbackInfo ci)
 	{

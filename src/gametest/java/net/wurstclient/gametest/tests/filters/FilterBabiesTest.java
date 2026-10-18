@@ -14,8 +14,6 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Mob;
-import net.minecraft.world.entity.animal.cow.Cow;
-import net.minecraft.world.entity.animal.frog.Tadpole;
 import net.wurstclient.gametest.tests.EntityFilterTest;
 import net.wurstclient.settings.filterlists.EntityFilterList.EntityFilter;
 import net.wurstclient.settings.filters.FilterBabiesSetting;
@@ -45,15 +43,13 @@ public final class FilterBabiesTest extends EntityFilterTest
 		assertAllowed("baby zoglin", filter,
 			() -> spawnBaby(EntityType.ZOGLIN));
 		
-		// Undead horses are AgeableMobs, but override canAgeUp() to false
-		assertFilteredOut("baby horse", filter,
-			() -> spawnBaby(EntityType.HORSE));
-		for(EntityType<? extends Mob> type : List.of(EntityType.SKELETON_HORSE,
-			EntityType.ZOMBIE_HORSE))
-			assertAllowed(type.toShortString() + " (baby)", filter,
+		// In 1.21.11, undead horses still use normal AgeableMob aging.
+		for(EntityType<? extends Mob> type : List.of(EntityType.HORSE,
+			EntityType.SKELETON_HORSE, EntityType.ZOMBIE_HORSE))
+			assertFilteredOut(type.toShortString() + " (baby)", filter,
 				() -> spawnBaby(type));
 		
-		// Villagers grow up even though they cannot be age-locked
+		// Villagers use the same aging system as animals
 		assertFilteredOut("baby villager", filter,
 			() -> spawnBaby(EntityType.VILLAGER));
 		
@@ -69,17 +65,6 @@ public final class FilterBabiesTest extends EntityFilterTest
 			assertAllowed(type.toShortString() + " (baby)", filter,
 				() -> spawnBaby(type));
 		
-		// Golden dandelions stop aging but must not bypass the filter
-		assertFilteredOut("age-locked cow", filter, () -> {
-			Cow cow = spawnBaby(EntityType.COW);
-			cow.setAgeLocked(true);
-			return cow;
-		});
-		assertFilteredOut("age-locked tadpole", filter, () -> {
-			Tadpole tadpole = spawnEntity(EntityType.TADPOLE);
-			tadpole.setAgeLocked(true);
-			return tadpole;
-		});
 	}
 	
 	private <T extends Mob> T spawnBaby(EntityType<T> type)

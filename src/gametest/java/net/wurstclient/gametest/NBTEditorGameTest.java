@@ -17,16 +17,16 @@ import org.lwjgl.glfw.GLFW;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.navigation.ScreenRectangle;
+import net.minecraft.client.gui.render.state.ColoredRectangleRenderState;
+import net.minecraft.client.gui.render.state.GuiRenderState;
+import net.minecraft.client.gui.render.state.GuiTextRenderState;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.input.MouseButtonInfo;
 import net.minecraft.client.renderer.RenderPipelines;
-import net.minecraft.client.renderer.state.gui.ColoredRectangleRenderState;
-import net.minecraft.client.renderer.state.gui.GuiRenderState;
-import net.minecraft.client.renderer.state.gui.GuiTextRenderState;
 import net.minecraft.network.chat.Component;
 import net.wurstclient.clickgui.screens.NBTSyntaxEditor;
 
@@ -39,19 +39,19 @@ public final class NBTEditorGameTest implements FabricClientGameTest
 	public void runTest(ClientGameTestContext context)
 	{
 		context.runOnClient(mc -> {
-			Screen previous = mc.gui.screen();
+			Screen previous = mc.screen;
 			String clipboard = mc.keyboardHandler.getClipboard();
 			try
 			{
 				EditorScreen screen = new EditorScreen();
-				mc.gui.setScreen(screen);
+				mc.setScreen(screen);
 				testScrolling(mc, screen);
 				testSelection(mc, screen);
 				testWrappingAndFolds(mc, screen);
 			}finally
 			{
 				mc.keyboardHandler.setClipboard(clipboard);
-				mc.gui.setScreen(previous);
+				mc.setScreen(previous);
 			}
 		});
 		WurstTest.LOGGER.info("NBT editor scrolling, clipping, selection, "
@@ -217,8 +217,8 @@ public final class NBTEditorGameTest implements FabricClientGameTest
 	private GuiRenderState render(Minecraft mc, NBTSyntaxEditor editor)
 	{
 		GuiRenderState state = new GuiRenderState();
-		editor.extractRenderState(new GuiGraphicsExtractor(mc, state, 0, 0), 0,
-			0, 0);
+		GuiGraphics graphics = new GuiGraphics(mc, state, 0, 0);
+		editor.renderWidget(graphics, 0, 0, 0);
 		return state;
 	}
 	

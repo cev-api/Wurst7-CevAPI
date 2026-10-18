@@ -11,7 +11,7 @@ import java.util.LinkedHashMap;
 import java.util.function.Consumer;
 
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
-import net.fabricmc.fabric.api.client.gametest.v1.context.TestClientLevelContext;
+import net.fabricmc.fabric.api.client.gametest.v1.context.TestClientWorldContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestServerContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
 import net.minecraft.core.BlockPos;
@@ -41,7 +41,7 @@ public enum BlockTestHelper
 	public static void setBlocksAndWait(ClientGameTestContext context,
 		TestSingleplayerContext spContext, Consumer<BlockBatch> batchBuilder)
 	{
-		TestClientLevelContext world = spContext.getClientLevel();
+		TestClientWorldContext world = spContext.getClientWorld();
 		TestServerContext server = spContext.getServer();
 		BlockBatch batch = new BlockBatch();
 		batchBuilder.accept(batch);

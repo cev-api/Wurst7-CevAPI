@@ -602,3 +602,11 @@ tasks.register("closeMilestone") {
 tasks.named("test") {
 	failOnNoDiscoveredTests = false
 }
+
+// The gametest source set is not part of the default task graph, so Minecraft
+// or Fabric API drift there would otherwise go unnoticed until someone runs
+// the client gametests.
+if(!formattingOnly)
+	tasks.named("check") {
+		dependsOn("compileGametestJava")
+	}

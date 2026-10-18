@@ -12,18 +12,16 @@ import java.util.function.Supplier;
 
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
-import net.minecraft.world.entity.Bucketable;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.TamableAnimal;
+import net.minecraft.world.entity.animal.Bucketable;
 import net.minecraft.world.entity.animal.cow.Cow;
 import net.minecraft.world.entity.animal.equine.AbstractHorse;
 import net.minecraft.world.entity.animal.feline.Ocelot;
 import net.minecraft.world.entity.animal.fox.Fox;
-import net.minecraft.world.entity.animal.frog.Tadpole;
 import net.minecraft.world.entity.animal.golem.IronGolem;
-import net.minecraft.world.entity.monster.cubemob.SulfurCube;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.wurstclient.gametest.tests.EntityFilterTest;
@@ -127,29 +125,18 @@ public final class FilterPetsTest extends EntityFilterTest
 		assertAllowed("natural iron golem", filter,
 			() -> spawnEntity(EntityType.IRON_GOLEM));
 		
-		// Golden dandelions turn otherwise-wild babies into pets
+		// Golden dandelions don't exist yet, but wild babies still aren't pets
 		assertAllowed("growing baby cow", filter, () -> {
 			Cow cow = spawnEntity(EntityType.COW);
 			cow.setBaby(true);
 			return cow;
-		});
-		assertFilteredOut("age-locked cow", filter, () -> {
-			Cow cow = spawnEntity(EntityType.COW);
-			cow.setBaby(true);
-			cow.setAgeLocked(true);
-			return cow;
-		});
-		assertFilteredOut("age-locked tadpole", filter, () -> {
-			Tadpole tadpole = spawnEntity(EntityType.TADPOLE);
-			tadpole.setAgeLocked(true);
-			return tadpole;
 		});
 		assertAllowed("wild tadpole (always reports fromBucket)", filter,
 			() -> spawnEntity(EntityType.TADPOLE));
 		
 		// Each has a separate implementation of bucket history
 		for(EntityType<? extends Mob> type : List.of(EntityType.COD,
-			EntityType.AXOLOTL, EntityType.SULFUR_CUBE))
+			EntityType.AXOLOTL))
 		{
 			assertAllowed(type.toShortString() + " (wild)", filter,
 				() -> spawnEntity(type));
@@ -160,12 +147,6 @@ public final class FilterPetsTest extends EntityFilterTest
 					return mob;
 				});
 		}
-		assertAllowed("filled bucket-released sulfur cube", filter, () -> {
-			SulfurCube cube = spawnEntity(EntityType.SULFUR_CUBE);
-			cube.setFromBucket(true);
-			cube.setItemSlot(EquipmentSlot.BODY, new ItemStack(Items.STONE));
-			return cube;
-		});
 		
 		// Clean up taming particles
 		context.waitTick();

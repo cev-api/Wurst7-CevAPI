@@ -34,8 +34,8 @@ public final class LsdHackTest extends SingleplayerTest
 		
 		// Swap gray smooth stone background with red wool so that
 		// the hue shift is easy to detect
-		setBlocksAndWait(blocks -> blocks.fill(-12, -60, 10, 12, -48, 10,
-			Blocks.WOOL.red()));
+		setBlocksAndWait(
+			blocks -> blocks.fill(-12, -60, 10, 12, -48, 10, Blocks.RED_WOOL));
 		context.waitTick();
 		Path disabledPath = context.takeScreenshot("lsd_disabled");
 		

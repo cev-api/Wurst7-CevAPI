@@ -7,11 +7,10 @@
  */
 package net.wurstclient.gametest.tests;
 
-import com.mojang.blaze3d.systems.RenderSystem;
-
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
-import net.minecraft.client.DeltaTracker;
+import net.minecraft.client.Camera;
+import net.minecraft.client.renderer.state.LevelRenderState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.Block;
@@ -43,14 +42,14 @@ public final class OcclusionCullingTest extends SingleplayerTest
 			"Occlusion culling did not hide the test chest");
 		
 		// Test that the chest becomes visible with Freecam
-		context.runOnClient(ignored -> WurstClient.INSTANCE.getHax().freecamHack
-			.setEnabled(true));
+		context.runOnClient(
+			mc -> WurstClient.INSTANCE.getHax().freecamHack.setEnabled(true));
 		assertChestVisibility(true,
 			"Occlusion culling was not disabled in Freecam");
 		
 		// Clean up
-		context.runOnClient(ignored -> WurstClient.INSTANCE.getHax().freecamHack
-			.setEnabled(false));
+		context.runOnClient(
+			mc -> WurstClient.INSTANCE.getHax().freecamHack.setEnabled(false));
 		setBlocksAndWait(blocks -> blocks.set(200, -56, 248, Blocks.AIR));
 		fillSurroundingSections(Blocks.AIR);
 		teleportPlayer(0, -57, 0);
@@ -84,16 +83,12 @@ public final class OcclusionCullingTest extends SingleplayerTest
 			int fov = mc.options.fov().get();
 			mc.options.fov().set(fov == 70 ? 71 : 70);
 			
-			// This is based on the simplified render loop in
-			// ClientGameTestContextImpl.doTakeScreenshot().
-			// Just calling extract() alone can leave the game in a bad state.
-			mc.gameRenderer.extract(DeltaTracker.ONE, true);
-			boolean actual = mc.gameRenderer
-				.gameRenderState().levelRenderState.blockEntityRenderStates
-					.stream()
-					.anyMatch(state -> chestPos.equals(state.blockPos));
-			mc.gameRenderer.render(DeltaTracker.ONE, true);
-			RenderSystem.getDevice().createCommandEncoder().submit();
+			Camera camera = mc.gameRenderer.getMainCamera();
+			LevelRenderState state = new LevelRenderState();
+			mc.getBlockEntityRenderDispatcher().prepare(camera);
+			mc.levelRenderer.extractVisibleBlockEntities(camera, 1, state);
+			boolean actual = state.blockEntityRenderStates.stream()
+				.anyMatch(beState -> chestPos.equals(beState.blockPos));
 			return actual == expected;
 		}, 20, errorMsg);
 		context.runOnClient(mc -> mc.options.fov().set(70));

@@ -19,7 +19,7 @@ import org.spongepowered.asm.mixin.MixinEnvironment;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.TestInput;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
-import net.fabricmc.fabric.api.client.gametest.v1.context.TestClientLevelContext;
+import net.fabricmc.fabric.api.client.gametest.v1.context.TestClientWorldContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestServerContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
 import net.fabricmc.fabric.api.client.gametest.v1.world.TestWorldBuilder;
@@ -45,6 +45,8 @@ public class WurstTest implements FabricClientGameTest
 	
 	public static final boolean IS_SODIUM_INSTALLED =
 		FabricLoader.getInstance().isModLoaded("sodium");
+	public static final boolean IS_LOOTR_INSTALLED =
+		FabricLoader.getInstance().isModLoaded("lootr");
 	
 	@Override
 	public void runTest(ClientGameTestContext context)
@@ -83,7 +85,7 @@ public class WurstTest implements FabricClientGameTest
 		TestSingleplayerContext spContext)
 	{
 		TestInput input = context.getInput();
-		TestClientLevelContext world = spContext.getClientLevel();
+		TestClientWorldContext world = spContext.getClientWorld();
 		TestServerContext server = spContext.getServer();
 		
 		// Disable chunk fade
@@ -121,7 +123,7 @@ public class WurstTest implements FabricClientGameTest
 			"setmode WurstLogo visibility only_when_outdated");
 		runWurstCommand(context, "setcheckbox HackList animations off");
 		
-		new PauseScreenTest(context, spContext).run();
+		new InGameMenuTest(context, spContext).run();
 		
 		// Test entity filters
 		new FilterBabiesTest(context, spContext).run();

@@ -7,6 +7,7 @@
  */
 package net.wurstclient.gametest.tests;
 
+import java.util.List;
 import java.util.Objects;
 
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
@@ -16,7 +17,6 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntitySpawnReason;
-import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
@@ -43,7 +43,12 @@ public final class ChestEspGroupTest extends SingleplayerTest
 		ChestEspGroupManager gm = new ChestEspGroupManager();
 		
 		assertMatchesOnly(gm, Blocks.CHEST, gm.normalChests);
-		for(Block copperChest : Blocks.COPPER_CHEST.asList())
+		for(Block copperChest : List.of(Blocks.COPPER_CHEST,
+			Blocks.EXPOSED_COPPER_CHEST, Blocks.WEATHERED_COPPER_CHEST,
+			Blocks.OXIDIZED_COPPER_CHEST, Blocks.WAXED_COPPER_CHEST,
+			Blocks.WAXED_EXPOSED_COPPER_CHEST,
+			Blocks.WAXED_WEATHERED_COPPER_CHEST,
+			Blocks.WAXED_OXIDIZED_COPPER_CHEST))
 			assertMatchesOnly(gm, copperChest, gm.normalChests);
 		assertMatchesOnly(gm, Blocks.TRAPPED_CHEST, gm.trapChests);
 		assertMatchesOnly(gm, Blocks.ENDER_CHEST, gm.enderChests);
@@ -64,10 +69,13 @@ public final class ChestEspGroupTest extends SingleplayerTest
 		if(!WurstTest.IS_LOOTR_INSTALLED)
 			return;
 		
-		assertMatchesOnly(gm, getLootrBlock("chest"), gm.normalChests);
-		assertMatchesOnly(gm, getLootrBlock("trapped_chest"), gm.trapChests);
-		assertMatchesOnly(gm, getLootrBlock("barrel"), gm.barrels);
-		assertMatchesOnly(gm, getLootrBlock("shulker_box"), gm.shulkerBoxes);
+		assertMatchesOnly(gm, getLootrBlock("lootr_chest"), gm.normalChests);
+		assertMatchesOnly(gm, getLootrBlock("lootr_inventory"),
+			gm.normalChests);
+		assertMatchesOnly(gm, getLootrBlock("lootr_trapped_chest"),
+			gm.trapChests);
+		assertMatchesOnly(gm, getLootrBlock("lootr_barrel"), gm.barrels);
+		assertMatchesOnly(gm, getLootrBlock("lootr_shulker"), gm.shulkerBoxes);
 	}
 	
 	private void assertMatchesOnly(ChestEspGroupManager gm, Block block,

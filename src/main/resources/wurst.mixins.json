@@ -68,6 +68,7 @@
     "ItemInHandRendererMixin",
     "ItemStackLayerRenderStateMixin",
     "ItemStackMixin",
+    "ItemStackRenderStateMixin",
     "jesus.BlockStateBaseMixin",
     "JoinMultiplayerScreenMixin",
     "KeyboardHandlerMixin",
