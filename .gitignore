@@ -41,3 +41,4 @@ desktop.ini
 *.txt
 *.jsonl
 !scripts/custom_build_gui.py
+!tools/test_title_shader.py

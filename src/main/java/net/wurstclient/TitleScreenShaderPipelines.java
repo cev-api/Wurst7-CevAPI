@@ -24,7 +24,7 @@ public enum TitleScreenShaderPipelines
 				Identifier.parse("wurst:core/title_shadertoy_background"))
 			.withFragmentShader(
 				Identifier.parse("wurst:core/title_shadertoy_background"))
-			.build());
+			.withSampler("Sampler0").build());
 	
 	public static final RenderPipeline TITLE_SHADERTOY_BACKGROUND_CUSTOM =
 		RenderPipelines
@@ -33,7 +33,8 @@ public enum TitleScreenShaderPipelines
 					.parse("wurst:pipeline/title_shadertoy_background_custom"))
 				.withVertexShader(
 					Identifier.parse("wurst:core/title_shadertoy_background"))
-				.withFragmentShader(
-					Identifier.parse("wurst:core/title_shadertoy_background"))
-				.build());
+				.withFragmentShader(Identifier
+					.parse("wurst:core/title_shadertoy_background_custom"))
+				.withSampler("Sampler0").withSampler("Sampler1")
+				.withSampler("Sampler2").build());
 }

@@ -7,6 +7,7 @@
  */
 package net.wurstclient.util;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
@@ -49,8 +50,8 @@ public final class ShadertoyBackgroundManager
 		"/wurst/shadertoy-presets/";
 	private static final List<String> BUNDLED_PRESETS =
 		List.of("LCL", "RainyDay");
-	private static final Identifier SHADER_RESOURCE =
-		Identifier.parse("wurst:shaders/core/title_shadertoy_background.fsh");
+	private static final Identifier SHADER_RESOURCE = Identifier
+		.parse("wurst:shaders/core/title_shadertoy_background_custom.fsh");
 	private static final Pattern SHADERTOY_ID = Pattern
 		.compile("(?:shadertoy\\.com/(?:view|embed)/|^)([A-Za-z0-9]{6})");
 	private static final Pattern JSON_CODE =
@@ -93,8 +94,13 @@ public final class ShadertoyBackgroundManager
 		if(!SHADER_RESOURCE.equals(id) || !hasCustomShader())
 			return Optional.empty();
 		
+		// Adapt cached shaders too, without rewriting the user's saved source.
 		IoSupplier<InputStream> stream =
-			() -> Files.newInputStream(getGeneratedShaderPath());
+			() -> new ByteArrayInputStream(
+				ShadertoyShaderSource
+					.prepareForDesktop(Files.readString(
+						getGeneratedShaderPath(), StandardCharsets.UTF_8))
+					.getBytes(StandardCharsets.UTF_8));
 		return Optional.of(new Resource(null, stream));
 	}
 	
@@ -520,7 +526,9 @@ public final class ShadertoyBackgroundManager
 	private static String convertToMinecraftShader(
 		ImportedShader importedShader)
 	{
-		String body = importedShader.rawSource().replace("\r\n", "\n");
+		String body =
+			ShadertoyShaderSource.prepareForDesktop(importedShader.rawSource())
+				.replace("\r\n", "\n");
 		body = body.replaceAll("(?m)^\\s*#version\\s+\\d+\\s*", "");
 		body = body.replaceAll("(?m)^\\s*precision\\s+\\w+\\s+float\\s*;", "");
 		

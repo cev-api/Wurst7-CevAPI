@@ -2,6 +2,7 @@
 
 in vec2 texCoord;
 in vec4 vertexColor;
+in float titleAnimationTime;
 out vec4 fragColor;
 
 uniform sampler2D Sampler0;
@@ -9,28 +10,15 @@ uniform sampler2D Sampler0;
 const float TITLE_ASPECT = 16.0 / 9.0;
 const vec2 BLOCK_ATLAS_TILES = vec2(4.0, 3.0);
 
-float titleTime()
-{
-	vec4 encodedTime = floor(vertexColor * 255.0 + 0.5);
-	return (encodedTime.a * 16.0 + floor(encodedTime.r / 16.0)) / 20.0;
-}
-
-float titleCameraTime()
-{
-	float cameraMoving = mod(floor(vertexColor.g * 255.0 + 0.5), 2.0);
-	return cameraMoving > 0.5 ? titleTime() : 0.0;
-}
-
 float titleMode()
 {
-	float red = floor(vertexColor.r * 255.0 + 0.5);
-	return floor(mod(red / 4.0, 4.0));
+	return mod(floor(vertexColor.b * 255.0 + 0.5), 4.0);
 }
 
 bool titleXrayEnabled()
 {
-	float red = floor(vertexColor.r * 255.0 + 0.5);
-	return mod(floor(red / 2.0), 2.0) > 0.5;
+	float flags = floor(vertexColor.b * 255.0 + 0.5);
+	return mod(floor(flags / 4.0), 2.0) > 0.5;
 }
 
 float hash13(vec3 p3)
@@ -67,11 +55,8 @@ float mapTerrain(in vec3 p)
 	float mode = titleMode();
 	p *= 0.1;
 
-	float time = 0.5 + 0.15 * titleTime();
-	float ft = fract(time);
-	float it = floor(time);
-	ft = smoothstep(0.7, 1.0, ft);
-	time = it + ft;
+	// Keep voxel occupancy and face materials fixed while the camera moves.
+	const float time = 0.5;
 	float spe = 1.4;
 
 	if(mode < 0.5)
@@ -125,7 +110,7 @@ vec3 sampleBlockAtlas(float tile, vec2 uv)
 	vec2 cell = vec2(mod(tile, BLOCK_ATLAS_TILES.x),
 		floor(tile / BLOCK_ATLAS_TILES.x));
 	vec2 pixelUv = (floor(fract(uv) * 16.0) + 0.5) / 16.0;
-	return texture(Sampler0, (cell + pixelUv) / BLOCK_ATLAS_TILES).rgb;
+	return textureLod(Sampler0, (cell + pixelUv) / BLOCK_ATLAS_TILES, 0.0).rgb;
 }
 
 float oreTile(in vec3 vos)
@@ -571,10 +556,7 @@ void main()
 {
 	vec2 q = texCoord;
 	vec2 p = vec2((2.0 * q.x - 1.0) * TITLE_ASPECT, 2.0 * q.y - 1.0);
-	float iTime = titleTime();
-
-	float cameraTime = titleCameraTime();
-	vec3 ro = path(cameraTime, 1.0);
+	vec3 ro = path(titleAnimationTime, 1.0);
 	vec3 ta = ro + vec3(0.0, 0.0, -1.0);
 	float cr = 0.0;
 	gro = ro;

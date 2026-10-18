@@ -7,12 +7,10 @@
  */
 package net.wurstclient.util;
 
-import org.joml.Matrix3x2f;
-
-import com.mojang.blaze3d.platform.InputConstants;
-
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.navigation.ScreenRectangle;
+import net.minecraft.client.gui.render.TextureSetup;
+import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.PanoramaRenderer;
 import net.minecraft.client.renderer.RenderPipelines;
@@ -25,11 +23,14 @@ public enum TitleScreenBackgroundRenderer
 {
 	;
 	private static final String CONTROLS_HINT =
-		"X: X-Ray, ESC: Change Realm, CTRL: Fly";
+		"X: X-Ray, ESC: Change Realm, CTRL: Pause / Fly";
 	private static final long HINT_DURATION_MS = 3_500L;
 	private static final long HINT_FADE_MS = 250L;
-	private static boolean cameraMoving;
-	private static boolean leftControlDown;
+	private static final long START_TIME = System.nanoTime();
+	private static final TitleBackgroundControls CONTROLS =
+		new TitleBackgroundControls();
+	private static final TitleBackgroundAnimation ANIMATION =
+		new TitleBackgroundAnimation();
 	private static long hintStartTime = -1L;
 	private static long lastHintFrameTime = -1L;
 	
@@ -55,25 +56,26 @@ public enum TitleScreenBackgroundRenderer
 	
 	public static void addBackground(GuiGraphics context, int width, int height)
 	{
-		Matrix3x2f pose = new Matrix3x2f();
 		ScreenRectangle bounds = new ScreenRectangle(0, 0, width, height);
 		Mode mode = TitleBackgroundModeManager.getCurrentMode();
-		int time = (int)((System.currentTimeMillis() / 50L) & 0xFFFF);
+		int time =
+			(int)(((System.nanoTime() - START_TIME) / 50_000_000L) & 0xFFFF);
 		boolean customShader = ShadertoyBackgroundManager.hasCustomShader();
-		updateCameraMovement();
 		AbstractTexture texture = Minecraft.getInstance().getTextureManager()
 			.getTexture(mode.getAtlasId());
-		boolean xray = WurstClient.INSTANCE.getHax().xRayHack.isEnabled();
-		int packedColor =
-			customShader ? packCustomShaderColor(time, mode, xray, cameraMoving)
-				: packBuiltinShaderColor(time, mode, cameraMoving);
-		context.guiRenderState.submitGuiElement(new CustomQuadRenderState(
+		int packedColor = packShaderColor(time, mode, CONTROLS.isXray(),
+			CONTROLS.isCameraMoving());
+		float animationTime =
+			ANIMATION.sample(System.nanoTime(), CONTROLS.isCameraMoving());
+		context.guiRenderState.submitGuiElement(new TitleBackgroundRenderState(
 			customShader
 				? TitleScreenShaderPipelines.TITLE_SHADERTOY_BACKGROUND_CUSTOM
 				: TitleScreenShaderPipelines.TITLE_SHADERTOY_BACKGROUND,
-			ShadertoyBackgroundManager.createCustomTextureSetup(texture), pose,
-			-1, -1, 1, -1, 1, 1, -1, 1, packedColor, packedColor, packedColor,
-			packedColor, null, bounds));
+			customShader
+				? ShadertoyBackgroundManager.createCustomTextureSetup(texture)
+				: TextureSetup.singleTexture(texture.getTextureView(),
+					texture.getSampler()),
+			packedColor, animationTime, bounds));
 		drawPanoramaOverlay(context, width, height);
 		drawControlsHint(context, width);
 	}
@@ -91,13 +93,17 @@ public enum TitleScreenBackgroundRenderer
 			16, 128);
 	}
 	
-	private static void updateCameraMovement()
+	public static boolean handleKeyPress(int key, int action)
 	{
-		boolean leftControlDownNow = InputConstants.isKeyDown(
-			Minecraft.getInstance().getWindow(), InputConstants.KEY_LCONTROL);
-		if(leftControlDownNow && !leftControlDown)
-			cameraMoving = !cameraMoving;
-		leftControlDown = leftControlDownNow;
+		Minecraft mc = Minecraft.getInstance();
+		if(mc == null || !(mc.screen instanceof TitleScreen)
+			|| mc.getOverlay() != null || !shouldRenderShaderBackground())
+			return false;
+		
+		TitleBackgroundControls.Action result = CONTROLS.handleKey(key, action);
+		if(result == TitleBackgroundControls.Action.REALM)
+			TitleBackgroundModeManager.advanceForEnableToggle();
+		return result != TitleBackgroundControls.Action.NONE;
 	}
 	
 	private static void drawControlsHint(GuiGraphics context, int width)
@@ -123,7 +129,7 @@ public enum TitleScreenBackgroundRenderer
 			(alpha << 24) | 0xFFFFFF);
 	}
 	
-	private static int packCustomShaderColor(int time, Mode mode, boolean xray,
+	private static int packShaderColor(int time, Mode mode, boolean xray,
 		boolean cameraMoving)
 	{
 		int flags =
@@ -131,15 +137,4 @@ public enum TitleScreenBackgroundRenderer
 		return 0xFF000000 | ((time >> 8) << 16) | ((time & 0xFF) << 8) | flags;
 	}
 	
-	private static int packBuiltinShaderColor(int time, Mode mode,
-		boolean cameraMoving)
-	{
-		boolean xray = WurstClient.INSTANCE.getHax().xRayHack.isEnabled();
-		int red = ((time & 0xF) << 4) | (mode.getShaderIndex() << 2)
-			| (xray ? 0x2 : 0);
-		int green = cameraMoving ? 0x81 : 0x80;
-		int blue = 0x80;
-		int alpha = (time >> 4) & 0xFF;
-		return (alpha << 24) | (red << 16) | (green << 8) | blue;
-	}
 }

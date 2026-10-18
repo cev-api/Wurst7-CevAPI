@@ -15,15 +15,23 @@ import net.minecraft.client.KeyboardHandler;
 import net.minecraft.client.input.KeyEvent;
 import net.wurstclient.event.EventManager;
 import net.wurstclient.events.KeyPressListener.KeyPressEvent;
+import net.wurstclient.util.TitleScreenBackgroundRenderer;
 
 @Mixin(KeyboardHandler.class)
 public class KeyboardHandlerMixin
 {
 	@Inject(method = "keyPress(JILnet/minecraft/client/input/KeyEvent;)V",
-		at = @At("HEAD"))
+		at = @At("HEAD"),
+		cancellable = true)
 	private void onKeyPress(long windowHandle, int action, KeyEvent arg,
 		CallbackInfo ci)
 	{
+		if(TitleScreenBackgroundRenderer.handleKeyPress(arg.key(), action))
+		{
+			ci.cancel();
+			return;
+		}
+		
 		EventManager.fire(new KeyPressEvent(arg.key(), arg.scancode(), action,
 			arg.modifiers()));
 	}
