@@ -21,6 +21,7 @@ import net.wurstclient.events.PacketInputListener;
 import net.wurstclient.events.RenderListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
+import net.wurstclient.util.HackActivity;
 import net.wurstclient.hacks.autofish.AutoFishDebugDraw;
 import net.wurstclient.hacks.autofish.AutoFishRodSelector;
 import net.wurstclient.hacks.autofish.FishingSpotManager;
@@ -79,6 +80,8 @@ public final class AutoFishHack extends Hack
 	private int reelInTimer;
 	private boolean biteDetected;
 	
+	private boolean dimensionPaused;
+	
 	public AutoFishHack()
 	{
 		super("AutoFish");
@@ -133,6 +136,26 @@ public final class AutoFishHack extends Hack
 	@Override
 	public void onUpdate()
 	{
+		if(HackActivity.isNether())
+		{
+			if(!dimensionPaused)
+			{
+				dimensionPaused = true;
+				castRodTimer = reelInTimer = 0;
+				biteDetected = false;
+				rodSelector.reset();
+				debugDraw.reset();
+				fishingSpots.reset();
+				shallowWaterWarning.reset();
+				net.wurstclient.mixinterface.IKeyMapping.get(MC.options.keyUp)
+					.resetDownState();
+				net.wurstclient.mixinterface.IKeyMapping.get(MC.options.keyJump)
+					.resetDownState();
+			}
+			return;
+		}
+		
+		dimensionPaused = false;
 		// update timers
 		if(castRodTimer > 0)
 			castRodTimer--;
@@ -182,6 +205,9 @@ public final class AutoFishHack extends Hack
 	@Override
 	public void onReceivedPacket(PacketInputEvent event)
 	{
+		if(HackActivity.isNether())
+			return;
+		
 		switch(biteMode.getSelected())
 		{
 			case SOUND -> processSoundUpdate(event);
@@ -241,6 +267,9 @@ public final class AutoFishHack extends Hack
 	@Override
 	public void onRender(PoseStack matrixStack, float partialTicks)
 	{
+		if(HackActivity.isNether())
+			return;
+		
 		debugDraw.render(matrixStack, partialTicks);
 	}
 	

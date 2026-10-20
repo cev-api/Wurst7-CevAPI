@@ -112,6 +112,13 @@ public final class TridentEspHack extends Hack implements UpdateListener,
 	@Override
 	public void onUpdate()
 	{
+		if(!style.hasBoxes() && !style.hasLines())
+		{
+			thrown.clear();
+			holders.clear();
+			return;
+		}
+		
 		thrown.clear();
 		holders.clear();
 		

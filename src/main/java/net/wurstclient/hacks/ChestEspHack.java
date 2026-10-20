@@ -346,7 +346,7 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		invalidateEnvFilterCacheIfNeeded();
 		refreshEnvironmentalCaches();
 		preFilteredEnv = MC.level != null && (isSpawnerFilterActive()
-			|| filterTrialChambers.isChecked() || filterVillages.isChecked());
+			|| isTrialFilterActive() || isVillageFilterActive());
 		
 		double yLimit = aboveGroundY.getValue();
 		boolean enforceAboveGround = onlyAboveGround.isChecked();
@@ -664,9 +664,9 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		String curDim = MC.level == null ? "overworld"
 			: MC.level.dimension().identifier().getPath();
 		
-		boolean applyEnvFilters = MC.level != null && !preFilteredEnv
-			&& (isSpawnerFilterActive() || filterTrialChambers.isChecked()
-				|| filterVillages.isChecked());
+		boolean applyEnvFilters =
+			MC.level != null && !preFilteredEnv && (isSpawnerFilterActive()
+				|| isTrialFilterActive() || isVillageFilterActive());
 		
 		for(ChestEspGroup group : groups.allGroups)
 		{
@@ -1109,9 +1109,9 @@ public class ChestEspHack extends Hack implements UpdateListener,
 				: MC.level.dimension().identifier().getPath();
 		}
 		
-		boolean applyEnvFilters = MC.level != null && !preFilteredEnv
-			&& (isSpawnerFilterActive() || filterTrialChambers.isChecked()
-				|| filterVillages.isChecked());
+		boolean applyEnvFilters =
+			MC.level != null && !preFilteredEnv && (isSpawnerFilterActive()
+				|| isTrialFilterActive() || isVillageFilterActive());
 		
 		for(ChestEspGroup group : groups.allGroups)
 		{
@@ -1592,12 +1592,12 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		else
 			cachedSpawners = List.of();
 		
-		if(filterTrialChambers.isChecked())
+		if(isTrialFilterActive())
 			cachedTrialSpawners = collectTrialSpawnerPositions();
 		else
 			cachedTrialSpawners = List.of();
 		
-		if(filterVillages.isChecked())
+		if(isVillageFilterActive())
 		{
 			cachedVillagerPositions = collectEntityPositions(Villager.class);
 			cachedGolemPositions = collectEntityPositions(IronGolem.class);
@@ -1680,7 +1680,7 @@ public class ChestEspHack extends Hack implements UpdateListener,
 					BlockPos hopperPos = getSingleHopperPosIfApplicable(box);
 					if(hopperPos != null)
 					{
-						if(filterTrialChambers.isChecked()
+						if(isTrialFilterActive()
 							&& isInTrialChamberArea(hopperPos))
 							continue;
 						out.add(box);
@@ -1692,7 +1692,7 @@ public class ChestEspHack extends Hack implements UpdateListener,
 						getSingleDispenserPosIfApplicable(box);
 					if(dispenserPos != null)
 					{
-						if(filterTrialChambers.isChecked()
+						if(isTrialFilterActive()
 							&& isInTrialChamberArea(dispenserPos))
 							continue;
 						out.add(box);
@@ -1703,8 +1703,7 @@ public class ChestEspHack extends Hack implements UpdateListener,
 					continue;
 				}
 				
-				if(filterTrialChambers.isChecked()
-					&& isInTrialChamberArea(barrelPos))
+				if(isTrialFilterActive() && isInTrialChamberArea(barrelPos))
 					continue;
 				
 				out.add(box);
@@ -1714,12 +1713,10 @@ public class ChestEspHack extends Hack implements UpdateListener,
 			if(isSpawnerFilterActive() && isNearSpawner(singleChestPos, 7))
 				continue;
 			
-			if(filterTrialChambers.isChecked()
-				&& isInTrialChamberArea(singleChestPos))
+			if(isTrialFilterActive() && isInTrialChamberArea(singleChestPos))
 				continue;
 			
-			if(filterVillages.isChecked()
-				&& isLikelyVillageChest(singleChestPos))
+			if(isVillageFilterActive() && isLikelyVillageChest(singleChestPos))
 				continue;
 			
 			out.add(box);
@@ -1766,9 +1763,9 @@ public class ChestEspHack extends Hack implements UpdateListener,
 			
 			if(isSpawnerFilterActive() && isNearSpawner(pos, 7))
 				return true;
-			if(filterTrialChambers.isChecked() && isInTrialChamberArea(pos))
+			if(isTrialFilterActive() && isInTrialChamberArea(pos))
 				return true;
-			if(filterVillages.isChecked() && isLikelyVillageChest(pos))
+			if(isVillageFilterActive() && isLikelyVillageChest(pos))
 				return true;
 			
 			return false;
@@ -1777,7 +1774,7 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		// Barrels in Trial Chambers
 		if(be instanceof BarrelBlockEntity)
 		{
-			if(filterTrialChambers.isChecked() && isInTrialChamberArea(pos))
+			if(isTrialFilterActive() && isInTrialChamberArea(pos))
 				return true;
 			return false;
 		}
@@ -1785,7 +1782,7 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		// Hoppers in Trial Chambers
 		if(be instanceof HopperBlockEntity)
 		{
-			if(filterTrialChambers.isChecked() && isInTrialChamberArea(pos))
+			if(isTrialFilterActive() && isInTrialChamberArea(pos))
 				return true;
 			return false;
 		}
@@ -1793,7 +1790,7 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		// Dispensers in Trial Chambers
 		if(be instanceof DispenserBlockEntity)
 		{
-			if(filterTrialChambers.isChecked() && isInTrialChamberArea(pos))
+			if(isTrialFilterActive() && isInTrialChamberArea(pos))
 				return true;
 			return false;
 		}
@@ -2298,8 +2295,8 @@ public class ChestEspHack extends Hack implements UpdateListener,
 	{
 		int signature = 0;
 		signature = 31 * signature + (filterNearSpawners.isChecked() ? 1 : 0);
-		signature = 31 * signature + (filterTrialChambers.isChecked() ? 1 : 0);
-		signature = 31 * signature + (filterVillages.isChecked() ? 1 : 0);
+		signature = 31 * signature + (isTrialFilterActive() ? 1 : 0);
+		signature = 31 * signature + (isVillageFilterActive() ? 1 : 0);
 		signature = 31 * signature + (onlyAboveGround.isChecked() ? 1 : 0);
 		signature = 31 * signature + aboveGroundY.getValueI();
 		
@@ -2322,4 +2319,15 @@ public class ChestEspHack extends Hack implements UpdateListener,
 	
 	private record ChunkScanRequest(ChunkPos chunkPos, long key, long queuedAt)
 	{}
+	
+	private boolean isTrialFilterActive()
+	{
+		return filterTrialChambers.isChecked() && isInOverworld();
+	}
+	
+	private boolean isVillageFilterActive()
+	{
+		return filterVillages.isChecked() && isInOverworld();
+	}
+	
 }

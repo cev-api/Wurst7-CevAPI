@@ -28,6 +28,7 @@ import net.wurstclient.events.RenderListener;
 import net.wurstclient.events.RightClickListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
+import net.wurstclient.util.HackActivity;
 import net.wurstclient.util.BlockUtils;
 import net.wurstclient.util.RenderUtils;
 import net.wurstclient.util.Rotation;
@@ -99,6 +100,13 @@ public final class PearlDropHack extends Hack
 	@Override
 	public void onUpdate()
 	{
+		if(!HackActivity.canUseWater())
+		{
+			nearestColumn = nearestHoney = readyColumn = readyHoney = null;
+			bestSolution = activeSolution = null;
+			return;
+		}
+		
 		if(MC.player == null || MC.level == null)
 			return;
 		
@@ -108,6 +116,9 @@ public final class PearlDropHack extends Hack
 	@Override
 	public void onRightClick(RightClickEvent event)
 	{
+		if(!HackActivity.canUseWater())
+			return;
+		
 		if(MC.player == null || MC.level == null || MC.gameMode == null)
 			return;
 		if(MC.rightClickDelay > 0 || MC.gui.screen() != null)
@@ -123,6 +134,9 @@ public final class PearlDropHack extends Hack
 	@Override
 	public void onRender(PoseStack matrixStack, float partialTicks)
 	{
+		if(!HackActivity.canUseWater())
+			return;
+		
 		if(MC.player == null || MC.level == null)
 			return;
 		if(getStandingHoneyBlocks().isEmpty())

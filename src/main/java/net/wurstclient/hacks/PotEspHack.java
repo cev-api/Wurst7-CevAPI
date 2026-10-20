@@ -36,6 +36,7 @@ import net.wurstclient.events.CameraTransformViewBobbingListener;
 import net.wurstclient.events.RenderListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
+import net.wurstclient.util.HackActivity;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ChunkAreaSetting;
 import net.wurstclient.settings.ColorSetting;
@@ -64,6 +65,8 @@ public final class PotEspHack extends Hack implements UpdateListener,
 			// a meaningful suspicious item.
 			Items.MUSIC_DISC_CREATOR_MUSIC_BOX, Items.DECORATED_POT);
 	
+	private final CheckboxSetting overworldOnly = new CheckboxSetting(
+		"Overworld only", "Pause outside the Overworld.", false);
 	private final EspStyleSetting style = new EspStyleSetting();
 	private final CheckboxSetting stickyArea =
 		new CheckboxSetting("Sticky area",
@@ -115,6 +118,9 @@ public final class PotEspHack extends Hack implements UpdateListener,
 	{
 		super("PotESP");
 		setCategory(Category.RENDER);
+		coordinator.setActivityCondition(
+			() -> (!overworldOnly.isChecked() || HackActivity.isOverworld()));
+		addSetting(overworldOnly);
 		addSetting(style);
 		addSetting(color);
 		addSetting(tracerFlash);
@@ -161,6 +167,28 @@ public final class PotEspHack extends Hack implements UpdateListener,
 	@Override
 	public void onUpdate()
 	{
+		if(!coordinator.isActive())
+		{
+			coordinator.suspend();
+			renderBoxes.clear();
+			currentSuspiciousPots.clear();
+			alertedPots.clear();
+			tracerEnds = List.of();
+			foundCount = 0;
+			renderDataUpToDate = false;
+			return;
+		}
+		// Discard render data before adopting a replacement world.
+		if(!coordinator.isCurrentWorld())
+		{
+			renderBoxes.clear();
+			currentSuspiciousPots.clear();
+			alertedPots.clear();
+			tracerEnds = List.of();
+			foundCount = 0;
+			renderDataUpToDate = false;
+		}
+		
 		if(MC.player == null || MC.level == null)
 			return;
 		
@@ -342,6 +370,9 @@ public final class PotEspHack extends Hack implements UpdateListener,
 	@Override
 	public void onRender(PoseStack matrixStack, float partialTicks)
 	{
+		if(!coordinator.isCurrentWorld())
+			return;
+		
 		if(renderBoxes.isEmpty())
 			return;
 		
@@ -367,6 +398,8 @@ public final class PotEspHack extends Hack implements UpdateListener,
 	public void onCameraTransformViewBobbing(
 		CameraTransformViewBobbingEvent event)
 	{
+		if(!coordinator.isCurrentWorld())
+			return;
 		if(style.hasLines())
 			event.cancel();
 	}

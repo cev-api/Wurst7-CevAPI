@@ -32,6 +32,7 @@ import net.wurstclient.events.CameraTransformViewBobbingListener;
 import net.wurstclient.events.RenderListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
+import net.wurstclient.util.HackActivity;
 import net.wurstclient.hacks.portalesp.PortalEspBlockGroup;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ChunkAreaSetting;
@@ -250,6 +251,8 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 	{
 		super("RedstoneESP");
 		setCategory(Category.RENDER);
+		coordinator.setActivityCondition(() -> getTargetMask() != 0);
+		coordinator.setSearchVersionSupplier(this::getTargetMask);
 		addSetting(style);
 		addSetting(showCountInHackList);
 		addSetting(activeMode);
@@ -320,6 +323,26 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 	@Override
 	public void onUpdate()
 	{
+		if(!coordinator.isActive())
+		{
+			coordinator.suspend();
+			renderGroups.forEach(RenderGroup::clear);
+			groupsUpToDate = false;
+			foundCount = 0;
+			activeRenderPositions.clear();
+			ancientCityCellCache.clear();
+			return;
+		}
+		// Discard render data before adopting a replacement world.
+		if(!coordinator.isCurrentWorld())
+		{
+			renderGroups.forEach(RenderGroup::clear);
+			groupsUpToDate = false;
+			foundCount = 0;
+			activeRenderPositions.clear();
+			ancientCityCellCache.clear();
+		}
+		
 		if(ignoreAncientCitiesAndJungleTemples
 			.isChecked() != lastIgnoreAncientCities)
 		{
@@ -379,6 +402,8 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 	public void onCameraTransformViewBobbing(
 		CameraTransformViewBobbingEvent event)
 	{
+		if(!coordinator.isCurrentWorld())
+			return;
 		if(style.getSelected().hasLines())
 			event.cancel();
 	}
@@ -386,6 +411,9 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 	@Override
 	public void onRender(PoseStack matrixStack, float partialTicks)
 	{
+		if(!coordinator.isCurrentWorld())
+			return;
+		
 		if(style.getSelected().hasBoxes())
 			renderBoxes(matrixStack);
 		if(style.getSelected().hasLines())
@@ -616,6 +644,8 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 	
 	private boolean isNearAncientCity(BlockPos pos)
 	{
+		if(!HackActivity.isOverworld())
+			return false;
 		int cellX = Math.floorDiv(pos.getX(), 4);
 		int cellY = Math.floorDiv(pos.getY(), 4);
 		int cellZ = Math.floorDiv(pos.getZ(), 4);
@@ -902,4 +932,14 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 		OFF,
 		ONLY_ACTIVE;
 	}
+	
+	private int getTargetMask()
+	{
+		int mask = 0;
+		for(int i = 0; i < renderGroups.size(); i++)
+			if(renderGroups.get(i).isEnabled())
+				mask |= 1 << i;
+		return mask;
+	}
+	
 }

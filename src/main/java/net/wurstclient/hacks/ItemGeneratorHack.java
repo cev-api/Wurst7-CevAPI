@@ -65,6 +65,7 @@ public final class ItemGeneratorHack extends Hack implements UpdateListener
 		{
 			ChatUtils.error("Creative mode only.");
 			setEnabled(false);
+			return;
 		}
 		
 		int stacks = speed.getValueI();

@@ -128,7 +128,7 @@ public final class ElytraDiveHack extends Hack implements UpdateListener
 	public void onUpdate()
 	{
 		LocalPlayer p = MC.player;
-		if(p == null || MC.level == null)
+		if(p == null || MC.level == null || !p.canGlide())
 			return;
 		if(!p.isFallFlying())
 		{

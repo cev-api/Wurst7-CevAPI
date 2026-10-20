@@ -31,6 +31,7 @@ import net.wurstclient.SearchTags;
 import net.wurstclient.events.RenderListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
+import net.wurstclient.util.HackActivity;
 import net.wurstclient.settings.BlockListSetting;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ColorSetting;
@@ -99,6 +100,7 @@ public final class SourceFillHack extends Hack
 				+ " disables it when SourceFill is turned off.",
 			false);
 	
+	private net.minecraft.client.multiplayer.ClientLevel activeLevel;
 	private List<BlockPos> targets = List.of();
 	private final HashSet<BlockPos> blocksToBreak = new HashSet<>();
 	private BlockPos currentTarget;
@@ -166,6 +168,19 @@ public final class SourceFillHack extends Hack
 	{
 		currentTarget = null;
 		currentlyBreaking = null;
+		if(activeLevel != MC.level)
+		{
+			activeLevel = MC.level;
+			targets = List.of();
+			blocksToBreak.clear();
+		}
+		if(MC.level == null || MC.player == null
+			|| liquidMode.getSelected() == LiquidMode.WATER_ONLY
+				&& !HackActivity.canUseWater())
+		{
+			targets = List.of();
+			return;
+		}
 		
 		Vec3 eyesVec = RotationUtils.getEyesPos();
 		BlockPos eyesBlock = BlockPos.containing(eyesVec);
@@ -192,13 +207,16 @@ public final class SourceFillHack extends Hack
 	@Override
 	public void onRender(PoseStack matrixStack, float partialTicks)
 	{
+		if(activeLevel != MC.level)
+			return;
+		
 		if(targets.isEmpty())
 			return;
 		
-		List<AABB> waterBoxes = renderWater.isChecked()
-			? targets.stream().filter(pos -> getFluid(pos).is(FluidTags.WATER))
-				.map(AABB::new).toList()
-			: List.of();
+		List<AABB> waterBoxes =
+			renderWater.isChecked() && HackActivity.canUseWater() ? targets
+				.stream().filter(pos -> getFluid(pos).is(FluidTags.WATER))
+				.map(AABB::new).toList() : List.of();
 		List<AABB> lavaBoxes = renderLava.isChecked()
 			? targets.stream().filter(pos -> getFluid(pos).is(FluidTags.LAVA))
 				.map(AABB::new).toList()
@@ -337,6 +355,8 @@ public final class SourceFillHack extends Hack
 			return false;
 		
 		FluidState fluid = state.getFluidState();
+		if(!HackActivity.canUseWater() && fluid.is(FluidTags.WATER))
+			return false;
 		if(!fluid.isSource())
 			return false;
 		

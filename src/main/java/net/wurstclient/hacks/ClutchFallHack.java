@@ -19,7 +19,6 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
-import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.WaterFluid;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
@@ -27,6 +26,7 @@ import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
+import net.wurstclient.util.HackActivity;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.EnumSetting;
 import net.wurstclient.settings.SliderSetting;
@@ -192,11 +192,13 @@ public final class ClutchFallHack extends Hack implements UpdateListener
 		if(dangerousFallTicks <= placementDelay.getValueI())
 			return;
 		
+		if(findAvailableCandidate() == null)
+			return;
 		BlockPos target = findLandingTarget();
 		if(target == null)
 			return;
 		
-		Candidate candidate = findAvailableCandidate(target);
+		Candidate candidate = findAvailableCandidate();
 		if(candidate == null)
 			return;
 		
@@ -329,12 +331,13 @@ public final class ClutchFallHack extends Hack implements UpdateListener
 			&& bucket.getContent() instanceof WaterFluid;
 	}
 	
-	private Candidate findAvailableCandidate(BlockPos target)
+	private Candidate findAvailableCandidate()
 	{
-		BlockState support = MC.level.getBlockState(target.below());
 		for(Candidate candidate : orderedCandidates())
 		{
-			if(!candidate.setting().isChecked())
+			if(!candidate.setting().isChecked()
+				|| candidate.type() == PreferredItem.WATER_BUCKET
+					&& !HackActivity.canUseWater())
 				continue;
 			int maxSlot = hotbarOnly.isChecked() ? 9 : 36;
 			if(InventoryUtils.indexOf(candidate.predicate(), maxSlot,

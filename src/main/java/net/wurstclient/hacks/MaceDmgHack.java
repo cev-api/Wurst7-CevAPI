@@ -238,6 +238,7 @@ public final class MaceDmgHack extends Hack
 	private volatile int queuedPrepTicks;
 	private volatile int queuedPreviousSlot = -1;
 	private volatile boolean queuedAttackInProgress;
+	private boolean activityIdle;
 	private boolean multiAuraHeightCapped;
 	private double heightBeforeMultiAuraCap;
 	
@@ -262,7 +263,7 @@ public final class MaceDmgHack extends Hack
 	@Override
 	public String getRenderName()
 	{
-		if(!isEnabled())
+		if(!isHoldingMace())
 			return getName();
 		
 		StringBuilder sb = new StringBuilder(getName());
@@ -295,6 +296,7 @@ public final class MaceDmgHack extends Hack
 	@Override
 	protected void onEnable()
 	{
+		activityIdle = false;
 		autoOptimizeWasChecked = false;
 		onServerTypeChanged();
 		updateMultiAuraHeightCap();
@@ -343,6 +345,9 @@ public final class MaceDmgHack extends Hack
 	@Override
 	public void onPlayerAttacksEntity(Entity target)
 	{
+		if(!isAuraSupportReady())
+			return;
+		
 		if(queuedAttackInProgress)
 			return;
 		if(isMaceRetryBlocked(target))
@@ -464,6 +469,8 @@ public final class MaceDmgHack extends Hack
 	
 	public boolean shouldBlockAttack(Entity target)
 	{
+		if(!isHoldingMace())
+			return false;
 		if(target instanceof Player player && player.isCreative())
 			return true;
 		
@@ -596,6 +603,9 @@ public final class MaceDmgHack extends Hack
 	@Override
 	public void onReceivedPacket(PacketInputEvent event)
 	{
+		if(!needsActivity())
+			return;
+			
 		// A smash confirmed against the most recent spoof target proves the
 		// server reset its fall distance after our last fake fall, so the
 		// grounded flag no longer needs masking.
@@ -697,6 +707,21 @@ public final class MaceDmgHack extends Hack
 	@Override
 	public void onUpdate()
 	{
+		if(!needsActivity())
+		{
+			if(!activityIdle)
+			{
+				activityIdle = true;
+				totemBypassSteps.clear();
+				rejectedTargetCooldowns.clear();
+				recentTotemPopEntityId = -1;
+				recentTotemPopTicks = 0;
+				restoreMultiAuraHeight();
+			}
+			return;
+		}
+		
+		activityIdle = false;
 		updateMultiAuraHeightCap();
 		
 		if(unresolvedSpoof && isSpoofFallStateResolved())
@@ -1122,7 +1147,7 @@ public final class MaceDmgHack extends Hack
 	
 	private void updateMultiAuraHeightCap()
 	{
-		boolean shouldCap = isEnabled() && multiAuraHeightCap.isChecked()
+		boolean shouldCap = isHoldingMace() && multiAuraHeightCap.isChecked()
 			&& WURST.getHax().multiAuraHack.isEnabled();
 		if(shouldCap)
 		{
@@ -1254,4 +1279,18 @@ public final class MaceDmgHack extends Hack
 		private int graceTicks = TOTEM_BYPASS_GRACE_TICKS;
 		private boolean burstReady;
 	}
+	
+	private boolean needsActivity()
+	{
+		return isHoldingMace() || unresolvedSpoof || hasFallDebt()
+			|| queuedPrepTargetId != -1 || !queuedTargetIds.isEmpty()
+			|| queuedAttackInProgress || queuedPreviousSlot != -1;
+	}
+	
+	private boolean isHoldingMace()
+	{
+		return isEnabled() && MC.player != null
+			&& MC.player.getMainHandItem().is(Items.MACE);
+	}
+	
 }

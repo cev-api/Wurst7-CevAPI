@@ -228,6 +228,8 @@ public final class WorkstationEspHack extends Hack implements UpdateListener,
 	{
 		super("WorkstationESP");
 		setCategory(Category.RENDER);
+		coordinator.setActivityCondition(() -> getTargetMask() != 0);
+		coordinator.setSearchVersionSupplier(this::getTargetMask);
 		addSetting(style);
 		addSetting(showCountInHackList);
 		addSetting(onlyAboveGround);
@@ -251,7 +253,7 @@ public final class WorkstationEspHack extends Hack implements UpdateListener,
 	private boolean isTargetBlock(Block b)
 	{
 		for(PortalEspBlockGroup g : groups)
-			if(g.getBlock() == b)
+			if(g.getBlock() == b && g.isEnabled())
 				return true;
 		return false;
 	}
@@ -293,6 +295,26 @@ public final class WorkstationEspHack extends Hack implements UpdateListener,
 	@Override
 	public void onUpdate()
 	{
+		if(!coordinator.isActive())
+		{
+			coordinator.suspend();
+			groups.forEach(PortalEspBlockGroup::clear);
+			groupsUpToDate = false;
+			foundCount = 0;
+			villageFilterCache.clear();
+			cachedVillagerPositions = cachedGolemPositions = List.of();
+			return;
+		}
+		// Discard render data before adopting a replacement world.
+		if(!coordinator.isCurrentWorld())
+		{
+			groups.forEach(PortalEspBlockGroup::clear);
+			groupsUpToDate = false;
+			foundCount = 0;
+			villageFilterCache.clear();
+			cachedVillagerPositions = cachedGolemPositions = List.of();
+		}
+		
 		if(ignoreVillages.isChecked() != lastVillageFilterEnabled)
 			groupsUpToDate = false;
 		refreshVillageCache();
@@ -331,6 +353,8 @@ public final class WorkstationEspHack extends Hack implements UpdateListener,
 	public void onCameraTransformViewBobbing(
 		CameraTransformViewBobbingEvent event)
 	{
+		if(!coordinator.isCurrentWorld())
+			return;
 		if(style.getSelected().hasLines())
 			event.cancel();
 	}
@@ -338,6 +362,9 @@ public final class WorkstationEspHack extends Hack implements UpdateListener,
 	@Override
 	public void onRender(PoseStack matrixStack, float partialTicks)
 	{
+		if(!coordinator.isCurrentWorld())
+			return;
+		
 		if(style.getSelected().hasBoxes())
 			renderBoxes(matrixStack);
 		if(style.getSelected().hasLines())
@@ -553,4 +580,14 @@ public final class WorkstationEspHack extends Hack implements UpdateListener,
 			return base + " [" + foundCount + "]";
 		return base;
 	}
+	
+	private int getTargetMask()
+	{
+		int mask = 0;
+		for(int i = 0; i < groups.size(); i++)
+			if(groups.get(i).isEnabled())
+				mask |= 1 << i;
+		return mask;
+	}
+	
 }

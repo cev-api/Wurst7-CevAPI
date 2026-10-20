@@ -26,6 +26,7 @@ import net.wurstclient.events.CameraTransformViewBobbingListener;
 import net.wurstclient.events.RenderListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
+import net.wurstclient.util.HackActivity;
 import net.wurstclient.hacks.portalesp.LiquidEspBlockGroup;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ChunkAreaSetting;
@@ -97,6 +98,9 @@ public final class LavaWaterEspHack extends Hack implements UpdateListener,
 	{
 		super("LavaWaterESP");
 		setCategory(Category.RENDER);
+		coordinator.setActivityCondition(
+			() -> !HackActivity.isEnd() && getTargetMask() != 0);
+		coordinator.setSearchVersionSupplier(this::getTargetMask);
 		addSetting(style);
 		groups.stream().flatMap(LiquidEspBlockGroup::getSettings)
 			.forEach(this::addSetting);
@@ -120,7 +124,7 @@ public final class LavaWaterEspHack extends Hack implements UpdateListener,
 	private boolean isEnabledTargetBlock(Block b)
 	{
 		return groups.stream()
-			.anyMatch(g -> g.getBlock() == b && g.isEnabled());
+			.anyMatch(g -> g.getBlock() == b && isEnabledGroup(g));
 	}
 	
 	@Override
@@ -153,6 +157,20 @@ public final class LavaWaterEspHack extends Hack implements UpdateListener,
 	@Override
 	public void onUpdate()
 	{
+		if(!coordinator.isActive())
+		{
+			coordinator.suspend();
+			groups.forEach(LiquidEspBlockGroup::clear);
+			groupsUpToDate = false;
+			return;
+		}
+		// Discard render data before adopting a replacement world.
+		if(!coordinator.isCurrentWorld())
+		{
+			groups.forEach(LiquidEspBlockGroup::clear);
+			groupsUpToDate = false;
+		}
+		
 		ChunkAreaSetting.ChunkArea currentArea = area.getSelected();
 		if(currentArea != lastAreaSelection)
 		{
@@ -188,6 +206,8 @@ public final class LavaWaterEspHack extends Hack implements UpdateListener,
 	public void onCameraTransformViewBobbing(
 		CameraTransformViewBobbingEvent event)
 	{
+		if(!coordinator.isCurrentWorld())
+			return;
 		if(style.getSelected().hasLines())
 			event.cancel();
 	}
@@ -195,6 +215,9 @@ public final class LavaWaterEspHack extends Hack implements UpdateListener,
 	@Override
 	public void onRender(PoseStack matrixStack, float partialTicks)
 	{
+		if(!coordinator.isCurrentWorld())
+			return;
+		
 		if(style.getSelected().hasBoxes())
 			renderBoxes(matrixStack);
 		if(style.getSelected().hasLines())
@@ -205,7 +228,7 @@ public final class LavaWaterEspHack extends Hack implements UpdateListener,
 	{
 		for(LiquidEspBlockGroup group : groups)
 		{
-			if(!group.isEnabled())
+			if(!isEnabledGroup(group))
 				continue;
 			List<AABB> boxes = group.getBoxes();
 			int alpha = group == lavaGroup ? lavaAlpha.getValueI()
@@ -222,7 +245,7 @@ public final class LavaWaterEspHack extends Hack implements UpdateListener,
 	{
 		for(LiquidEspBlockGroup group : groups)
 		{
-			if(!group.isEnabled())
+			if(!isEnabledGroup(group))
 				continue;
 			List<AABB> boxes = group.getBoxes();
 			List<Vec3> ends = boxes.stream().map(AABB::getCenter).toList();
@@ -275,4 +298,17 @@ public final class LavaWaterEspHack extends Hack implements UpdateListener,
 				break;
 			}
 	}
+	
+	private int getTargetMask()
+	{
+		return (lavaGroup.isEnabled() ? 1 : 0)
+			| (waterGroup.isEnabled() && HackActivity.canUseWater() ? 2 : 0);
+	}
+	
+	private boolean isEnabledGroup(LiquidEspBlockGroup group)
+	{
+		return group.isEnabled()
+			&& (group != waterGroup || HackActivity.canUseWater());
+	}
+	
 }

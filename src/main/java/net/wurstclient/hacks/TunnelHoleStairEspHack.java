@@ -375,7 +375,8 @@ public final class TunnelHoleStairEspHack extends Hack
 		if(!isEnabledInCurrentDimension())
 		{
 			if(!detectionsByChunk.isEmpty() || !queuedChunks.isEmpty()
-				|| !partialScans.isEmpty())
+				|| !partialScans.isEmpty() || !dirtyChunkSet.isEmpty()
+				|| !dirtyChunkQueue.isEmpty())
 				clearRuntimeState();
 			return;
 		}
@@ -403,7 +404,8 @@ public final class TunnelHoleStairEspHack extends Hack
 	@Override
 	public void onReceivedPacket(PacketInputEvent event)
 	{
-		if(MC.level == null || MC.player == null || !isEnabled())
+		if(MC.level == null || MC.player == null || !isEnabled()
+			|| !isEnabledInCurrentDimension())
 			return;
 		
 		ChunkPos chunkPos = ChunkUtils.getAffectedChunk(event.getPacket());
@@ -414,6 +416,9 @@ public final class TunnelHoleStairEspHack extends Hack
 	@Override
 	public void onRender(PoseStack matrixStack, float partialTicks)
 	{
+		if(MC.level == null || !isEnabledInCurrentDimension())
+			return;
+		
 		if(style.hasBoxes())
 			renderBoxes(matrixStack);
 		
@@ -425,6 +430,8 @@ public final class TunnelHoleStairEspHack extends Hack
 	public void onCameraTransformViewBobbing(
 		CameraTransformViewBobbingEvent event)
 	{
+		if(MC.level == null || !isEnabledInCurrentDimension())
+			return;
 		if(style.hasLines())
 			event.cancel();
 	}

@@ -23,6 +23,7 @@ import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.WurstRenderLayers;
 import net.wurstclient.hack.Hack;
+import net.wurstclient.util.HackActivity;
 import net.wurstclient.events.RenderListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.nicewurst.NiceWurstModule;
@@ -95,6 +96,17 @@ public final class SpawnRadiusHack extends Hack
 	@Override
 	public void onUpdate()
 	{
+		if(HackActivity.isEnd())
+		{
+			if(!spawners.isEmpty() || buffer != null)
+			{
+				spawners.clear();
+				closeBuffer();
+				dirty = true;
+			}
+			return;
+		}
+		
 		spawners.clear();
 		if(MC.level == null || MC.player == null)
 			return;
@@ -128,6 +140,9 @@ public final class SpawnRadiusHack extends Hack
 	@Override
 	public void onRender(PoseStack matrices, float partialTicks)
 	{
+		if(HackActivity.isEnd())
+			return;
+		
 		if(MC.level == null || spawners.isEmpty())
 			return;
 		

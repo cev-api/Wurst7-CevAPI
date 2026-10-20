@@ -95,6 +95,12 @@ public final class FeedAuraHack extends Hack
 	public void onUpdate()
 	{
 		ItemStack heldStack = MC.player.getInventory().getSelectedItem();
+		if(heldStack.isEmpty() || heldStack.typeHolder().tags()
+			.noneMatch(tag -> tag.location().getPath().endsWith("_food")))
+		{
+			target = renderTarget = null;
+			return;
+		}
 		
 		double rangeSq = range.getValueSq();
 		Stream<Animal> stream = EntityUtils.getValidAnimals()

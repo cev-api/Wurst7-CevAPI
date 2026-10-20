@@ -18,12 +18,15 @@ import net.wurstclient.SearchTags;
 import net.wurstclient.events.PacketInputListener;
 import net.wurstclient.events.PacketInputListener.PacketInputEvent;
 import net.wurstclient.hack.Hack;
+import net.wurstclient.util.HackActivity;
 import net.wurstclient.settings.CheckboxSetting;
 
 /** Prevents the upward relative teleport used by 26.2 Potent Sulfur geysers. */
 @SearchTags({"anti geyser", "no geyser push", "geyser", "potent sulfur"})
 public final class AntiGeyserHack extends Hack implements PacketInputListener
 {
+	private final CheckboxSetting overworldOnly = new CheckboxSetting(
+		"Overworld only", "Pause outside the Overworld.", true);
 	private final CheckboxSetting hideGeyserParticles = new CheckboxSetting(
 		"Hide geyser particles", "Hide Potent Sulfur geyser particles.", false);
 	
@@ -31,12 +34,13 @@ public final class AntiGeyserHack extends Hack implements PacketInputListener
 	{
 		super("AntiGeyser");
 		setCategory(Category.MOVEMENT);
+		addSetting(overworldOnly);
 		addSetting(hideGeyserParticles);
 	}
 	
 	public boolean isHidingGeysers()
 	{
-		return isEnabled() && hideGeyserParticles.isChecked();
+		return isActive() && hideGeyserParticles.isChecked();
 	}
 	
 	@Override
@@ -54,6 +58,9 @@ public final class AntiGeyserHack extends Hack implements PacketInputListener
 	@Override
 	public void onReceivedPacket(PacketInputEvent event)
 	{
+		if(!isActive())
+			return;
+		
 		Packet<?> packet = event.getPacket();
 		if(!(packet instanceof ClientboundSetEntityMotionPacket motion)
 			|| MC.player == null || motion.id() != MC.player.getId())
@@ -67,8 +74,14 @@ public final class AntiGeyserHack extends Hack implements PacketInputListener
 	public boolean shouldCancelRelativeTeleport(Entity entity, double x,
 		double y, double z)
 	{
-		return isEnabled() && entity == MC.player && x == 0.0 && z == 0.0
+		return isActive() && entity == MC.player && x == 0.0 && z == 0.0
 			&& Math.abs(y - 0.2) < 1.0E-6;
+	}
+	
+	private boolean isActive()
+	{
+		return isEnabled() && MC.level != null
+			&& (!overworldOnly.isChecked() || HackActivity.isOverworld());
 	}
 	
 	private boolean isOverPotentSulfur(Entity entity)

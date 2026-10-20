@@ -727,3 +727,16 @@ tasks.register("regressionTests") {
 	dependsOn tasks.named("forensicReliabilityRegressionTest")
 	dependsOn tasks.named("banHistoryRegressionTest")
 }
+
+// Scanner pause/resume lifecycle is independent of the Minecraft renderer.
+tasks.register("scanActivityRegressionTest", JavaExec) {
+    dependsOn tasks.named("testClasses")
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = "net.wurstclient.util.chunk.ScanActivityRegressionTest"
+}
+tasks.named("test") {
+    exclude "net/wurstclient/util/chunk/ScanActivityRegressionTest*"
+}
+tasks.named("regressionTests") {
+    dependsOn tasks.named("scanActivityRegressionTest")
+}

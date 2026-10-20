@@ -41,6 +41,7 @@ import net.wurstclient.events.PacketInputListener;
 import net.wurstclient.events.RenderListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
+import net.wurstclient.util.HackActivity;
 import net.wurstclient.hacks.portalesp.PortalEspBlockGroup;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ChunkAreaSetting;
@@ -197,11 +198,7 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 			false);
 	
 	private final BiPredicate<BlockPos, BlockState> query =
-		(pos, state) -> state.getBlock() == Blocks.NETHER_PORTAL
-			|| state.getBlock() == Blocks.END_PORTAL
-			|| state.getBlock() == Blocks.END_PORTAL_FRAME
-			|| state.getBlock() == Blocks.END_GATEWAY
-			|| state.getBlock() == Blocks.OBSIDIAN;
+		(pos, state) -> isEffectiveTarget(state);
 	
 	private final ChunkSearcherCoordinator coordinator =
 		new ChunkSearcherCoordinator(query, area);
@@ -221,6 +218,8 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 	{
 		super("PortalESP");
 		setCategory(Category.RENDER);
+		coordinator.setActivityCondition(() -> getTargetMask() != 0);
+		coordinator.setSearchVersionSupplier(this::getTargetMask);
 		addSetting(style);
 		groups.stream().flatMap(PortalEspBlockGroup::getSettings)
 			.forEach(this::addSetting);
@@ -294,6 +293,8 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 	public void onCameraTransformViewBobbing(
 		CameraTransformViewBobbingEvent event)
 	{
+		if(!coordinator.isCurrentWorld())
+			return;
 		if(style.getSelected().hasLines())
 			event.cancel();
 	}
@@ -301,6 +302,22 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 	@Override
 	public void onUpdate()
 	{
+		if(!coordinator.isActive())
+		{
+			coordinator.suspend();
+			groups.forEach(PortalEspBlockGroup::clear);
+			groupsUpToDate = false;
+			resetBrokenPortalCache();
+			return;
+		}
+		// Discard render data before adopting a replacement world.
+		if(!coordinator.isCurrentWorld())
+		{
+			groups.forEach(PortalEspBlockGroup::clear);
+			groupsUpToDate = false;
+			resetBrokenPortalCache();
+		}
+		
 		long brokenSettingsFingerprint =
 			computeBrokenPortalSettingsFingerprint();
 		if(brokenSettingsFingerprint != lastBrokenPortalSettingsFingerprint)
@@ -349,6 +366,9 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 	@Override
 	public void onRender(PoseStack matrixStack, float partialTicks)
 	{
+		if(!coordinator.isCurrentWorld())
+			return;
+		
 		if(style.getSelected().hasBoxes())
 			renderBoxes(matrixStack);
 		
@@ -360,7 +380,7 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 	{
 		for(PortalEspBlockGroup group : groups)
 		{
-			if(!group.isEnabled())
+			if(!isEffectiveGroup(group))
 				continue;
 			
 			List<AABB> boxes = disableHighlightingForWaypointPortals.isChecked()
@@ -392,7 +412,7 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 	{
 		for(PortalEspBlockGroup group : groups)
 		{
-			if(!group.isEnabled())
+			if(!isEffectiveGroup(group))
 				continue;
 			if(group == brokenNetherPortal
 				&& !brokenNetherPortalTracer.isChecked())
@@ -498,7 +518,7 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 		{
 			if(result.state().getBlock() != group.getBlock())
 				continue;
-			if(!group.isEnabled())
+			if(!isEffectiveGroup(group))
 				return false;
 			if(group == endGateway && !isInEndDimension())
 				return false;
@@ -526,7 +546,7 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 		for(PortalEspBlockGroup group : groups)
 			if(result.state().getBlock() == group.getBlock())
 			{
-				if(!group.isEnabled())
+				if(!isEffectiveGroup(group))
 					return;
 				
 				if(group == brokenNetherPortal)
@@ -2057,4 +2077,37 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 			}
 		}
 	}
+	
+	private boolean isEffectiveGroup(PortalEspBlockGroup group)
+	{
+		if(!group.isEnabled())
+			return false;
+		if(group == brokenNetherPortal)
+			return !HackActivity.isEnd() && isBrokenPortalSearchEnabled();
+		if(group == netherPortal)
+			return !HackActivity.isEnd();
+		if(group == endPortalFrame)
+			return HackActivity.isOverworld();
+		if(group == endGateway)
+			return HackActivity.isEnd();
+		return !HackActivity.isNether();
+	}
+	
+	private int getTargetMask()
+	{
+		int mask = 0;
+		for(int i = 0; i < groups.size(); i++)
+			if(isEffectiveGroup(groups.get(i)))
+				mask |= 1 << i;
+		return mask;
+	}
+	
+	private boolean isEffectiveTarget(BlockState state)
+	{
+		for(PortalEspBlockGroup group : groups)
+			if(state.getBlock() == group.getBlock() && isEffectiveGroup(group))
+				return true;
+		return false;
+	}
+	
 }

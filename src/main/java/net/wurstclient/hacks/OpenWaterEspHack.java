@@ -15,6 +15,7 @@ import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.RenderListener;
 import net.wurstclient.hack.Hack;
+import net.wurstclient.util.HackActivity;
 import net.wurstclient.util.RenderUtils;
 
 @SearchTags({"open water esp", "AutoFishESP", "auto fish esp"})
@@ -52,6 +53,9 @@ public final class OpenWaterEspHack extends Hack implements RenderListener
 	@Override
 	public void onRender(PoseStack matrixStack, float partialTicks)
 	{
+		if(!HackActivity.isOverworld())
+			return;
+		
 		FishingHook bobber = MC.player.fishing;
 		if(bobber == null)
 			return;

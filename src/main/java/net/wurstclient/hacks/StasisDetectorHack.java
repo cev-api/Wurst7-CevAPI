@@ -33,6 +33,7 @@ import net.wurstclient.events.PacketInputListener;
 import net.wurstclient.events.RenderListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
+import net.wurstclient.util.HackActivity;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ChunkAreaSetting;
 import net.wurstclient.settings.ColorSetting;
@@ -94,6 +95,8 @@ public class StasisDetectorHack extends Hack implements UpdateListener,
 	{
 		super("StasisDetector");
 		setCategory(Category.RENDER);
+		coordinator.setActivityCondition(
+			() -> !HackActivity.isNether() && isInCorrectDimension());
 		addSetting(style);
 		addSetting(area);
 		addSetting(limit);
@@ -152,6 +155,28 @@ public class StasisDetectorHack extends Hack implements UpdateListener,
 	@Override
 	public void onUpdate()
 	{
+		if(!coordinator.isActive())
+		{
+			coordinator.suspend();
+			alertedPositions.clear();
+			notify = true;
+			matchedChambers.clear();
+			renderBoxes.clear();
+			tracerEnds = null;
+			foundCount = 0;
+			return;
+		}
+		// Discard render data before adopting a replacement world.
+		if(!coordinator.isCurrentWorld())
+		{
+			alertedPositions.clear();
+			notify = true;
+			matchedChambers.clear();
+			renderBoxes.clear();
+			tracerEnds = null;
+			foundCount = 0;
+		}
+		
 		if(MC.level == null || MC.player == null)
 		{
 			matchedChambers.clear();
@@ -284,6 +309,9 @@ public class StasisDetectorHack extends Hack implements UpdateListener,
 	@Override
 	public void onRender(PoseStack matrixStack, float partialTicks)
 	{
+		if(!coordinator.isCurrentWorld())
+			return;
+		
 		if(renderBoxes.isEmpty())
 			return;
 		
@@ -314,6 +342,8 @@ public class StasisDetectorHack extends Hack implements UpdateListener,
 	public void onCameraTransformViewBobbing(
 		CameraTransformViewBobbingEvent event)
 	{
+		if(!coordinator.isCurrentWorld())
+			return;
 		if(style.hasLines())
 			event.cancel();
 	}

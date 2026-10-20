@@ -179,7 +179,6 @@ public final class AutoMaceHack extends Hack implements UpdateListener
 		
 		enforceSliderBounds();
 		updateFallTracking();
-		updateCurrentTarget();
 		
 		boolean airborne = !MC.player.onGround();
 		Vec3 velocity = MC.player.getDeltaMovement();
@@ -189,6 +188,21 @@ public final class AutoMaceHack extends Hack implements UpdateListener
 			&& currentFallDistance >= minFallDistance.getValue();
 		if(airborne)
 			landingLogged = false;
+		if(!airborne)
+		{
+			if(!landingLogged || previousSlot != -1 || scheduledTarget != null
+				|| currentTarget != null)
+				handleLanding();
+			return;
+		}
+		if(!falling || (!targetPlayers.isChecked() && !targetMobs.isChecked())
+			|| !hasAccessibleMace())
+		{
+			currentTarget = null;
+			handleNotFalling();
+			return;
+		}
+		updateCurrentTarget();
 		boolean hasTarget = hasValidTarget(currentTarget);
 		
 		if(airborne && falling && !isMaceEquipped() && !hasSwitchedToMace
@@ -895,4 +909,15 @@ public final class AutoMaceHack extends Hack implements UpdateListener
 			return builder.toString();
 		}
 	}
+	
+	private boolean hasAccessibleMace()
+	{
+		if(isMaceEquipped())
+			return true;
+		for(int slot = 0; slot < 9; slot++)
+			if(MC.player.getInventory().getItem(slot).is(Items.MACE))
+				return true;
+		return false;
+	}
+	
 }

@@ -40,6 +40,7 @@ import net.wurstclient.events.PacketInputListener;
 import net.wurstclient.events.RenderListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
+import net.wurstclient.util.HackActivity;
 import net.wurstclient.hacks.bedesp.BedEspBlockGroup;
 // checkbox setting not needed here (stickyArea uses fully-qualified name)
 import net.wurstclient.settings.ChunkAreaSetting;
@@ -124,6 +125,7 @@ public final class BedEspHack extends Hack implements UpdateListener,
 	{
 		super("BedESP");
 		setCategory(Category.RENDER);
+		coordinator.setActivityCondition(() -> !HackActivity.isNether());
 		addSetting(style);
 		groups.stream().flatMap(BedEspBlockGroup::getSettings)
 			.forEach(this::addSetting);
@@ -188,6 +190,26 @@ public final class BedEspHack extends Hack implements UpdateListener,
 	@Override
 	public void onUpdate()
 	{
+		if(!coordinator.isActive())
+		{
+			coordinator.suspend();
+			groups.forEach(BedEspBlockGroup::clear);
+			groupsUpToDate = false;
+			foundCount = 0;
+			cachedTrialSpawners = List.of();
+			cachedVillagerPositions = cachedGolemPositions = List.of();
+			return;
+		}
+		// Discard render data before adopting a replacement world.
+		if(!coordinator.isCurrentWorld())
+		{
+			groups.forEach(BedEspBlockGroup::clear);
+			groupsUpToDate = false;
+			foundCount = 0;
+			cachedTrialSpawners = List.of();
+			cachedVillagerPositions = cachedGolemPositions = List.of();
+		}
+		
 		boolean searchersChanged = coordinator.update();
 		if(searchersChanged)
 			groupsUpToDate = false;
@@ -220,6 +242,8 @@ public final class BedEspHack extends Hack implements UpdateListener,
 	public void onCameraTransformViewBobbing(
 		CameraTransformViewBobbingEvent event)
 	{
+		if(!coordinator.isCurrentWorld())
+			return;
 		if(style.hasLines())
 			event.cancel();
 	}
@@ -227,6 +251,9 @@ public final class BedEspHack extends Hack implements UpdateListener,
 	@Override
 	public void onRender(PoseStack matrixStack, float partialTicks)
 	{
+		if(!coordinator.isCurrentWorld())
+			return;
+		
 		if(style.hasBoxes())
 			renderBoxes(matrixStack);
 		

@@ -275,6 +275,8 @@ public final class SpearAssistHack extends Hack
 	private boolean noFallConflictReported;
 	private int passStateUpdateTick = -1;
 	
+	private boolean itemContextActive;
+	
 	public SpearAssistHack()
 	{
 		super("SpearAssist");
@@ -378,11 +380,17 @@ public final class SpearAssistHack extends Hack
 			|| MC.gameMode == null || MC.getConnection() == null
 			|| MC.player.isRemoved() || !MC.player.isAlive())
 		{
-			resetAssistState();
+			pauseItemContext();
 			return;
 		}
 		
 		updateModeVisibility();
+		if(!isSpear(MC.player.getMainHandItem()))
+		{
+			pauseItemContext();
+			return;
+		}
+		itemContextActive = true;
 		
 		if(assistMode.getSelected() == AssistMode.SPEARKILL)
 		{
@@ -445,6 +453,10 @@ public final class SpearAssistHack extends Hack
 	@Override
 	public void onRender(PoseStack matrixStack, float partialTicks)
 	{
+		if(!itemContextActive || MC.player == null
+			|| !isSpear(MC.player.getMainHandItem()))
+			return;
+		
 		if(assistMode.getSelected() == AssistMode.SPEARKILL)
 			return;
 		
@@ -746,6 +758,7 @@ public final class SpearAssistHack extends Hack
 	
 	private void resetState()
 	{
+		itemContextActive = false;
 		resetDash();
 		resetAssistState();
 		highlightTargets.clear();
@@ -930,6 +943,10 @@ public final class SpearAssistHack extends Hack
 	
 	public void updatePassStateForAimAssist()
 	{
+		if(!isEnabled() || !itemContextActive || MC.player == null
+			|| !isSpear(MC.player.getMainHandItem()))
+			return;
+		
 		if(MC.player == null || MC.level == null || MC.options == null
 			|| MC.gameMode == null || MC.getConnection() == null
 			|| MC.player.isRemoved() || !MC.player.isAlive())
@@ -956,8 +973,9 @@ public final class SpearAssistHack extends Hack
 	private void updatePassState(boolean charging, boolean holdingSpear)
 	{
 		var aimAssist = WURST.getHax().aimAssistHack;
-		boolean active = assistMode.getSelected() == AssistMode.ASSIST
-			&& holdingSpear && charging && WURST.getHax().flightHack.isEnabled()
+		boolean active = isEnabled()
+			&& assistMode.getSelected() == AssistMode.ASSIST && holdingSpear
+			&& charging && WURST.getHax().flightHack.isEnabled()
 			&& aimAssist != null && aimAssist.isEnabled() && MC.player != null
 			&& MC.level != null;
 		if(!active)
@@ -1168,12 +1186,16 @@ public final class SpearAssistHack extends Hack
 	
 	public Double getAutoAlignmentStepForFlight()
 	{
+		if(!isItemContextReady())
+			return null;
 		return getAutoAlignmentStepInternal(null, null,
 			WURST.getHax().flightHack.getActualVerticalSpeed());
 	}
 	
 	public Vec3 adjustHorizontalVelocityForFlight(Vec3 proposed)
 	{
+		if(!isItemContextReady())
+			return proposed;
 		if(proposed == null)
 			return null;
 		
@@ -1192,6 +1214,8 @@ public final class SpearAssistHack extends Hack
 	
 	public Double getHitWindowSpeedLimitForFlight(double proposedSpeed)
 	{
+		if(!isItemContextReady())
+			return null;
 		if(MC.player == null || MC.player.input == null)
 		{
 			setHitWindowGovernorActive(false);
@@ -1452,7 +1476,7 @@ public final class SpearAssistHack extends Hack
 	
 	public Integer getGlowColor(LivingEntity entity)
 	{
-		if(!isEnabled() || !useGlowFallback)
+		if(!isItemContextReady() || !useGlowFallback)
 			return null;
 		
 		for(TargetHighlight target : highlightTargets)
@@ -1562,6 +1586,8 @@ public final class SpearAssistHack extends Hack
 	private void updateModeVisibility()
 	{
 		AssistMode currentMode = assistMode.getSelected();
+		if(currentMode == lastAssistMode)
+			return;
 		boolean spearKill = currentMode == AssistMode.SPEARKILL;
 		boolean assist = !spearKill;
 		
@@ -2144,4 +2170,23 @@ public final class SpearAssistHack extends Hack
 			this.color = color;
 		}
 	}
+	
+	private void pauseItemContext()
+	{
+		if(!itemContextActive)
+			return;
+		itemContextActive = false;
+		stopSpearKillBlink(true);
+		clearAimAssistRangeOverride();
+		clearAimAssistLockOnOverride();
+		updateAimAssist(false, false);
+		resetState();
+	}
+	
+	private boolean isItemContextReady()
+	{
+		return isEnabled() && itemContextActive && MC.player != null
+			&& isSpear(MC.player.getMainHandItem());
+	}
+	
 }

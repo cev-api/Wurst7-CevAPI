@@ -166,6 +166,13 @@ public final class ProjectileEspHack extends Hack implements UpdateListener,
 	@Override
 	public void onUpdate()
 	{
+		if(!style.hasBoxes() && !style.hasLines() && !showNames.isChecked()
+			&& !trajectory.isChecked())
+		{
+			projectiles.clear();
+			return;
+		}
+		
 		projectiles.clear();
 		if(MC.level == null)
 			return;

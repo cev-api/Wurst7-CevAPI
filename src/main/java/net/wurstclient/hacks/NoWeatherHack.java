@@ -15,6 +15,7 @@ import net.wurstclient.events.PacketInputListener;
 import net.wurstclient.events.PacketInputListener.PacketInputEvent;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
+import net.wurstclient.util.HackActivity;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
@@ -101,6 +102,13 @@ public final class NoWeatherHack extends Hack
 	@Override
 	public void onUpdate()
 	{
+		if(!HackActivity.isOverworld())
+		{
+			lastKnownWeather = null;
+			packetRaining = packetThundering = null;
+			return;
+		}
+		
 		if(MC.level == null)
 		{
 			lastKnownWeather = null;
@@ -134,6 +142,9 @@ public final class NoWeatherHack extends Hack
 	@Override
 	public void onReceivedPacket(PacketInputEvent event)
 	{
+		if(!HackActivity.isOverworld())
+			return;
+		
 		Packet<?> packet = event.getPacket();
 		if(!(packet instanceof ClientboundGameEventPacket gameEvent))
 			return;
@@ -170,6 +181,8 @@ public final class NoWeatherHack extends Hack
 	
 	private WeatherState getCurrentWeatherState()
 	{
+		if(!HackActivity.isOverworld())
+			return null;
 		if(MC.level == null)
 			return null;
 		
@@ -201,12 +214,14 @@ public final class NoWeatherHack extends Hack
 	
 	public boolean isRainDisabled()
 	{
-		return isEnabled() && disableRain.isChecked();
+		return isEnabled() && HackActivity.isOverworld()
+			&& disableRain.isChecked();
 	}
 	
 	public boolean isTimeChanged()
 	{
-		return isEnabled() && changeTime.isChecked();
+		return isEnabled() && HackActivity.isOverworld()
+			&& changeTime.isChecked();
 	}
 	
 	public long getChangedTime()
@@ -216,7 +231,8 @@ public final class NoWeatherHack extends Hack
 	
 	public boolean isMoonPhaseChanged()
 	{
-		return isEnabled() && changeMoonPhase.isChecked();
+		return isEnabled() && HackActivity.isOverworld()
+			&& changeMoonPhase.isChecked();
 	}
 	
 	public MoonPhase getChangedMoonPhase()

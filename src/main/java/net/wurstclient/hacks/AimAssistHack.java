@@ -199,7 +199,7 @@ public final class AimAssistHack extends Hack
 	public void onUpdate()
 	{
 		var spearAssist = WURST.getHax().spearAssistHack;
-		if(spearAssist != null)
+		if(spearAssist != null && spearAssist.isEnabled())
 			spearAssist.updatePassStateForAimAssist();
 		
 		Entity previousTarget = target;

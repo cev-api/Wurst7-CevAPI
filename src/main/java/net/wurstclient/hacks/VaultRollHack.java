@@ -64,6 +64,7 @@ import net.wurstclient.events.PacketInputListener.PacketInputEvent;
 import net.wurstclient.events.RenderListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
+import net.wurstclient.util.HackActivity;
 import net.wurstclient.hacks.vaultroll.VaultRollMode;
 import net.wurstclient.hacks.vaultroll.VaultRollObservation;
 import net.wurstclient.hacks.vaultroll.VaultRollOpening;
@@ -157,6 +158,7 @@ public final class VaultRollHack extends Hack implements UpdateListener,
 	private final Map<Integer, KnownItem> knownItems = new LinkedHashMap<>();
 	
 	private Object lastLevel;
+	private boolean dimensionPaused;
 	private Long lastEffectiveSeed;
 	private Long manualSeed;
 	private String lastWorldSeedSettingValue = "";
@@ -219,6 +221,28 @@ public final class VaultRollHack extends Hack implements UpdateListener,
 	@Override
 	public void onUpdate()
 	{
+		if(!HackActivity.isOverworld())
+		{
+			if(!dimensionPaused)
+			{
+				dimensionPaused = true;
+				savePersistentState(persistenceServerKey, lastEffectiveSeed);
+				for(VaultRollMode mode : VaultRollMode.values())
+				{
+					synchronizationGenerations.get(mode).incrementAndGet();
+					cancelFuture(synchronizationTasks.remove(mode));
+					cancelTargetSearch(mode);
+					cancelHeavyCoreSearch(mode);
+					states.get(mode).heavyCoreSearchSeed = null;
+				}
+				knownVaultStates.clear();
+				autoOpenings.clear();
+				knownItems.clear();
+				vaultIndexInitialized = false;
+			}
+			return;
+		}
+		
 		if(MC.level == null || MC.player == null)
 		{
 			if(lastLevel != null || persistenceLoaded)
@@ -234,6 +258,7 @@ public final class VaultRollHack extends Hack implements UpdateListener,
 			}
 			return;
 		}
+		dimensionPaused = false;
 		preparePersistentState();
 		applyWorldSeedSettingChange();
 		if(modeSetting.getSelected() != selectedMode)
@@ -273,6 +298,9 @@ public final class VaultRollHack extends Hack implements UpdateListener,
 	@Override
 	public void onRender(PoseStack matrices, float partialTicks)
 	{
+		if(!HackActivity.isOverworld())
+			return;
+		
 		if(!predictionEsp.isChecked() || MC.level == null || MC.player == null
 			|| MC.font == null)
 			return;
@@ -326,13 +354,16 @@ public final class VaultRollHack extends Hack implements UpdateListener,
 	@Override
 	public void onReceivedPacket(PacketInputEvent event)
 	{
+		if(!HackActivity.isOverworld())
+			return;
+		
 		var packet = event.getPacket();
 		if(autoObserve.isChecked()
 			&& packet instanceof ClientboundTakeItemEntityPacket takeItem)
 		{
 			int entityId = takeItem.getItemId();
 			int amount = takeItem.getAmount();
-			MC.execute(() -> rememberPickedUpItem(entityId, amount));
+			executeInWorld(() -> rememberPickedUpItem(entityId, amount));
 			return;
 		}
 		if(!autoObserve.isChecked() && !predictionEsp.isChecked())
@@ -341,7 +372,7 @@ public final class VaultRollHack extends Hack implements UpdateListener,
 		{
 			BlockPos pos = blockUpdate.getPos().immutable();
 			BlockState state = blockUpdate.getBlockState();
-			MC.execute(() -> handleVaultBlockUpdate(pos, state));
+			executeInWorld(() -> handleVaultBlockUpdate(pos, state));
 			return;
 		}
 		if(packet instanceof ClientboundSectionBlocksUpdatePacket sectionUpdate)
@@ -349,7 +380,7 @@ public final class VaultRollHack extends Hack implements UpdateListener,
 			List<VaultBlockUpdate> updates = new ArrayList<>();
 			sectionUpdate.runUpdates((pos, state) -> updates
 				.add(new VaultBlockUpdate(pos.immutable(), state)));
-			MC.execute(() -> updates
+			executeInWorld(() -> updates
 				.forEach(update -> handleVaultBlockUpdate(update.pos(),
 					update.state())));
 			return;
@@ -357,13 +388,14 @@ public final class VaultRollHack extends Hack implements UpdateListener,
 		if(packet instanceof ClientboundLevelChunkWithLightPacket chunkPacket)
 		{
 			ChunkPos chunkPos = new ChunkPos(chunkPacket.x(), chunkPacket.z());
-			MC.execute(() -> MC.execute(() -> indexVaultsInChunk(chunkPos)));
+			executeInWorld(
+				() -> executeInWorld(() -> indexVaultsInChunk(chunkPos)));
 			return;
 		}
 		if(packet instanceof ClientboundForgetLevelChunkPacket chunkPacket)
 		{
 			ChunkPos chunkPos = chunkPacket.pos();
-			MC.execute(() -> forgetVaultsInChunk(chunkPos));
+			executeInWorld(() -> forgetVaultsInChunk(chunkPos));
 		}
 	}
 	
@@ -371,6 +403,8 @@ public final class VaultRollHack extends Hack implements UpdateListener,
 	public void onMouseButtonPress(
 		MouseButtonPressListener.MouseButtonPressEvent event)
 	{
+		if(!HackActivity.isOverworld())
+			return;
 		if(!middleClickInfo.isChecked()
 			|| event.getButton() != InputConstants.MOUSE_BUTTON_MIDDLE
 			|| event.getAction() != InputConstants.PRESS
@@ -2259,4 +2293,15 @@ public final class VaultRollHack extends Hack implements UpdateListener,
 			this.displayName = displayName;
 		}
 	}
+	
+	private void executeInWorld(Runnable action)
+	{
+		var scheduledLevel = MC.level;
+		MC.execute(() -> {
+			if(isEnabled() && HackActivity.isOverworld()
+				&& MC.level == scheduledLevel)
+				action.run();
+		});
+	}
+	
 }

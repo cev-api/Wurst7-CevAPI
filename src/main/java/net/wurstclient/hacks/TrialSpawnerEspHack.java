@@ -51,6 +51,7 @@ import net.wurstclient.events.CameraTransformViewBobbingListener.CameraTransform
 import net.wurstclient.events.RenderListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
+import net.wurstclient.util.HackActivity;
 import net.wurstclient.mixin.TrialSpawnerDataAccessor;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ColorSetting;
@@ -170,7 +171,9 @@ public final class TrialSpawnerEspHack extends Hack
 	private boolean openedVaultsLoaded = false;
 	private final java.util.Set<String> approachScheduledKeys =
 		new java.util.HashSet<>();
-	private final Timer approachTimer = new Timer(true);
+	private Timer approachTimer;
+	private long activityGeneration;
+	private net.minecraft.client.multiplayer.ClientLevel activeLevel;
 	private static final Gson GSON =
 		new GsonBuilder().setPrettyPrinting().create();
 	// predicted cooldown end ticks for spawners when we observe the transition
@@ -239,9 +242,8 @@ public final class TrialSpawnerEspHack extends Hack
 		EVENTS.remove(CameraTransformViewBobbingListener.class, this);
 		EVENTS.remove(RenderListener.class, this);
 		EVENTS.remove(net.wurstclient.events.RightClickListener.class, this);
-		spawners.clear();
-		vaults.clear();
-		foundCount = 0;
+		clearWorldActivity();
+		activeLevel = null;
 		// reset opened vaults load state so they are reloaded on next world
 		openedVaultsLoaded = false;
 		openedVaultKeys.clear();
@@ -252,11 +254,16 @@ public final class TrialSpawnerEspHack extends Hack
 	@Override
 	public void onUpdate()
 	{
-		spawners.clear();
-		if(MC.level == null || MC.player == null)
+		if(activeLevel != MC.level)
 		{
-			vaults.clear();
-			foundCount = 0;
+			clearWorldActivity();
+			activeLevel = MC.level;
+			openedVaultsLoaded = false;
+		}
+		spawners.clear();
+		if(!HackActivity.isOverworld() || MC.player == null)
+		{
+			clearWorldActivity();
 			return;
 		}
 		
@@ -340,7 +347,9 @@ public final class TrialSpawnerEspHack extends Hack
 					final String keyFinal = key;
 					final BlockPos vposFinal = vpos;
 					approachScheduledKeys.add(keyFinal);
-					approachTimer.schedule(new TimerTask()
+					final var scheduledLevel = MC.level;
+					final long scheduledGeneration = activityGeneration;
+					getApproachTimer().schedule(new TimerTask()
 					{
 						@Override
 						public void run()
@@ -348,7 +357,10 @@ public final class TrialSpawnerEspHack extends Hack
 							MC.execute(() -> {
 								try
 								{
-									if(MC.level == null)
+									if(!isEnabled()
+										|| !HackActivity.isOverworld()
+										|| MC.level != scheduledLevel
+										|| activityGeneration != scheduledGeneration)
 										return;
 									BlockState after =
 										MC.level.getBlockState(vposFinal);
@@ -370,7 +382,8 @@ public final class TrialSpawnerEspHack extends Hack
 								}catch(Throwable ignored)
 								{}finally
 								{
-									approachScheduledKeys.remove(keyFinal);
+									if(activityGeneration == scheduledGeneration)
+										approachScheduledKeys.remove(keyFinal);
 								}
 							});
 						}
@@ -455,6 +468,8 @@ public final class TrialSpawnerEspHack extends Hack
 	public void onCameraTransformViewBobbing(
 		CameraTransformViewBobbingEvent event)
 	{
+		if(!HackActivity.isOverworld() || activeLevel != MC.level)
+			return;
 		if(drawTracers.isChecked() || showOverlay.isChecked())
 			event.cancel();
 	}
@@ -463,7 +478,7 @@ public final class TrialSpawnerEspHack extends Hack
 	public void onRightClick(
 		net.wurstclient.events.RightClickListener.RightClickEvent event)
 	{
-		if(MC == null || MC.level == null || MC.player == null)
+		if(!HackActivity.isOverworld() || MC.player == null)
 			return;
 		var hit = MC.hitResult;
 		if(!(hit instanceof net.minecraft.world.phys.BlockHitResult bhr))
@@ -486,6 +501,8 @@ public final class TrialSpawnerEspHack extends Hack
 		final VaultState beforeFinal = before;
 		final String dimFinal = dim;
 		final BlockPos posFinal = pos;
+		final var scheduledLevel = MC.level;
+		final long scheduledGeneration = activityGeneration;
 		TimerTask task = new TimerTask()
 		{
 			@Override
@@ -494,7 +511,9 @@ public final class TrialSpawnerEspHack extends Hack
 				MC.execute(() -> {
 					try
 					{
-						if(MC.level == null)
+						if(!isEnabled() || !HackActivity.isOverworld()
+							|| MC.level != scheduledLevel
+							|| activityGeneration != scheduledGeneration)
 							return;
 						BlockState after = MC.level.getBlockState(posFinal);
 						VaultState afterState =
@@ -520,12 +539,15 @@ public final class TrialSpawnerEspHack extends Hack
 				});
 			}
 		};
-		new Timer(true).schedule(task, 1500);
+		getApproachTimer().schedule(task, 1500);
 	}
 	
 	@Override
 	public void onRender(PoseStack matrices, float partialTicks)
 	{
+		if(!HackActivity.isOverworld() || activeLevel != MC.level)
+			return;
+		
 		if(MC.level == null)
 			return;
 		
@@ -1201,6 +1223,8 @@ public final class TrialSpawnerEspHack extends Hack
 	
 	private void trackOminousKeyDispensers()
 	{
+		if(spawners.isEmpty())
+			return;
 		if(MC.level == null || MC.player == null)
 			return;
 		
@@ -1518,4 +1542,30 @@ public final class TrialSpawnerEspHack extends Hack
 			};
 		}
 	}
+	
+	private Timer getApproachTimer()
+	{
+		if(approachTimer == null)
+			approachTimer = new Timer(true);
+		return approachTimer;
+	}
+	
+	private void clearWorldActivity()
+	{
+		activityGeneration++;
+		if(approachTimer != null)
+		{
+			approachTimer.cancel();
+			approachTimer = null;
+		}
+		approachScheduledKeys.clear();
+		spawners.clear();
+		vaults.clear();
+		predictedCooldownEnds.clear();
+		prevStates.clear();
+		alertedOminousKeys.clear();
+		ominousKeySpawnerHighlights.clear();
+		foundCount = 0;
+	}
+	
 }

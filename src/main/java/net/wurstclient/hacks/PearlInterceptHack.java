@@ -93,6 +93,10 @@ public final class PearlInterceptHack extends Hack implements UpdateListener
 		if(cooldown > 0)
 			cooldown--;
 		
+		if(cooldown > 0 || MC.rightClickDelay > 0
+			|| InventoryUtils.indexOf(Items.ENDER_PEARL, 36) < 0)
+			return;
+		
 		HashSet<UUID> present = new HashSet<>();
 		for(Entity entity : MC.level.entitiesForRendering())
 		{

@@ -34,6 +34,7 @@ import net.wurstclient.events.CameraTransformViewBobbingListener.CameraTransform
 import net.wurstclient.events.RenderListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
+import net.wurstclient.util.HackActivity;
 import net.wurstclient.nicewurst.NiceWurstModule;
 import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.settings.CheckboxSetting;
@@ -65,6 +66,7 @@ public final class SpawnerEspHack extends Hack implements UpdateListener,
 		false);
 	private final CheckboxSetting fillBoxes = new CheckboxSetting("Fill boxes",
 		"Adds a translucent solid fill to SpawnerESP boxes.", false);
+	private net.minecraft.client.multiplayer.ClientLevel activeLevel;
 	private final List<SpawnerInfo> spawners = new ArrayList<>();
 	private final Set<Long> activatedSpawners = new HashSet<>();
 	private final Map<Long, Integer> previousSpawnDelays = new HashMap<>();
@@ -108,7 +110,13 @@ public final class SpawnerEspHack extends Hack implements UpdateListener,
 	public void onUpdate()
 	{
 		spawners.clear();
-		if(MC.level == null || MC.player == null)
+		if(activeLevel != MC.level)
+		{
+			activeLevel = MC.level;
+			activatedSpawners.clear();
+			previousSpawnDelays.clear();
+		}
+		if(HackActivity.isEnd() || MC.level == null || MC.player == null)
 			return;
 		
 		double max = maxDistance.getValue();
@@ -157,12 +165,17 @@ public final class SpawnerEspHack extends Hack implements UpdateListener,
 	public void onCameraTransformViewBobbing(
 		CameraTransformViewBobbingEvent event)
 	{
+		if(HackActivity.isEnd() || spawners.isEmpty())
+			return;
 		event.cancel();
 	}
 	
 	@Override
 	public void onRender(PoseStack matrices, float partialTicks)
 	{
+		if(HackActivity.isEnd() || activeLevel != MC.level)
+			return;
+		
 		if(MC.level == null || spawners.isEmpty())
 			return;
 		int lineColor = color.getColorI(0xFF);

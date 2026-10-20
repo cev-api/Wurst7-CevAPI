@@ -22,6 +22,7 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.hack.Hack;
+import net.wurstclient.util.HackActivity;
 import net.wurstclient.events.RenderListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.settings.CheckboxSetting;
@@ -42,6 +43,8 @@ public final class WardenEspHack extends Hack
 	implements UpdateListener, RenderListener
 {
 	// map entity id -> last known highest anger (for trend)
+	private final CheckboxSetting overworldOnly = new CheckboxSetting(
+		"Overworld only", "Pause outside the Overworld.", true);
 	private final Map<Integer, Integer> lastAnger = new HashMap<>();
 	private final Map<Integer, Long> attackExpiry = new HashMap<>();
 	
@@ -76,6 +79,7 @@ public final class WardenEspHack extends Hack
 	{
 		super("WardenESP");
 		setCategory(Category.RENDER);
+		addSetting(overworldOnly);
 		addSetting(style);
 		addSetting(fillShapes);
 		addSetting(tracerMode);
@@ -107,6 +111,15 @@ public final class WardenEspHack extends Hack
 	@Override
 	public void onUpdate()
 	{
+		if(!isActiveDimension())
+		{
+			wardens.clear();
+			lastAnger.clear();
+			attackExpiry.clear();
+			lastFoundCount = 0;
+			return;
+		}
+		
 		wardens.clear();
 		for(Entity e : MC.level.entitiesForRendering())
 		{
@@ -130,6 +143,9 @@ public final class WardenEspHack extends Hack
 	@Override
 	public void onRender(PoseStack matrixStack, float partialTicks)
 	{
+		if(!isActiveDimension())
+			return;
+		
 		if(wardens.isEmpty())
 			return;
 		
@@ -479,7 +495,7 @@ public final class WardenEspHack extends Hack
 	
 	public Integer getGlowColor(LivingEntity entity)
 	{
-		if(!isEnabled())
+		if(!isEnabled() || !isActiveDimension())
 			return null;
 		if(style.getShape() != WardenEspStyleSetting.Shape.GLOW)
 			return null;
@@ -585,4 +601,11 @@ public final class WardenEspHack extends Hack
 			}
 		}
 	}
+	
+	private boolean isActiveDimension()
+	{
+		return MC.level != null
+			&& (!overworldOnly.isChecked() || HackActivity.isOverworld());
+	}
+	
 }

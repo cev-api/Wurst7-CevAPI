@@ -110,6 +110,7 @@ public final class AnchorAuraHack extends Hack implements UpdateListener
 		{
 			ChatUtils.error("Respawn anchors don't explode in this dimension.");
 			setEnabled(false);
+			return;
 		}
 		
 		ArrayList<BlockPos> anchors = getNearbyAnchors();

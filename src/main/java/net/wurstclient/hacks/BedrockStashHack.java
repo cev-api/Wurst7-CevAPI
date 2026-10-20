@@ -26,6 +26,7 @@ import net.wurstclient.SearchTags;
 import net.wurstclient.events.RenderListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
+import net.wurstclient.util.HackActivity;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ChunkAreaSetting;
 import net.wurstclient.settings.ColorSetting;
@@ -116,6 +117,16 @@ public final class BedrockStashHack extends Hack
 	@Override
 	public void onUpdate()
 	{
+		if(HackActivity.isEnd())
+		{
+			if(activeLevel != null)
+			{
+				clearState();
+				activeLevel = null;
+			}
+			return;
+		}
+		
 		if(MC.level == null || MC.player == null)
 		{
 			clearState();
@@ -157,6 +168,9 @@ public final class BedrockStashHack extends Hack
 	@Override
 	public void onRender(PoseStack matrixStack, float partialTicks)
 	{
+		if(HackActivity.isEnd())
+			return;
+		
 		if(airBoxes.isEmpty() && breakableBoxes.isEmpty())
 			return;
 		
