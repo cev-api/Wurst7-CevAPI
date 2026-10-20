@@ -173,11 +173,6 @@ public final class PacketToolsScreen extends Screen
 			}).bounds(panelX + (third + gap) * 2, y, third, 20).build());
 		
 		y += 24;
-		addRenderableWidget(Button
-			.builder(Component.literal("Export forensics report"),
-				b -> packetTools.exportItemForensicsSummary())
-			.bounds(panelX, y, third, 20).build());
-		y += 24;
 		
 		int controlWidth = 70;
 		addRenderableWidget(Button
@@ -424,9 +419,10 @@ public final class PacketToolsScreen extends Screen
 		{
 			case "ACTIVE" -> ChatFormatting.GREEN;
 			case "DORMANT" -> ChatFormatting.GOLD;
+			case "OFF" -> ChatFormatting.RED;
 			default -> ChatFormatting.RED;
 		};
-		return Component.literal("FORENSICS: ")
+		return Component.literal("Inventory Forensics: ")
 			.append(Component.literal(state).withStyle(color));
 	}
 }
