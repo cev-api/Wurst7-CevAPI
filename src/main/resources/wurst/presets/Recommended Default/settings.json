@@ -2562,7 +2562,8 @@
     "Projectiles": false,
     "Color": "#55FFFF",
     "Label scale": 1.0,
-    "Show UUID when unknown": true
+    "Show UUID when unknown": true,
+    "Chat alerts": false
   },
   "MobSearch": {
     "Mode": "QUERY",
