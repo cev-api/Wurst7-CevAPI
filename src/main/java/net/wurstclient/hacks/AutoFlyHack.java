@@ -528,7 +528,7 @@ public final class AutoFlyHack extends Hack
 	private final SliderSetting stopChunkThickness = new SliderSetting(
 		"Chunk stop thickness",
 		"For Old/New chunk stop modes, require this many contiguous matching"
-			+ " chunks in both X and Z around your current chunk before"
+			+ " chunks in both X and Z near you (ahead or behind) before"
 			+ " stopping. Higher values reduce 1-chunk false positives.",
 		2, 1, 8, 1, ValueDisplay.INTEGER.withSuffix(" chunks"));
 	private final CheckboxSetting disableAutoFlyOnStop = new CheckboxSetting(
@@ -2005,7 +2005,7 @@ public final class AutoFlyHack extends Hack
 		if(!matchesChunkStopArea(playerChunk, oldChunks, requiredThickness,
 			heading, right))
 		{
-			ChunkPos candidate = findMatchingChunkStopAhead(playerChunk,
+			ChunkPos candidate = findMatchingChunkStopNearby(playerChunk,
 				heading, right, oldChunks, requiredThickness);
 			if(candidate == null)
 				return false;
@@ -2015,15 +2015,19 @@ public final class AutoFlyHack extends Hack
 		return true;
 	}
 	
-	private ChunkPos findMatchingChunkStopAhead(ChunkPos playerChunk,
+	private ChunkPos findMatchingChunkStopNearby(ChunkPos playerChunk,
 		Vec3 heading, Vec3 right, boolean oldChunks, int requiredThickness)
 	{
 		if(playerChunk == null)
 			return null;
 		
 		int forwardLimit = Math.max(4, requiredThickness * 3);
+		int backwardLimit =
+			Math.max(forwardLimit, MC.options.getEffectiveRenderDistance() + 1);
 		int lateralLimit = Math.max(1, requiredThickness);
-		for(int forward = 1; forward <= forwardLimit; forward++)
+		// Recheck the rear corridor each tick: classification can arrive only
+		// after fast flight has already carried us past a matching chunk.
+		for(int forward = -backwardLimit; forward <= forwardLimit; forward++)
 			for(int lateral = -lateralLimit; lateral <= lateralLimit; lateral++)
 			{
 				ChunkPos candidate =
