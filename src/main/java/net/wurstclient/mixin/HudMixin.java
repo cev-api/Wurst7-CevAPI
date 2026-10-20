@@ -15,9 +15,12 @@ import net.cevapi.security.ResourcePackProtector;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.Hud;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.entity.Entity;
 import net.wurstclient.WurstClient;
 import net.wurstclient.event.EventManager;
 import net.wurstclient.events.GUIRenderListener.GUIRenderEvent;
+import net.wurstclient.hack.HackList;
 
 @Mixin(Hud.class)
 public class HudMixin

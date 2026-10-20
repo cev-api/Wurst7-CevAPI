@@ -213,6 +213,9 @@ public enum WurstClient
 		forkUpdateChecker = new ForkUpdateChecker();
 		eventManager.add(UpdateListener.class, forkUpdateChecker);
 		
+		problematicPackDetector = new ProblematicResourcePackDetector();
+		problematicPackDetector.start();
+		
 		Path altsFile = wurstFolder.resolve("alts.encrypted_json");
 		Path encFolder = Encryption.chooseEncryptionFolder();
 		altManager = new AltManager(altsFile, encFolder);

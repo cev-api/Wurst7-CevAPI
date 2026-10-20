@@ -38,8 +38,6 @@ import net.wurstclient.util.MovementPacketCompat;
 public abstract class ConnectionMixin
 	extends SimpleChannelInboundHandler<Packet<?>>
 {
-	private ConcurrentLinkedQueue<ConnectionPacketOutputEvent> events =
-		new ConcurrentLinkedQueue<>();
 	private boolean sentPositionThisTick;
 	
 	/**
@@ -100,7 +98,17 @@ public abstract class ConnectionMixin
 		WurstClient.INSTANCE.getOtfs().packetToolsOtf
 			.recordForensicTiming(packet, "C2S", "SEND_REQUESTED");
 		if(MovementPacketCompat.isSendingSyntheticTickEnd())
-			return packet;
+		{
+			original.call(packet, listener, flush);
+			return;
+		}
+		
+		if(NbtFilterHack.shouldCancelOutgoingPacket(packet))
+		{
+			WurstClient.INSTANCE.getOtfs().packetToolsOtf
+				.recordForensicTiming(packet, "C2S", "CANCELLED_NBT_FILTER");
+			return;
+		}
 		
 		Packet<?> originalPacket = packet;
 		PacketFirewallOtf firewall =
@@ -142,19 +150,21 @@ public abstract class ConnectionMixin
 		String senderHack = firewall.resolveSenderHackNameForDebug();
 		if(senderHack != null)
 			event.addDebugSource("direct sender: " + senderHack);
-		events.add(event);
 		EventManager.fire(event);
 		
 		Packet<?> finalPacket = firewall.enforceVanillaOnly(originalPacket,
 			event.getPacket(), event.isCancelled());
 		if(finalPacket == null)
-			event.cancel();
-		else
 		{
-			event.setPacket(finalPacket);
-			event.clearCancellation();
+			event.cancel();
+			WurstClient.INSTANCE.getOtfs().packetToolsOtf
+				.recordForensicTiming(packet, "C2S", "CANCELLED_OUTPUT_EVENT");
+			return;
 		}
-		return finalPacket != null ? finalPacket : originalPacket;
+		
+		event.setPacket(finalPacket);
+		event.clearCancellation();
+		original.call(finalPacket, listener, flush);
 	}
 	
 	/**
@@ -174,41 +184,6 @@ public abstract class ConnectionMixin
 				packet -> WurstClient.INSTANCE.getOtfs().vanillaSpoofOtf
 					.filterOutgoing(connection, packet),
 				() -> VanillaSpoofOtf.onDisconnect(connection)));
-	}
-	
-	@Inject(
-		method = "send(Lnet/minecraft/network/protocol/Packet;Lio/netty/channel/ChannelFutureListener;)V",
-		at = @At("HEAD"),
-		cancellable = true)
-	private void onSend(Packet<?> packet,
-		@Nullable ChannelFutureListener callback, CallbackInfo ci)
-	{
-		if(MovementPacketCompat.isSendingSyntheticTickEnd())
-			return;
-		
-		if(NbtFilterHack.shouldCancelOutgoingPacket(packet))
-		{
-			WurstClient.INSTANCE.getOtfs().packetToolsOtf
-				.recordForensicTiming(packet, "C2S", "CANCELLED_NBT_FILTER");
-			ci.cancel();
-			return;
-		}
-		
-		ConnectionPacketOutputEvent event = getEvent(packet);
-		if(event != null)
-		{
-			if(event.isCancelled())
-			{
-				events.remove(event);
-				WurstClient.INSTANCE.getOtfs().packetToolsOtf
-					.recordForensicTiming(packet, "C2S",
-						"CANCELLED_OUTPUT_EVENT");
-				ci.cancel();
-				return;
-			}
-			
-			events.remove(event);
-		}
 	}
 	
 	@Inject(
@@ -352,14 +327,5 @@ public abstract class ConnectionMixin
 		{
 			tools.recordForensicHandlerEnd(packet);
 		}
-	}
-	
-	private ConnectionPacketOutputEvent getEvent(Packet<?> packet)
-	{
-		for(ConnectionPacketOutputEvent event : events)
-			if(event.getPacket() == packet)
-				return event;
-			
-		return null;
 	}
 }

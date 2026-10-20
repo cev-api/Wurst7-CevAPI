@@ -31,6 +31,7 @@ import net.wurstclient.WurstClient;
 import net.wurstclient.event.EventManager;
 import net.wurstclient.events.IsNormalCubeListener.IsNormalCubeEvent;
 import net.wurstclient.hack.HackList;
+import net.wurstclient.hacks.HandNoClipHack;
 
 @Mixin(BlockStateBase.class)
 public abstract class BlockStateBaseMixin extends StateHolder<Block, BlockState>

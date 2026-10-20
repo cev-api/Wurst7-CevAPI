@@ -8,7 +8,6 @@
 package net.wurstclient.other_features;
 
 import com.mojang.blaze3d.platform.InputConstants;
-import net.minecraft.client.OptionInstance;
 import net.minecraft.network.chat.Component;
 import net.wurstclient.DontBlock;
 import net.wurstclient.SearchTags;

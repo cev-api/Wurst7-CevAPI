@@ -14,8 +14,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.Predicate;
 
-import com.mojang.blaze3d.vertex.PoseStack;
-
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLevelEvents;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.ChunkPos;
@@ -154,7 +152,6 @@ public final class NewChunksHack extends Hack
 	@Override
 	public void onUpdate()
 	{
-		processPendingChunkPackets();
 		renderer.closeBuffers();
 		
 		Show showSetting = show.getSelected();

@@ -8,16 +8,17 @@
 package net.wurstclient.mixin;
 
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.components.EditBox;
 
 import com.llamalad7.mixinextras.sugar.Local;
 import com.llamalad7.mixinextras.sugar.ref.LocalRef;
 
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
@@ -31,6 +32,9 @@ import net.wurstclient.uiutils.UiUtilsCommandSystem;
 @Mixin(ChatScreen.class)
 public abstract class ChatScreenMixin extends Screen
 {
+	@Shadow
+	protected EditBox input;
+	
 	private ChatScreenMixin(WurstClient wurst, Component title)
 	{
 		super(title);
@@ -53,25 +57,27 @@ public abstract class ChatScreenMixin extends Screen
 	private void onHandleChatInput(String messageDontUse, boolean addToHistory,
 		CallbackInfo ci, @Local(argsOnly = true) LocalRef<String> message)
 	{
-		if(message.get().isEmpty())
+		String normalized = normalizeChatMessage(message.get());
+		if(normalized.isEmpty())
 			return;
 		
 		if(WurstClient.INSTANCE.getOtfs() != null)
 		{
-			String kind = UiUtilsCommandSystem.isUiUtilsCommand(message)
+			String kind = UiUtilsCommandSystem.isUiUtilsCommand(normalized)
 				? "uiutils_command"
-				: message.startsWith("/") ? "command" : "chat";
+				: normalized.startsWith("/") ? "command" : "chat";
 			WurstClient.INSTANCE.getOtfs().packetToolsOtf
-				.logVerboseChatInput("ChatScreen", message, kind);
+				.logVerboseChatInput("ChatScreen", normalized, kind);
 		}
 		
-		if(UiUtilsCommandSystem.isUiUtilsCommand(message))
+		if(UiUtilsCommandSystem.isUiUtilsCommand(normalized))
 		{
-			String command = UiUtilsCommandSystem.extractCommandBody(message);
+			String command =
+				UiUtilsCommandSystem.extractCommandBody(normalized);
 			String result = UiUtilsCommandSystem.execute(command);
 			
 			if(addToHistory)
-				minecraft.gui.hud.getChat().addRecentChat(message);
+				minecraft.gui.hud.getChat().addRecentChat(normalized);
 			
 			if(minecraft.player != null && !result.isEmpty())
 				for(String line : result.split("\n"))
@@ -83,7 +89,7 @@ public abstract class ChatScreenMixin extends Screen
 		}
 		
 		// Create and fire the chat output event
-		ChatOutputEvent event = new ChatOutputEvent(message);
+		ChatOutputEvent event = new ChatOutputEvent(normalized);
 		EventManager.fire(event);
 		
 		if(event.isCancelled())
@@ -97,7 +103,8 @@ public abstract class ChatScreenMixin extends Screen
 			return;
 		}
 		
-		message.set(event.getMessage());
+		if(!event.getMessage().equals(event.getOriginalMessage()))
+			message.set(event.getMessage());
 	}
 	
 	@Inject(

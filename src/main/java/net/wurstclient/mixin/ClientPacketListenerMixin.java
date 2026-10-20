@@ -424,7 +424,6 @@ public abstract class ClientPacketListenerMixin
 	{
 		int x = packet.x();
 		int z = packet.z();
-		WurstClient.INSTANCE.getHax().newChunksHack.onChunkDataPacket(x, z);
 		WurstClient.INSTANCE.getHax().newerNewChunksHack.onChunkDataPacket(x,
 			z);
 		if(minecraft.level != null)
@@ -469,8 +468,6 @@ public abstract class ClientPacketListenerMixin
 	{
 		MiningStateCompat.onBlockUpdate((ClientPacketListener)(Object)this,
 			packet.getPos(), packet.getBlockState());
-		WurstClient.INSTANCE.getHax().newChunksHack
-			.afterUpdateBlock(packet.getPos());
 		WurstClient.INSTANCE.getHax().newerNewChunksHack
 			.afterUpdateBlock(packet.getPos());
 		WurstClient.INSTANCE.getHax().autoFlyHack
@@ -488,7 +485,6 @@ public abstract class ClientPacketListenerMixin
 				pos, state);
 			WurstClient.INSTANCE.getHax().autoFlyHack.onPathBlockUpdate(pos,
 				state);
-			WurstClient.INSTANCE.getHax().newChunksHack.afterUpdateBlock(pos);
 			WurstClient.INSTANCE.getHax().newerNewChunksHack
 				.afterChunkDeltaUpdate(pos, state);
 		});

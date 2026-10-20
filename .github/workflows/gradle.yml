@@ -72,6 +72,9 @@ jobs:
     - name: Build
       run: ./gradlew build --stacktrace
 
+    - name: Regression tests
+      run: ./gradlew regressionTests --stacktrace
+
     - name: Upload jar
       uses: actions/upload-artifact@v7
       if: ${{ success() }}
