@@ -43,9 +43,6 @@ public abstract class ChatScreenMixin extends Screen
 	@Inject(method = "init()V", at = @At("TAIL"))
 	protected void onInit(CallbackInfo ci)
 	{
-		if(WurstClient.INSTANCE.getHax().infiniChatHack.isEnabled())
-			input.setMaxLength(Integer.MAX_VALUE);
-		
 		updateCommandTextColor();
 	}
 	

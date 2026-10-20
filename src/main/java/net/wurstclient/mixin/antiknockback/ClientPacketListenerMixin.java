@@ -22,17 +22,19 @@ import net.wurstclient.WurstClient;
 public abstract class ClientPacketListenerMixin
 {
 	/**
-	 * Applies AntiKnockback's strength settings to explosion knockback before
-	 * it is added to the local player's velocity.
+	 * Filters explosion knockback once, then lets vanilla add the velocity.
+	 * AntiBlast takes priority when enabled; otherwise AntiKnockback applies.
 	 */
 	@ModifyExpressionValue(
 		method = "handleExplosion(Lnet/minecraft/network/protocol/game/ClientboundExplodePacket;)V",
 		at = @At(value = "INVOKE",
-			target = "Lnet/minecraft/network/protocol/game/ClientboundExplodePacket;playerKnockback()Ljava/util/Optional;"))
+			target = "Lnet/minecraft/network/protocol/game/ClientboundExplodePacket;playerKnockback()Ljava/util/Optional;"),
+		require = 1)
 	private Optional<Vec3> onHandleExplosionPlayerKnockback(
 		Optional<Vec3> original)
 	{
-		return original.map(
-			WurstClient.INSTANCE.getHax().antiKnockbackHack::modifyKnockback);
+		var hax = WurstClient.INSTANCE.getHax();
+		return original.map(vec -> hax.antiBlastHack
+			.modifyExplosionKnockback(vec, hax.antiKnockbackHack));
 	}
 }

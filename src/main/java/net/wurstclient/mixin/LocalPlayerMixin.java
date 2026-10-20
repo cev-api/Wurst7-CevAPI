@@ -22,8 +22,6 @@ import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.mojang.authlib.GameProfile;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Gui;
-import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.client.player.AbstractClientPlayer;
@@ -220,23 +218,6 @@ public abstract class LocalPlayerMixin extends AbstractClientPlayer
 	{
 		if(!WurstClient.INSTANCE.getHax().stepHack.isAutoJumpAllowed())
 			cir.setReturnValue(false);
-	}
-	
-	/**
-	 * Prevents the portal nausea code from closing a GUI opened by PortalGUI.
-	 * Returning null only for this check keeps the real screen untouched, which
-	 * avoids resetting mouse capture while the player is in the portal.
-	 */
-	@WrapOperation(method = "handlePortalTransitionEffect(Z)V",
-		at = @At(value = "INVOKE",
-			target = "Lnet/minecraft/client/gui/Gui;screen()Lnet/minecraft/client/gui/screens/Screen;",
-			ordinal = 0))
-	private Screen wrapPortalGuiScreen(Gui instance, Operation<Screen> original)
-	{
-		if(WurstClient.INSTANCE.getHax().portalGuiHack.isEnabled())
-			return null;
-		
-		return original.call(instance);
 	}
 	
 	/**

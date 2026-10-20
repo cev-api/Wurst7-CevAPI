@@ -14,14 +14,10 @@ import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
-import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
-
 import net.minecraft.commands.CommandSource;
 import net.minecraft.world.Nameable;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.entity.EntityAccess;
@@ -50,38 +46,6 @@ public abstract class EntityMixin
 			return multiplier;
 		
 		return Vec3.ZERO;
-	}
-	
-	/**
-	 * Prevents fluid currents from pushing the local player while AntiWaterPush
-	 * is enabled.
-	 */
-	@WrapOperation(method = "updateFluidInteraction()Z",
-		at = @At(value = "INVOKE",
-			target = "Lnet/minecraft/world/entity/Entity;isPushedByFluid()Z",
-			ordinal = 0))
-	private boolean wrapUpdateFluidInteractionIsPushedByFluid(Entity instance,
-		Operation<Boolean> original)
-	{
-		if(instance == WurstClient.MC.player
-			&& WurstClient.INSTANCE.getHax().antiWaterPushHack.isEnabled())
-			return false;
-		
-		return original.call(instance);
-	}
-	
-	/**
-	 * Prevents entity collisions from pushing the local player while
-	 * AntiEntityPush is enabled.
-	 */
-	@Inject(method = "push(Lnet/minecraft/world/entity/Entity;)V",
-		at = @At("HEAD"),
-		cancellable = true)
-	private void onPush(Entity entity, CallbackInfo ci)
-	{
-		if((Object)this == WurstClient.MC.player
-			&& WurstClient.INSTANCE.getHax().antiEntityPushHack.isEnabled())
-			ci.cancel();
 	}
 	
 	@Inject(method = "teleportRelative(DDD)V",
@@ -144,22 +108,6 @@ public abstract class EntityMixin
 		if(MovementMutationTracker.shouldBlockLocalPlayerMovementMutation(
 			(Entity)(Object)this, "Entity#setPos(DDD)"))
 			ci.cancel();
-	}
-	
-	@Inject(
-		method = "isInvisibleTo(Lnet/minecraft/world/entity/player/Player;)Z",
-		at = @At("RETURN"),
-		cancellable = true)
-	private void onIsInvisibleTo(Player player,
-		CallbackInfoReturnable<Boolean> cir)
-	{
-		// Return early if the entity is not invisible
-		if(!cir.getReturnValueZ())
-			return;
-		
-		if(WurstClient.INSTANCE.getHax().trueSightHack
-			.shouldBeVisible((Entity)(Object)this))
-			cir.setReturnValue(false);
 	}
 	
 	@Inject(at = @At("RETURN"),

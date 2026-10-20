@@ -8,9 +8,7 @@
 package net.wurstclient.mixin;
 
 import java.util.LinkedHashMap;
-import java.util.Optional;
 
-import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.mojang.brigadier.tree.RootCommandNode;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -28,7 +26,6 @@ import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.client.multiplayer.ClientSuggestionProvider;
 import net.minecraft.client.multiplayer.CommonListenerCookie;
 import net.minecraft.client.multiplayer.PlayerInfo;
-import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.Connection;
 import net.minecraft.network.TickablePacketListener;
 import net.minecraft.network.chat.Component;
@@ -169,17 +166,6 @@ public abstract class ClientPacketListenerMixin
 	public RootCommandNode<ClientSuggestionProvider> wurst$getServerCommandRoot()
 	{
 		return wurst$serverCommandRoot;
-	}
-	
-	@ModifyExpressionValue(
-		method = "handleExplosion(Lnet/minecraft/network/protocol/game/ClientboundExplodePacket;)V",
-		at = @At(value = "INVOKE",
-			target = "Lnet/minecraft/network/protocol/game/ClientboundExplodePacket;playerKnockback()Ljava/util/Optional;"))
-	private Optional<Vec3> onHandleExplosionPlayerKnockback(
-		Optional<Vec3> original)
-	{
-		return original.map(
-			WurstClient.INSTANCE.getHax().antiKnockbackHack::modifyKnockback);
 	}
 	
 	@Inject(method = "handleTakeItemEntity", at = @At("HEAD"))
@@ -532,29 +518,5 @@ public abstract class ClientPacketListenerMixin
 		
 		level.playLocalSound(x, y, z, sound, source, volume, pitch,
 			useDistanceDelay);
-	}
-	
-	@Inject(
-		method = "handleExplosion(Lnet/minecraft/network/protocol/game/ClientboundExplodePacket;)V",
-		at = @At(value = "INVOKE",
-			target = "Ljava/util/Optional;ifPresent(Ljava/util/function/Consumer;)V"),
-		cancellable = true)
-	private void wurst$handleExplosionKnockback(ClientboundExplodePacket packet,
-		CallbackInfo ci)
-	{
-		LocalPlayer player = minecraft.player;
-		if(player == null)
-			return;
-		
-		Optional<Vec3> knockback = packet.playerKnockback();
-		if(knockback.isEmpty())
-			return;
-		
-		Vec3 vec = knockback.get();
-		Vec3 adjusted = WurstClient.INSTANCE.getHax().antiBlastHack
-			.modifyKnockback(vec.x, vec.y, vec.z);
-		
-		player.push(adjusted.x, adjusted.y, adjusted.z);
-		ci.cancel();
 	}
 }

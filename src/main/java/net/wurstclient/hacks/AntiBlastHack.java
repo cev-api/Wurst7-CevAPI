@@ -52,4 +52,18 @@ public final class AntiBlastHack extends Hack
 		return new Vec3(defaultX * horizontalMultiplier,
 			defaultY * verticalMultiplier, defaultZ * horizontalMultiplier);
 	}
+	
+	/**
+	 * Explosion-specific settings take priority over general knockback
+	 * settings.
+	 * Select one filter so enabling both hacks cannot scale a blast twice.
+	 */
+	public Vec3 modifyExplosionKnockback(Vec3 original,
+		AntiKnockbackHack antiKnockback)
+	{
+		if(isEnabled())
+			return modifyKnockback(original.x, original.y, original.z);
+		
+		return antiKnockback.modifyKnockback(original);
+	}
 }

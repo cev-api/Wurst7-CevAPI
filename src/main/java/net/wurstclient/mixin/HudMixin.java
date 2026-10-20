@@ -15,12 +15,9 @@ import net.cevapi.security.ResourcePackProtector;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.Hud;
-import net.minecraft.resources.Identifier;
-import net.minecraft.world.entity.Entity;
 import net.wurstclient.WurstClient;
 import net.wurstclient.event.EventManager;
 import net.wurstclient.events.GUIRenderListener.GUIRenderEvent;
-import net.wurstclient.hack.HackList;
 
 @Mixin(Hud.class)
 public class HudMixin
@@ -42,39 +39,6 @@ public class HudMixin
 		
 		float tickDelta = tickCounter.getGameTimeDeltaPartialTick(true);
 		EventManager.fire(new GUIRenderEvent(context, tickDelta));
-	}
-	
-	@Inject(
-		method = "extractTextureOverlay(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/resources/Identifier;F)V",
-		at = @At("HEAD"),
-		cancellable = true)
-	private void onExtractTextureOverlay(GuiGraphicsExtractor context,
-		Identifier texture, float opacity, CallbackInfo ci)
-	{
-		if(texture == null)
-			return;
-		
-		String path = texture.getPath();
-		HackList hax = WurstClient.INSTANCE.getHax();
-		
-		if("textures/misc/pumpkinblur.png".equals(path)
-			&& hax.noPumpkinHack.isEnabled())
-			ci.cancel();
-		
-		if("textures/misc/powder_snow_outline.png".equals(path)
-			&& hax.noOverlayHack.isEnabled())
-			ci.cancel();
-	}
-	
-	@Inject(method = "extractVignette", at = @At("HEAD"), cancellable = true)
-	private void onExtractVignette(GuiGraphicsExtractor context, Entity entity,
-		CallbackInfo ci)
-	{
-		HackList hax = WurstClient.INSTANCE.getHax();
-		if(hax == null || !hax.noVignetteHack.isEnabled())
-			return;
-		
-		ci.cancel();
 	}
 	
 	@Inject(
