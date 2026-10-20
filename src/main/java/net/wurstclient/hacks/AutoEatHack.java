@@ -185,6 +185,10 @@ public final class AutoEatHack extends Hack implements UpdateListener
 		{
 			int maxPoints = targetHungerI - foodLevel;
 			eat(maxPoints);
+		}else if(isEating())
+		{
+			// Release the pause even when the target is below full hunger.
+			stopEating();
 		}
 	}
 	
