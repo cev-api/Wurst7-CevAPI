@@ -709,9 +709,20 @@ tasks.named("test") {
 }
 
 // Full regression suite. Not part of `check`; run it explicitly or from CI.
+tasks.register("handNoClipTargetingRegressionTest", JavaExec) {
+	dependsOn tasks.named("testClasses")
+	classpath = sourceSets.test.runtimeClasspath
+	mainClass = "net.wurstclient.util.HandNoClipTargetingRegressionTest"
+	systemProperty "joml.nounsafe", "true"
+}
+tasks.named("test") {
+	exclude "net/wurstclient/util/HandNoClipTargetingRegressionTest*"
+}
+
 tasks.register("regressionTests") {
 	group = "verification"
 	description = "Runs all CPU-only regression checks."
+	dependsOn tasks.named("handNoClipTargetingRegressionTest")
 	dependsOn tasks.named("espCullingRegressionTest")
 	dependsOn tasks.named("espPerformanceRegressionTest")
 	dependsOn tasks.named("espGeometryRegressionTest")

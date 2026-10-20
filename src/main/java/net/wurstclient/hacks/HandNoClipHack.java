@@ -8,29 +8,16 @@
 package net.wurstclient.hacks;
 
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.Set;
-import java.util.Locale;
 
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.Identifier;
-import net.minecraft.tags.ItemTags;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
-import net.minecraft.world.item.BowItem;
-import net.minecraft.world.item.CrossbowItem;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.MaceItem;
-import net.minecraft.world.item.TridentItem;
 import net.minecraft.world.entity.npc.villager.Villager;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Leashable;
 import net.minecraft.world.entity.vehicle.boat.Boat;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.Vec3;
@@ -43,7 +30,7 @@ import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.BlockListSetting;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.util.BlockUtils;
-import net.wurstclient.util.RotationUtils;
+import net.wurstclient.util.HandNoClipTargeting;
 import net.wurstclient.util.text.WText;
 
 @SearchTags({"hand noclip", "hand no clip"})
@@ -52,8 +39,6 @@ public final class HandNoClipHack extends Hack
 {
 	private static final int WARNING_COLOR = 0xFFFF0000;
 	private static final int WARNING_SIZE = 5;
-	private static final double TARGET_RANGE = 6.0;
-	private static final double TARGET_INCREMENT = 0.1;
 	
 	private final BlockListSetting blocks = new BlockListSetting("Blocks",
 		"The blocks you want to reach through walls.", "minecraft:barrel",
@@ -145,13 +130,13 @@ public final class HandNoClipHack extends Hack
 		if(enableOnTarget.isChecked())
 			return occludingBlocks.contains(pos);
 		
-		return !isBlockInList(pos);
+		return !pos.equals(targetBlock) && !isBlockInList(pos);
 	}
 	
 	@Override
 	public void onUpdate()
 	{
-		if(!enableOnTarget.isChecked() || MC.player == null || MC.level == null)
+		if(MC.player == null || MC.level == null)
 		{
 			clearTarget();
 			return;
@@ -171,102 +156,63 @@ public final class HandNoClipHack extends Hack
 	
 	private void updateTargeting()
 	{
-		Vec3 eyes = RotationUtils.getEyesPos();
-		Vec3 look = RotationUtils.getServerLookVec();
-		
-		BlockPos prev = null;
-		Set<BlockPos> path = new HashSet<>();
-		BlockPos foundBlock = null;
-		boolean foundVillager = false;
-		Boat foundBoat = null;
-		Entity foundLeashable = null;
-		boolean passedBedrock = false;
-		
-		double villagerHitDist = Double.NaN;
-		if(villagerThroughWalls.isChecked())
-		{
-			Vec3 end = eyes.add(look.scale(TARGET_RANGE));
-			villagerHitDist = getClosestVillagerHitDistance(eyes, end);
-		}
-		
-		EntityRayTarget boatTarget = null;
-		if(boatsThroughWalls.isChecked())
-		{
-			Vec3 end = eyes.add(look.scale(TARGET_RANGE));
-			boatTarget = getClosestBoatHit(eyes, end);
-		}
-		LeashRayTarget leashTarget = null;
-		if(leadsThroughWalls.isChecked())
-		{
-			Vec3 end = eyes.add(look.scale(TARGET_RANGE));
-			leashTarget = getClosestLeashTargetHit(eyes, end);
-		}
-		
-		for(double distance = 0; distance <= TARGET_RANGE; distance +=
-			TARGET_INCREMENT)
-		{
-			Vec3 point = eyes.add(look.scale(distance));
-			BlockPos pos = BlockPos.containing(point);
-			
-			if(pos.equals(prev))
-				continue;
-			
-			prev = pos;
-			
-			if(MC.level.isEmptyBlock(pos))
-				continue;
-			
-			BlockState state = MC.level.getBlockState(pos);
-			if(state.is(Blocks.BEDROCK))
-				passedBedrock = true;
-			
-			if(!Double.isNaN(villagerHitDist) && distance >= villagerHitDist)
-			{
-				foundVillager = true;
-				break;
-			}
-			
-			if(boatTarget != null && distance >= boatTarget.distance())
-			{
-				foundBoat = boatTarget.boat();
-				break;
-			}
-			
-			if(leashTarget != null && distance >= leashTarget.distance())
-			{
-				foundLeashable = leashTarget.entity();
-				break;
-			}
-			
-			if(isBlockInList(pos))
-			{
-				foundBlock = pos;
-				break;
-			}
-			
-			if(bedrockPassthrough.isChecked() && passedBedrock
-				&& isPassthroughTarget(state))
-			{
-				foundBlock = pos;
-				break;
-			}
-			
-			path.add(pos);
-		}
-		
-		if(foundBlock == null && !foundVillager && foundBoat == null
-			&& foundLeashable == null)
-		{
-			clearTarget();
+		Entity source = MC.getCameraEntity();
+		if(source != null)
+			updateTargeting(source.getEyePosition(1), source.getViewVector(1),
+				MC.player.blockInteractionRange(),
+				MC.player.entityInteractionRange());
+	}
+	
+	public void updateTargeting(Vec3 eyes, Vec3 look, double blockReach,
+		double entityReach)
+	{
+		clearTarget();
+		if(!isEnabled()
+			|| (!enableOnTarget.isChecked() && !bedrockPassthrough.isChecked())
+			|| MC.player == null || MC.level == null)
 			return;
+		
+		Vec3 entityEnd = eyes.add(look.scale(entityReach));
+		double villagerDistance =
+			enableOnTarget.isChecked() && villagerThroughWalls.isChecked()
+				? getClosestVillagerHitDistance(eyes, entityEnd) : Double.NaN;
+		EntityRayTarget boat =
+			enableOnTarget.isChecked() && boatsThroughWalls.isChecked()
+				? getClosestBoatHit(eyes, entityEnd) : null;
+		LeashRayTarget leash =
+			enableOnTarget.isChecked() && leadsThroughWalls.isChecked()
+				? getClosestLeashTargetHit(eyes, entityEnd) : null;
+		double entityDistance = Double.POSITIVE_INFINITY;
+		if(!Double.isNaN(villagerDistance))
+		{
+			entityDistance = villagerDistance;
+			targetVillager = true;
+		}
+		if(boat != null && boat.distance() < entityDistance)
+		{
+			entityDistance = boat.distance();
+			targetVillager = false;
+			targetBoat = boat.boat();
+		}
+		if(leash != null && leash.distance() <= entityDistance)
+		{
+			entityDistance = leash.distance();
+			targetVillager = false;
+			targetBoat = null;
+			targetLeashable = leash.entity();
 		}
 		
-		targetBlock = foundBlock;
-		targetVillager = foundVillager;
-		targetBoat = foundBoat;
-		targetLeashable = foundLeashable;
-		occludingBlocks = path.isEmpty() ? Collections.emptySet()
-			: Collections.unmodifiableSet(path);
+		var result = HandNoClipTargeting.trace(MC.level, eyes, look, blockReach,
+			entityDistance, state -> blocks.matchesBlock(state.getBlock()),
+			bedrockPassthrough.isChecked());
+		targetBlock = result.block();
+		occludingBlocks = result.occludingBlocks();
+		if(targetBlock != null)
+		{
+			targetVillager = false;
+			targetBoat = null;
+			targetLeashable = null;
+		}
 	}
 	
 	@Override
@@ -350,17 +296,8 @@ public final class HandNoClipHack extends Hack
 			return boat;
 		}
 		
-		Vec3 eyes = RotationUtils.getEyesPos();
-		Vec3 look = RotationUtils.getServerLookVec();
-		EntityRayTarget raycastTarget =
-			getClosestBoatHit(eyes, eyes.add(look.scale(6.0)));
-		if(raycastTarget != null && !raycastTarget.boat().isRemoved())
-			return raycastTarget.boat();
-		
-		if(targetBoat != null && !targetBoat.isRemoved())
-			return targetBoat;
-		
-		return null;
+		return targetBoat != null && !targetBoat.isRemoved() ? targetBoat
+			: null;
 	}
 	
 	private Entity getHoveredLeashTarget()
@@ -368,13 +305,8 @@ public final class HandNoClipHack extends Hack
 		if(MC.hitResult instanceof EntityHitResult hit
 			&& isLeashTarget(hit.getEntity()) && !hit.getEntity().isRemoved())
 			return hit.getEntity();
-		if(targetLeashable != null && !targetLeashable.isRemoved())
-			return targetLeashable;
-		Vec3 eyes = RotationUtils.getEyesPos();
-		Vec3 look = RotationUtils.getServerLookVec();
-		LeashRayTarget target =
-			getClosestLeashTargetHit(eyes, eyes.add(look.scale(TARGET_RANGE)));
-		return target == null ? null : target.entity();
+		return targetLeashable != null && !targetLeashable.isRemoved()
+			? targetLeashable : null;
 	}
 	
 	private LeashRayTarget getClosestLeashTargetHit(Vec3 start, Vec3 end)
@@ -422,32 +354,8 @@ public final class HandNoClipHack extends Hack
 		if(!enableOnTarget.isChecked())
 			return true;
 		
-		return targetBlock != null || targetVillager || targetBoat != null;
-	}
-	
-	private boolean isHoldingCombatWeapon()
-	{
-		ItemStack stack = MC.player.getInventory().getSelectedItem();
-		if(stack == null || stack.isEmpty())
-			return false;
-		
-		Item item = stack.getItem();
-		return stack.is(ItemTags.SWORDS) || stack.is(ItemTags.AXES)
-			|| item instanceof MaceItem || item instanceof TridentItem
-			|| item instanceof BowItem || item instanceof CrossbowItem
-			|| isSpearItem(item);
-	}
-	
-	private boolean isSpearItem(Item item)
-	{
-		if(item == null)
-			return false;
-		
-		Identifier id = BuiltInRegistries.ITEM.getKey(item);
-		if(id == null)
-			return false;
-		
-		return id.getPath().toLowerCase(Locale.ROOT).contains("spear");
+		return targetBlock != null || targetVillager || targetBoat != null
+			|| targetLeashable != null;
 	}
 	
 	private void drawWarningCrosshair(GuiGraphicsExtractor context)
@@ -467,7 +375,7 @@ public final class HandNoClipHack extends Hack
 		}
 	}
 	
-	// See AbstractBlockStateMixin.onGetOutlineShape()
+	// See handnoclip.BlockStateBaseMixin.onGetShape()
 	
 	private double getClosestVillagerHitDistance(Vec3 start, Vec3 end)
 	{
@@ -549,11 +457,6 @@ public final class HandNoClipHack extends Hack
 		AABB box = boat.getBoundingBox();
 		return new Vec3((box.minX + box.maxX) * 0.5, box.maxY - 0.05,
 			(box.minZ + box.maxZ) * 0.5);
-	}
-	
-	private boolean isPassthroughTarget(BlockState state)
-	{
-		return state != null && !state.isAir() && !state.is(Blocks.BEDROCK);
 	}
 	
 	private static record EntityRayTarget(Boat boat, double distance)

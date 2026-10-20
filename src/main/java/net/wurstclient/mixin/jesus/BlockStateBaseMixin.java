@@ -31,7 +31,6 @@ import net.wurstclient.WurstClient;
 import net.wurstclient.event.EventManager;
 import net.wurstclient.events.IsNormalCubeListener.IsNormalCubeEvent;
 import net.wurstclient.hack.HackList;
-import net.wurstclient.hacks.HandNoClipHack;
 
 @Mixin(BlockStateBase.class)
 public abstract class BlockStateBaseMixin extends StateHolder<Block, BlockState>
@@ -68,10 +67,7 @@ public abstract class BlockStateBaseMixin extends StateHolder<Block, BlockState>
 		if(hax == null)
 			return;
 		
-		HandNoClipHack handNoClipHack = hax.handNoClipHack;
-		if((!handNoClipHack.isEnabled()
-			|| !handNoClipHack.shouldClearBlock(pos))
-			&& !hax.bedBreakAuraHack.shouldClearBlock(pos))
+		if(!hax.bedBreakAuraHack.shouldClearBlock(pos))
 			return;
 		
 		cir.setReturnValue(Shapes.empty());

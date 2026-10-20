@@ -135,6 +135,7 @@
     "freecam.LocalPlayerMixin",
     "fullbright.GameRendererMixin",
     "handnoclip.BlockStateBaseMixin",
+    "handnoclip.LocalPlayerMixin",
     "healthtags.EntityRendererMixin",
     "infinichat.ChatScreenMixin",
     "jesus.BlockStateBaseMixin",
