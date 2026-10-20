@@ -10,7 +10,10 @@ package net.wurstclient.hacks;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import java.awt.Color;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.UUID;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.client.gui.Font;
 import net.minecraft.world.entity.Entity;
@@ -23,17 +26,20 @@ import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.RenderListener;
+import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
+import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.OwnerResolver;
 import net.wurstclient.util.EntityUtils;
 import net.wurstclient.util.RenderUtils;
 
 @SearchTags({"mob owners", "pet owners", "projectile owners"})
-public final class MobOwnersHack extends Hack implements RenderListener
+public final class MobOwnersHack extends Hack
+	implements RenderListener, UpdateListener
 {
 	private final CheckboxSetting projectiles =
 		new CheckboxSetting("Projectiles", false);
@@ -46,6 +52,13 @@ public final class MobOwnersHack extends Hack implements RenderListener
 		"Show UUID when unknown",
 		"Shows the owner's shortened UUID when the player name is not known.",
 		true);
+	private final CheckboxSetting chatAlerts = new CheckboxSetting(
+		"Chat alerts",
+		"Reports nearby named mobs and mobs with a known owner, including their coordinates, in chat.",
+		false);
+	
+	private final Map<UUID, String> reportedEntities = new LinkedHashMap<>();
+	private int scanCooldown;
 	
 	public MobOwnersHack()
 	{
@@ -57,18 +70,128 @@ public final class MobOwnersHack extends Hack implements RenderListener
 		addSetting(color);
 		addSetting(labelScale);
 		addSetting(showUuidWhenUnknown);
+		addSetting(chatAlerts);
 	}
 	
 	@Override
 	protected void onEnable()
 	{
 		EVENTS.add(RenderListener.class, this);
+		EVENTS.add(UpdateListener.class, this);
+		reportedEntities.clear();
+		scanCooldown = 0;
 	}
 	
 	@Override
 	protected void onDisable()
 	{
 		EVENTS.remove(RenderListener.class, this);
+		EVENTS.remove(UpdateListener.class, this);
+		reportedEntities.clear();
+		scanCooldown = 0;
+	}
+	
+	@Override
+	public void onUpdate()
+	{
+		if(MC.level == null || MC.player == null || !chatAlerts.isChecked())
+		{
+			reportedEntities.clear();
+			scanCooldown = 0;
+			return;
+		}
+		
+		if(scanCooldown > 0)
+		{
+			scanCooldown--;
+			return;
+		}
+		scanCooldown = 20;
+		
+		for(Entity entity : MC.level.entitiesForRendering())
+		{
+			if(entity == null || entity == MC.player || !entity.isAlive()
+				|| entity.isRemoved())
+				continue;
+			
+			UUID ownerUuid = getOwnerUuid(entity);
+			String customName =
+				entity instanceof Mob ? readCustomName(entity) : "";
+			if(customName.isEmpty() && ownerUuid == null)
+				continue;
+			
+			String ownerName =
+				ownerUuid == null ? null : resolveOwnerName(ownerUuid);
+			if(ownerName == null && ownerUuid != null
+				&& showUuidWhenUnknown.isChecked())
+				ownerName = shortenedUuid(ownerUuid);
+			if(customName.isEmpty() && ownerName == null)
+				continue;
+			
+			reportEntity(entity, customName, ownerName, ownerUuid);
+		}
+	}
+	
+	private void reportEntity(Entity entity, String customName,
+		String ownerName, UUID ownerUuid)
+	{
+		String entityName =
+			customName.isEmpty() ? entityDisplayName(entity) : customName;
+		String reportKey = entityName + "\u0000"
+			+ (ownerUuid == null ? "" : ownerUuid.toString());
+		String previous = reportedEntities.put(entity.getUUID(), reportKey);
+		if(reportKey.equals(previous))
+			return;
+		
+		// Bound this session cache in case the player explores continuously.
+		while(reportedEntities.size() > 512)
+			reportedEntities
+				.remove(reportedEntities.keySet().iterator().next());
+		
+		BlockPos pos = entity.blockPosition();
+		String type =
+			customName.isEmpty() ? "owned entity " : "named entity \"";
+		String displayName =
+			customName.isEmpty() ? entityName : customName + "\"";
+		String attribution = ownerName == null ? " (namer unavailable)"
+			: " (owner: " + ownerName + ")";
+		ChatUtils.message("MobOwners: " + type + displayName + attribution
+			+ " at " + pos.getX() + ", " + pos.getY() + ", " + pos.getZ());
+	}
+	
+	private static String readCustomName(Entity entity)
+	{
+		if(!entity.hasCustomName() || entity.getCustomName() == null)
+			return "";
+		
+		String text = entity.getCustomName().getString();
+		if(text == null)
+			return "";
+		
+		String trimmed = text.trim();
+		if(trimmed.isEmpty())
+			return "";
+		if(trimmed.length() > 80)
+			return trimmed.substring(0, 77) + "...";
+		return trimmed;
+	}
+	
+	private static String entityDisplayName(Entity entity)
+	{
+		String name = entity.getName().getString();
+		if(name != null && !name.isBlank())
+			return name;
+		
+		String path =
+			net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE
+				.getKey(entity.getType()).getPath();
+		return path.replace('_', ' ');
+	}
+	
+	private static String shortenedUuid(UUID uuid)
+	{
+		String raw = uuid.toString();
+		return raw.substring(0, Math.min(8, raw.length()));
 	}
 	
 	public Component addOwnerInfo(Entity entity, Component original)
@@ -96,8 +219,7 @@ public final class MobOwnersHack extends Hack implements RenderListener
 		{
 			if(!showUuidWhenUnknown.isChecked())
 				return null;
-			String raw = owner.toString();
-			name = raw.substring(0, Math.min(8, raw.length()));
+			name = shortenedUuid(owner);
 		}
 		
 		Component base = original == null ? entity.getName() : original;
