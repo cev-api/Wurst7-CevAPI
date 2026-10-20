@@ -9,7 +9,6 @@ package net.wurstclient.mixin;
 
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
@@ -272,13 +271,6 @@ public abstract class LocalPlayerMixin extends AbstractClientPlayer
 	}
 	
 	@Override
-	public void lerpMotion(Vec3 vec)
-	{
-		super.lerpMotion(WurstClient.INSTANCE.getHax().antiKnockbackHack
-			.modifyKnockback(vec));
-	}
-	
-	@Override
 	public boolean isInWater()
 	{
 		boolean inWater = super.isInWater();
@@ -332,7 +324,7 @@ public abstract class LocalPlayerMixin extends AbstractClientPlayer
 		
 		if(movement != null)
 			WurstClient.INSTANCE.getHax().safeWalkHack
-				.onClipAtLedge(!movement.equals(result));
+				.onMaybeBackOffFromEdge(!movement.equals(result));
 		
 		return result;
 	}

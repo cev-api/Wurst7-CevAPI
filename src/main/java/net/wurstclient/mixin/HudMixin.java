@@ -15,18 +15,17 @@ import net.cevapi.security.ResourcePackProtector;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.Hud;
-import net.minecraft.resources.Identifier;
-import net.minecraft.world.entity.Entity;
 import net.wurstclient.WurstClient;
 import net.wurstclient.event.EventManager;
 import net.wurstclient.events.GUIRenderListener.GUIRenderEvent;
-import net.wurstclient.hack.HackList;
 
 @Mixin(Hud.class)
 public class HudMixin
 {
-	// runs after extractScoreboardSidebar()
-	// and before tabList.setVisible()
+	/**
+	 * Fires GUIRenderEvent after the scoreboard and before the tab list is
+	 * rendered.
+	 */
 	@Inject(
 		method = "extractTabList(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/client/DeltaTracker;)V",
 		at = @At("HEAD"))

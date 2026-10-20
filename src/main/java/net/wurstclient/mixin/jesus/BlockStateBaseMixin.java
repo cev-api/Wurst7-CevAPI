@@ -5,7 +5,7 @@
  * License, version 3. If a copy of the GPL was not distributed with this
  * file, You can obtain one at: https://www.gnu.org/licenses/gpl-3.0.txt
  */
-package net.wurstclient.mixin;
+package net.wurstclient.mixin.jesus;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -24,13 +24,13 @@ import net.minecraft.world.level.material.FluidState;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.EntityCollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import net.wurstclient.WurstClient;
 import net.wurstclient.event.EventManager;
 import net.wurstclient.events.IsNormalCubeListener.IsNormalCubeEvent;
 import net.wurstclient.hack.HackList;
-import net.wurstclient.hacks.HandNoClipHack;
 
 @Mixin(BlockStateBase.class)
 public abstract class BlockStateBaseMixin extends StateHolder<Block, BlockState>
@@ -158,8 +158,11 @@ public abstract class BlockStateBaseMixin extends StateHolder<Block, BlockState>
 		if(hax == null || !hax.jesusHack.shouldBeSolid())
 			return;
 		
+		if(!(context instanceof EntityCollisionContext entityContext)
+			|| entityContext.getEntity() != WurstClient.MC.player)
+			return;
+		
 		cir.setReturnValue(Shapes.block());
-		cir.cancel();
 	}
 	
 	@Shadow

@@ -98,7 +98,6 @@ public final class XRayHack extends Hack
 		0, 0, 0.99, 0.01, ValueDisplay.PERCENTAGE.withLabel(0, "off"));
 	
 	private final String optiFineWarning;
-	private final String bbeWarning;
 	private final String renderName = Math.random() < 0.01
 		&& System.getProperty("fabric.client.gametest") == null ? "X-Wurst"
 			: getName();
@@ -180,7 +179,6 @@ public final class XRayHack extends Hack
 		addSetting(renderAmount);
 		addSetting(area);
 		optiFineWarning = checkOptiFine();
-		bbeWarning = checkBBE();
 	}
 	
 	@Override
@@ -240,8 +238,6 @@ public final class XRayHack extends Hack
 		// display compatibility warnings
 		if(optiFineWarning != null)
 			ChatUtils.warning(optiFineWarning);
-		if(opacity.getValue() > 0 && bbeWarning != null)
-			ChatUtils.warning(bbeWarning);
 	}
 	
 	@Override
@@ -681,14 +677,6 @@ public final class XRayHack extends Hack
 		
 		if(mods.anyMatch(optifine.asPredicate()))
 			return "OptiFine is installed. X-Ray will not work properly!";
-		
-		return null;
-	}
-	
-	private String checkBBE()
-	{
-		if(BBEModCompat.isBrokenBBEInstalled())
-			return "Better Block Entities v1.3.2-v1.3.3 breaks Opacity X-Ray. Update/remove BBE or turn off opacity mode.";
 		
 		return null;
 	}

@@ -83,6 +83,9 @@ public enum ChunkUtils
 			.mapToObj(i -> MC.level.getChunkSource()
 				.getChunkNow(minX + i % diameter, minZ + i / diameter))
 			.filter(Objects::nonNull);
+		return ChunkPos.rangeClosed(MC.player.chunkPosition(), radius)
+			.filter(c -> MC.level.hasChunk(c.x(), c.z()))
+			.map(c -> MC.level.getChunk(c.x(), c.z())).filter(Objects::nonNull);
 	}
 	
 	/**

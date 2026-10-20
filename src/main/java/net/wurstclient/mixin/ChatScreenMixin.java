@@ -8,13 +8,16 @@
 package net.wurstclient.mixin;
 
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.EditBox;
+
+import com.llamalad7.mixinextras.sugar.Local;
+import com.llamalad7.mixinextras.sugar.ref.LocalRef;
+
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
@@ -28,9 +31,6 @@ import net.wurstclient.uiutils.UiUtilsCommandSystem;
 @Mixin(ChatScreen.class)
 public abstract class ChatScreenMixin extends Screen
 {
-	@Shadow
-	protected EditBox input;
-	
 	private ChatScreenMixin(WurstClient wurst, Component title)
 	{
 		super(title);
@@ -46,13 +46,14 @@ public abstract class ChatScreenMixin extends Screen
 	}
 	
 	@Inject(method = "handleChatInput(Ljava/lang/String;Z)V",
-		at = @At("HEAD"),
+		at = @At(value = "INVOKE",
+			target = "Ljava/lang/String;isEmpty()Z",
+			shift = At.Shift.AFTER),
 		cancellable = true)
-	public void onHandleChatInput(String message, boolean addToHistory,
-		CallbackInfo ci)
+	private void onHandleChatInput(String messageDontUse, boolean addToHistory,
+		CallbackInfo ci, @Local(argsOnly = true) LocalRef<String> message)
 	{
-		// Ignore empty messages just like vanilla
-		if((message = normalizeChatMessage(message)).isEmpty())
+		if(message.get().isEmpty())
 			return;
 		
 		if(WurstClient.INSTANCE.getOtfs() != null)
@@ -85,28 +86,18 @@ public abstract class ChatScreenMixin extends Screen
 		ChatOutputEvent event = new ChatOutputEvent(message);
 		EventManager.fire(event);
 		
-		// If the event hasn't been modified or cancelled,
-		// let the vanilla method handle the message
-		boolean cancelled = event.isCancelled();
-		if(!cancelled && !event.isModified())
+		if(event.isCancelled())
+		{
+			// Preserve history even for cancelled messages
+			// Otherwise the up/down arrows won't work correctly
+			if(addToHistory)
+				minecraft.gui.hud.getChat().addRecentChat(event.getMessage());
+			
+			ci.cancel();
 			return;
+		}
 		
-		// Otherwise, cancel the vanilla method and handle the message here
-		ci.cancel();
-		
-		// Add the message to history, even if it was cancelled
-		// Otherwise the up/down arrows won't work correctly
-		String newMessage = event.getMessage();
-		if(addToHistory)
-			minecraft.gui.hud.getChat().addRecentChat(newMessage);
-		
-		// If the event isn't cancelled, send the modified message
-		if(!cancelled)
-			if(newMessage.startsWith("/"))
-				minecraft.player.connection
-					.sendCommand(newMessage.substring(1));
-			else
-				minecraft.player.connection.sendChat(newMessage);
+		message.set(event.getMessage());
 	}
 	
 	@Inject(

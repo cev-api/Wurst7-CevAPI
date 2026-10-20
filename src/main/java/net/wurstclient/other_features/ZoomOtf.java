@@ -25,8 +25,8 @@ import net.wurstclient.util.SdlUtils;
 @DontBlock
 public final class ZoomOtf extends OtherFeature implements MouseScrollListener
 {
-	private final SliderSetting level = new SliderSetting("Zoom level", 3, 1,
-		50, 0.1, ValueDisplay.DECIMAL.withSuffix("x"));
+	private final SliderSetting zoomLevel = new SliderSetting("Zoom level", 3,
+		1, 50, 0.1, ValueDisplay.DECIMAL.withSuffix("x"));
 	
 	private final CheckboxSetting scroll = new CheckboxSetting(
 		"Use mouse wheel", "If enabled, you can use the mouse wheel while"
@@ -45,14 +45,13 @@ public final class ZoomOtf extends OtherFeature implements MouseScrollListener
 		"key.keyboard.v", this::isValidKeybind);
 	
 	private Double currentLevel;
-	private Double defaultMouseSensitivity;
 	
 	public ZoomOtf()
 	{
 		super("Zoom", "Allows you to zoom in.\n"
 			+ "By default, the zoom is activated by pressing the \u00a7lV\u00a7r key.\n"
 			+ "Go to Wurst Options -> Zoom to change this keybind.");
-		addSetting(level);
+		addSetting(zoomLevel);
 		addSetting(scroll);
 		addSetting(zoomInScreens);
 		addSetting(keybind);
@@ -61,35 +60,26 @@ public final class ZoomOtf extends OtherFeature implements MouseScrollListener
 	
 	public float changeFovBasedOnZoom(float fov)
 	{
-		OptionInstance<Double> mouseSensitivitySetting =
-			MC.options.sensitivity();
-		
-		if(currentLevel == null)
-			currentLevel = level.getValue();
-		
+		return (float)(fov / getZoomFactor());
+	}
+	
+	public double changeMouseSensitivityBasedOnZoom(double sensitivity)
+	{
+		return sensitivity * (1.0 / getZoomFactor());
+	}
+	
+	private double getZoomFactor()
+	{
 		if(!isZoomKeyPressed())
 		{
-			currentLevel = level.getValue();
-			
-			if(defaultMouseSensitivity != null)
-			{
-				mouseSensitivitySetting.set(defaultMouseSensitivity);
-				defaultMouseSensitivity = null;
-			}
-			
-			return fov;
+			currentLevel = zoomLevel.getValue();
+			return 1;
 		}
 		
-		if(defaultMouseSensitivity == null)
-			defaultMouseSensitivity = mouseSensitivitySetting.get();
-			
-		// Adjust mouse sensitivity in relation to zoom level.
-		// 1.0 / currentLevel is a value between 0.02 (50x zoom)
-		// and 1 (no zoom).
-		mouseSensitivitySetting
-			.set(defaultMouseSensitivity * (1.0 / currentLevel));
+		if(currentLevel == null)
+			currentLevel = zoomLevel.getValue();
 		
-		return (float)(fov / currentLevel);
+		return currentLevel;
 	}
 	
 	@Override
@@ -99,15 +89,15 @@ public final class ZoomOtf extends OtherFeature implements MouseScrollListener
 			return;
 		
 		if(currentLevel == null)
-			currentLevel = level.getValue();
+			currentLevel = zoomLevel.getValue();
 		
 		if(amount > 0)
 			currentLevel *= 1.1;
 		else if(amount < 0)
 			currentLevel *= 0.9;
 		
-		currentLevel = MathUtils.clamp(currentLevel, level.getMinimum(),
-			level.getMaximum());
+		currentLevel = MathUtils.clamp(currentLevel, zoomLevel.getMinimum(),
+			zoomLevel.getMaximum());
 	}
 	
 	public boolean isControllingScrollEvents()
@@ -156,7 +146,7 @@ public final class ZoomOtf extends OtherFeature implements MouseScrollListener
 	
 	public SliderSetting getLevelSetting()
 	{
-		return level;
+		return zoomLevel;
 	}
 	
 	public CheckboxSetting getScrollSetting()

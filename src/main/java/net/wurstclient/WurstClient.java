@@ -67,7 +67,7 @@ public enum WurstClient
 	public static Minecraft MC;
 	public static IMinecraft IMC;
 	
-	public static final String VERSION = "7.56";
+	public static final String VERSION = "7.56.1";
 	public static final String MC_VERSION = "26.3";
 	
 	private EventManager eventManager;
@@ -212,9 +212,6 @@ public enum WurstClient
 		
 		forkUpdateChecker = new ForkUpdateChecker();
 		eventManager.add(UpdateListener.class, forkUpdateChecker);
-		
-		problematicPackDetector = new ProblematicResourcePackDetector();
-		problematicPackDetector.start();
 		
 		Path altsFile = wurstFolder.resolve("alts.encrypted_json");
 		Path encFolder = Encryption.chooseEncryptionFolder();

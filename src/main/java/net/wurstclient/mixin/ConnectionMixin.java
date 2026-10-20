@@ -7,14 +7,14 @@
  */
 package net.wurstclient.mixin;
 
-import java.util.concurrent.ConcurrentLinkedQueue;
-
 import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
@@ -40,6 +40,7 @@ public abstract class ConnectionMixin
 {
 	private ConcurrentLinkedQueue<ConnectionPacketOutputEvent> events =
 		new ConcurrentLinkedQueue<>();
+	private boolean sentPositionThisTick;
 	
 	/**
 	 * Since MC 26.3, servers reject multiple position packets in a single
@@ -90,12 +91,11 @@ public abstract class ConnectionMixin
 				.recordForensicTiming(packet, "S2C", "CLIENT_DISPATCH");
 	}
 	
-	// These mixins target the second "send" method. The one with two arguments.
-	
-	@ModifyVariable(
-		method = "send(Lnet/minecraft/network/protocol/Packet;Lio/netty/channel/ChannelFutureListener;)V",
-		at = @At("HEAD"))
-	public Packet<?> modifyPacket(Packet<?> packet)
+	@WrapMethod(
+		method = "send(Lnet/minecraft/network/protocol/Packet;Lio/netty/channel/ChannelFutureListener;Z)V")
+	private void wrapSend(Packet<?> packet,
+		@Nullable ChannelFutureListener listener, boolean flush,
+		Operation<Void> original)
 	{
 		WurstClient.INSTANCE.getOtfs().packetToolsOtf
 			.recordForensicTiming(packet, "C2S", "SEND_REQUESTED");
