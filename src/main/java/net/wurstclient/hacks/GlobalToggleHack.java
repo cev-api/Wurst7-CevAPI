@@ -270,6 +270,7 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 		registerTracerSource("itemhandler", "ItemHandler", true);
 		registerTracerSource("itemesp:normal", "ItemESP normal", true);
 		registerTracerSource("itemesp:special", "ItemESP special", true);
+		registerTracerSource("itemesp:moving", "ItemESP falling", true);
 		registerTracerSource("itemesp:traced", "ItemESP traced", true);
 		
 		addPossibleKeybind(".globaltoggle tracers",

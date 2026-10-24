@@ -106,6 +106,7 @@ public final class SpeedNukerHack extends Hack
 	public String getStatusText()
 	{
 		return countdown.isChecked()
+			&& MiningStateCompat.isConnectedTo26_3Server()
 			&& MovementPacketCompat.isConnectedToCurrentProtocol()
 				? MiningStateCompat.getMiningReadiness().text() : null;
 	}

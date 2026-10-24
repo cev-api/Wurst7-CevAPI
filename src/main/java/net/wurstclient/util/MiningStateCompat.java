@@ -16,6 +16,7 @@ import java.util.Map;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.multiplayer.ClientPacketListener;
+import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.core.BlockPos;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.protocol.Packet;
@@ -126,6 +127,20 @@ public final class MiningStateCompat
 		if(player.getAbilities().flying)
 			progress *= 5;
 		return MiningReadiness.forProgress(progress, serverAge.lowerBound());
+	}
+	
+	/** Returns whether the connected server advertises Minecraft 26.3. */
+	public static boolean isConnectedTo26_3Server()
+	{
+		Minecraft mc = WurstClient.MC;
+		if(mc == null)
+			return false;
+		if(mc.hasSingleplayerServer())
+			return true;
+		ServerData server = mc.getCurrentServer();
+		if(server == null || server.version == null)
+			return false;
+		return server.version.getString().matches("26\\.3(?:$|[-+ ].*)");
 	}
 	
 	public record MiningReadiness(long remainingTicks, double fraction)

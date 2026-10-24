@@ -91,6 +91,13 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 	
 	private final ColorSetting color = new ColorSetting("Color",
 		"Items will be highlighted in this color.", Color.YELLOW);
+	private final CheckboxSetting highlightMovingItems = new CheckboxSetting(
+		"Trace falling items",
+		"Highlights dropped items moving downward and draws a tracer line to them.",
+		false);
+	private final ColorSetting movingItemColor =
+		new ColorSetting("Falling item color",
+			"Color for falling dropped items and their tracer.", Color.CYAN);
 	
 	// Special highlighting for selected items
 	private final net.wurstclient.settings.EnumSetting<SpecialMode> specialMode =
@@ -213,6 +220,8 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		addSetting(style);
 		addSetting(boxSize);
 		addSetting(color);
+		addSetting(highlightMovingItems);
+		addSetting(movingItemColor);
 		// special settings
 		addSetting(specialMode);
 		addSetting(specialList);
@@ -644,6 +653,8 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		// traced items from ItemHandler: override and rainbow-highlight
 		ArrayList<AABB> tracedBoxes = new ArrayList<>();
 		ArrayList<Vec3> tracedEnds = new ArrayList<>();
+		ArrayList<AABB> movingBoxes = new ArrayList<>();
+		ArrayList<Vec3> movingEnds = new ArrayList<>();
 		
 		double extraSize = boxSize.getExtraSize() / 2;
 		int visibleDrops = 0;
@@ -682,6 +693,11 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 				tracedBoxes.add(box);
 				if(style.hasLines())
 					tracedEnds.add(entityBox.getCenter());
+			}else if(highlightMovingItems.isChecked() && !e.onGround()
+				&& e.getDeltaMovement().y < -0.02)
+			{
+				movingBoxes.add(box);
+				movingEnds.add(entityBox.getCenter());
 			}else if(isSpecial)
 			{
 				specialBoxes.add(box);
@@ -913,8 +929,8 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 			}
 		}
 		
-		int displayedCount =
-			normalBoxes.size() + specialBoxes.size() + tracedBoxes.size();
+		int displayedCount = normalBoxes.size() + specialBoxes.size()
+			+ tracedBoxes.size() + movingBoxes.size();
 		foundCount = Math.min(displayedCount, 999);
 		
 		if(style.hasBoxes())
@@ -945,6 +961,15 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 					RenderUtils.drawOutlinedBoxes(matrixStack, specialBoxes,
 						specialLines, false);
 				}
+			}
+			if(!movingBoxes.isEmpty())
+			{
+				int movingLines = movingItemColor.getColorI(0x80);
+				int movingQuads = movingItemColor.getColorI(0x40);
+				RenderUtils.drawSolidBoxes(matrixStack, movingBoxes,
+					movingQuads, false);
+				RenderUtils.drawOutlinedBoxes(matrixStack, movingBoxes,
+					movingLines, false);
 			}
 			
 			// Traced items: always rainbow-highlight (override)
@@ -986,6 +1011,9 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 					partialTicks, tracedEnds, tracedLines, false);
 			}
 		}
+		if(!movingEnds.isEmpty())
+			RenderUtils.drawTracers("itemesp:moving", matrixStack, partialTicks,
+				movingEnds, movingItemColor.getColorI(0x80), false);
 	}
 	
 	private int getSpecialARGB(int alpha)

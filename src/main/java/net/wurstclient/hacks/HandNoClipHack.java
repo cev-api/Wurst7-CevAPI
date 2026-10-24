@@ -77,6 +77,12 @@ public final class HandNoClipHack extends Hack
 		WText.literal("When enabled, aiming through bedrock can target"
 			+ " blocks behind it for breaking, interacting, and placement."),
 		true);
+	private final CheckboxSetting verticalBedrockPassthrough =
+		new CheckboxSetting("Bedrock Passthrough: Vertical Only",
+			WText
+				.literal("Only allow Bedrock Passthrough when aiming more up or"
+					+ " down than sideways."),
+			true);
 	private final CheckboxSetting leadsThroughWalls = new CheckboxSetting(
 		"Leads Through Walls",
 		WText.literal(
@@ -101,6 +107,7 @@ public final class HandNoClipHack extends Hack
 		addSetting(boatsThroughWalls);
 		addSetting(leadsThroughWalls);
 		addSetting(bedrockPassthrough);
+		addSetting(verticalBedrockPassthrough);
 	}
 	
 	@Override
@@ -204,7 +211,10 @@ public final class HandNoClipHack extends Hack
 		
 		var result = HandNoClipTargeting.trace(MC.level, eyes, look, blockReach,
 			entityDistance, state -> blocks.matchesBlock(state.getBlock()),
-			bedrockPassthrough.isChecked());
+			bedrockPassthrough.isChecked()
+				&& (!verticalBedrockPassthrough.isChecked()
+					|| Math.abs(look.y) > Math.max(Math.abs(look.x),
+						Math.abs(look.z))));
 		targetBlock = result.block();
 		occludingBlocks = result.occludingBlocks();
 		if(targetBlock != null)
