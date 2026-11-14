@@ -77,6 +77,11 @@ public final class AttributeSwapHack extends Hack
 	private final CheckboxSetting lungeSwapping = new CheckboxSetting(
 		"Lunge swapping", "Swaps to a spear with Lunge (Smart mode).", true);
 	
+	private final CheckboxSetting excludeLungeSpears =
+		new CheckboxSetting("Exclude Lunge Spears",
+			"Do not select Lunge spears when attacking a target (Smart mode).",
+			true);
+	
 	private final CheckboxSetting shieldBreaker =
 		new CheckboxSetting("Shield breaker",
 			"Swaps to an axe when target is blocking (Smart mode).", true);
@@ -129,6 +134,7 @@ public final class AttributeSwapHack extends Hack
 		addSetting(breachSwapping);
 		addSetting(densitySwapping);
 		addSetting(lungeSwapping);
+		addSetting(excludeLungeSpears);
 		addSetting(onlyAgainstOtherPlayers);
 		addSetting(onlyAgainstMobs);
 		addSetting(onlyWithKillAura);
@@ -358,7 +364,8 @@ public final class AttributeSwapHack extends Hack
 				return densitySlot;
 		}
 		
-		if(lungeSwapping.isChecked())
+		if(lungeSwapping.isChecked()
+			&& (target == null || !excludeLungeSpears.isChecked()))
 		{
 			int lungeSlot = InventoryUtils.indexOf(
 				s -> isSpear(s) && getEnchantLevel(s, Enchantments.LUNGE) > 0,
@@ -376,7 +383,8 @@ public final class AttributeSwapHack extends Hack
 				continue;
 			
 			ItemStack stack = MC.player.getInventory().getItem(slot);
-			if(stack.isEmpty())
+			if(stack.isEmpty() || target != null && excludeLungeSpears.isChecked()
+				&& isSpear(stack) && getEnchantLevel(stack, Enchantments.LUNGE) > 0)
 				continue;
 			
 			int score = getDurabilityScore(stack);
