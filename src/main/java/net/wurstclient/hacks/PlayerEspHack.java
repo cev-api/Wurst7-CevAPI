@@ -1173,15 +1173,17 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		for(FriendPingMarker marker : markers)
 		{
 			double dist = MC.player.position().distanceTo(marker.pos());
+			Vec3 cameraPos = RenderUtils.getCameraPos();
+			double cameraDistance = cameraPos.distanceTo(marker.pos());
 			String distanceText = (int)Math.round(dist) + " blocks";
 			double lx = marker.pos().x;
 			double ly = marker.pos().y + REMOTE_PLAYER_HEIGHT + 0.45;
 			double lz = marker.pos().z;
 			
-			boolean anchored = dist > 256.0;
+			boolean anchored = cameraDistance > 256.0;
 			if(anchored)
 			{
-				Vec3 cam = RenderUtils.getCameraPos();
+				Vec3 cam = cameraPos;
 				Vec3 target = new Vec3(lx, ly, lz);
 				Vec3 dir = target.subtract(cam);
 				double len = dir.length();
@@ -1204,7 +1206,7 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 			
 			double nearRef = 6.0;
 			double maxRef = 256.0;
-			double t = (dist - nearRef) / (maxRef - nearRef);
+			double t = (cameraDistance - nearRef) / (maxRef - nearRef);
 			t = Mth.clamp(t, 0.0, 1.0);
 			t = t * t * (3.0 - 2.0 * t);
 			double factor = 1.80 + (0.90 - 1.80) * t;

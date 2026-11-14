@@ -8,6 +8,8 @@
 package net.wurstclient.hacks;
 
 import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
 
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
@@ -216,6 +218,36 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 		new java.util.LinkedHashMap<>();
 	private final java.util.LinkedHashMap<String, String> tracerLabels =
 		new java.util.LinkedHashMap<>();
+	private final java.util.LinkedHashMap<String, Integer> tracerLegendFrame =
+		new java.util.LinkedHashMap<>();
+	private final java.util.LinkedHashMap<String, Integer> knownTracerLegendColors =
+		new java.util.LinkedHashMap<>();
+	private final java.util.LinkedHashMap<String, Hack> tracerLegendHacks =
+		new java.util.LinkedHashMap<>();
+	private final CheckboxSetting tracerLegend =
+		new CheckboxSetting("Tracer legend",
+			"Shows a movable list of tracer sources and colors.", false);
+	private final CheckboxSetting tracerLegendAlwaysShowAll =
+		new CheckboxSetting("Always show all known tracers",
+			"Shows every discovered tracer source, even when it has no current targets.",
+			false);
+	private final CheckboxSetting tracerLegendTitle =
+		new CheckboxSetting("Show tracer legend title",
+			"Shows the title above the tracer entries.", true);
+	private final CheckboxSetting tracerLegendFade = new CheckboxSetting(
+		"Fade tracer legend when inactive",
+		"Fades the legend out over one second when tracers stop rendering. Applies only when Always show all known tracers is off.",
+		false);
+	private final SliderSetting tracerLegendOffsetX = new SliderSetting(
+		"Tracer legend X offset", 0, -2000, 2000, 1, ValueDisplay.INTEGER);
+	private final SliderSetting tracerLegendOffsetY = new SliderSetting(
+		"Tracer legend Y offset", 0, -2000, 2000, 1, ValueDisplay.INTEGER);
+	private final SettingGroup tracerLegendSettings =
+		new SettingGroup("Tracer legend settings",
+			WText.literal("Configure the movable tracer legend."), false, true)
+				.addChildren(tracerLegend, tracerLegendAlwaysShowAll,
+					tracerLegendTitle, tracerLegendFade, tracerLegendOffsetX,
+					tracerLegendOffsetY);
 	
 	private Map<CheckboxSetting, Boolean> stickySnapshot = Map.of();
 	
@@ -262,6 +294,9 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 		addSetting(disableAllTracers);
 		addSetting(nearestTracerOnly);
 		addSetting(tracerFilters);
+		addSetting(tracerLegendSettings);
+		for(var setting : tracerLegendSettings.getChildren())
+			addSetting(setting);
 		registerTracerSource("chestesp", "ChestESP", true);
 		registerTracerSource("playeresp", "PlayerESP", true);
 		registerTracerSource("portalesp", "PortalESP", true);
@@ -409,11 +444,23 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 			registerViewCullException(source.toLowerCase(java.util.Locale.ROOT),
 				"Allow off-screen " + source, false);
 		for(Hack hack : hacks.getAllHax())
+		{
+			tracerLabels.putIfAbsent(normalizeTracerSource(hack.getName()),
+				hack.getName());
+			boolean hasTracerSetting =
+				hack.getSettings().values().stream().anyMatch(s -> s.getName()
+					.toLowerCase(java.util.Locale.ROOT).contains("tracer"));
+			if(hack instanceof net.wurstclient.events.RenderListener
+				&& (hack.getName().toLowerCase(java.util.Locale.ROOT)
+					.contains("esp") || hasTracerSetting))
+				tracerLegendHacks.put(normalizeTracerSource(hack.getName()),
+					hack);
 			if(hack instanceof net.wurstclient.events.RenderListener || hack
 				.getName().toLowerCase(java.util.Locale.ROOT).contains("esp"))
 				registerViewCullException(
 					hack.getName().toLowerCase(java.util.Locale.ROOT),
 					"Allow off-screen " + hack.getName(), false);
+		}
 	}
 	
 	private void registerViewCullException(String key, String label,
@@ -623,6 +670,201 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 		return nearestTracerOnly.isChecked();
 	}
 	
+	public boolean isTracerLegendEnabled()
+	{
+		return tracerLegend.isChecked();
+	}
+	
+	public boolean isTracerLegendTitleEnabled()
+	{
+		return tracerLegendTitle.isChecked();
+	}
+	
+	public boolean isTracerLegendFadeEnabled()
+	{
+		return tracerLegendFade.isChecked();
+	}
+	
+	public boolean isTracerLegendAlwaysShowAll()
+	{
+		return tracerLegendAlwaysShowAll.isChecked();
+	}
+	
+	public int getTracerLegendOffsetX()
+	{
+		return tracerLegendOffsetX.getValueI();
+	}
+	
+	public int getTracerLegendOffsetY()
+	{
+		return tracerLegendOffsetY.getValueI();
+	}
+	
+	public void setTracerLegendOffsets(int x, int y)
+	{
+		tracerLegendOffsetX.setValue(x);
+		tracerLegendOffsetY.setValue(y);
+	}
+	
+	public void recordTracerLegendColor(String source, int color)
+	{
+		if(source == null || source.isBlank())
+			return;
+		String key = normalizeTracerSource(source);
+		if(key != null)
+		{
+			String legendKey = key + "|color:" + String
+				.format(java.util.Locale.ROOT, "%06x", color & 0xFFFFFF);
+			knownTracerLegendColors.putIfAbsent(legendKey, color);
+			if(isTracerLegendEnabled())
+				tracerLegendFrame.put(legendKey, color);
+		}
+	}
+	
+	public List<TracerLegendEntry> consumeTracerLegendEntries()
+	{
+		ArrayList<TracerLegendEntry> entries = new ArrayList<>();
+		Map<String, Integer> sources =
+			new java.util.LinkedHashMap<>(tracerLegendAlwaysShowAll.isChecked()
+				? knownTracerLegendColors : tracerLegendFrame);
+		if(tracerLegendAlwaysShowAll.isChecked())
+			addEnabledHackTracers(sources);
+		Map<String, Integer> colorCounts = new java.util.HashMap<>();
+		for(String key : sources.keySet())
+		{
+			int colorIndex = key.lastIndexOf("|color:");
+			String source = colorIndex < 0 ? key : key.substring(0, colorIndex);
+			colorCounts.merge(source, 1, Integer::sum);
+		}
+		for(var entry : sources.entrySet())
+		{
+			String legendKey = entry.getKey();
+			int colorIndex = legendKey.lastIndexOf("|color:");
+			String key =
+				colorIndex < 0 ? legendKey : legendKey.substring(0, colorIndex);
+			String label = switch(key)
+			{
+				case "itemesp:normal" -> "ItemESP";
+				case "itemesp:special" -> "Special ItemESP";
+				case "itemesp:moving" -> "Falling ItemESP";
+				case "itemesp:traced" -> "Traced ItemESP";
+				default -> tracerLabels.getOrDefault(key,
+					deriveTracerLabel(key));
+			};
+			if(colorCounts.getOrDefault(key, 0) > 1 && !label.contains(" ("))
+				label +=
+					" (" + getTracerColorCategory(key, entry.getValue()) + ")";
+			entries.add(new TracerLegendEntry(label, entry.getValue()));
+		}
+		tracerLegendFrame.clear();
+		return entries;
+	}
+	
+	private void addEnabledHackTracers(Map<String, Integer> sources)
+	{
+		for(var entry : tracerLegendHacks.entrySet())
+		{
+			Hack hack = entry.getValue();
+			if(!hack.isEnabled())
+				continue;
+			List<CheckboxSetting> tracerToggles = hack.getSettings().values()
+				.stream().filter(CheckboxSetting.class::isInstance)
+				.map(CheckboxSetting.class::cast)
+				.filter(s -> isTracerEnableSetting(s.getName())).toList();
+			if(!tracerToggles.isEmpty()
+				&& tracerToggles.stream().noneMatch(CheckboxSetting::isChecked))
+				continue;
+			
+			List<net.wurstclient.settings.ColorSetting> colors = hack
+				.getSettings().values().stream()
+				.filter(net.wurstclient.settings.ColorSetting.class::isInstance)
+				.map(net.wurstclient.settings.ColorSetting.class::cast)
+				.toList();
+			for(var color : colors)
+			{
+				String source =
+					getTracerLegendSource(entry.getKey(), color.getName());
+				String legendKey =
+					source + "|color:" + String.format(java.util.Locale.ROOT,
+						"%06x", color.getColorI() & 0xFFFFFF);
+				sources.putIfAbsent(legendKey, color.getColorI());
+			}
+		}
+	}
+	
+	private static boolean isTracerEnableSetting(String name)
+	{
+		String lower = name.toLowerCase(java.util.Locale.ROOT);
+		return lower.contains("tracer") && !lower.contains("flash")
+			&& !lower.contains("nearest") && !lower.contains("range")
+			&& !lower.contains("opacity") && !lower.contains("thickness")
+			&& !lower.contains("depth");
+	}
+	
+	private static String getTracerLegendSource(String hack, String colorName)
+	{
+		String name = colorName.toLowerCase(java.util.Locale.ROOT);
+		if(hack.equals("chestesp"))
+		{
+			String category = switch(name)
+			{
+				case "chest color" -> "normal_chest";
+				case "trap chest color" -> "trapped_chest";
+				case "ender color" -> "ender_chest";
+				case "chest cart color" -> "chest_minecart";
+				case "chest boat color" -> "chest_boat";
+				case "barrel color" -> "barrel";
+				case "pots color" -> "decorated_pot";
+				case "shulker color" -> "shulker_box";
+				case "hopper color" -> "hopper";
+				case "hopper cart color" -> "hopper_minecart";
+				case "dropper color" -> "dropper";
+				case "dispenser color" -> "dispenser";
+				case "crafter color" -> "crafter";
+				case "furnace color" -> "furnace";
+				default -> null;
+			};
+			if(category != null)
+				return hack + ":" + category;
+		}
+		if(hack.equals("portalesp"))
+		{
+			String category = switch(name)
+			{
+				case "nether portal color" -> "nether_portal";
+				case "end portal color" -> "end_portal";
+				case "end portal frame color" -> "end_portal_frame";
+				case "end gateway color" -> "end_gateway";
+				case "broken portal esp color" -> "broken_portal";
+				default -> null;
+			};
+			if(category != null)
+				return hack + ":" + category;
+		}
+		return hack;
+	}
+	
+	public record TracerLegendEntry(String label, int color)
+	{}
+	
+	private String getTracerColorCategory(String source, int color)
+	{
+		String root = source.contains(":")
+			? source.substring(0, source.indexOf(':')) : source;
+		Hack hack = WURST.getHax().getHackByName(root);
+		if(hack != null)
+			for(var setting : hack.getSettings().values())
+				if(setting instanceof net.wurstclient.settings.ColorSetting cs
+					&& (cs.getColorI() & 0xFFFFFF) == (color & 0xFFFFFF))
+				{
+					String name =
+						cs.getName().replaceFirst("(?i)\\s+color$", "").trim();
+					if(!name.isEmpty())
+						return name;
+				}
+		return String.format(java.util.Locale.ROOT, "#%06X", color & 0xFFFFFF);
+	}
+	
 	public void toggleAllTracers()
 	{
 		disableAllTracers.setChecked(!disableAllTracers.isChecked());
@@ -640,6 +882,9 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 			return false;
 		
 		CheckboxSetting toggle = tracerSourceToggles.get(key);
+		if(toggle == null && key.contains(":"))
+			toggle =
+				tracerSourceToggles.get(key.substring(0, key.indexOf(':')));
 		return toggle != null && toggle.isChecked();
 	}
 	
@@ -648,8 +893,15 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 		String key = normalizeTracerSource(source);
 		if(key == null || tracerSourceToggles.containsKey(key))
 			return;
+		if(key.contains(":"))
+		{
+			String parent = key.substring(0, key.indexOf(':'));
+			if(tracerSourceToggles.containsKey(parent))
+				return;
+		}
 		
-		registerTracerSource(key, deriveTracerLabel(key), false);
+		registerTracerSource(key,
+			tracerLabels.getOrDefault(key, deriveTracerLabel(key)), false);
 		WURST.saveSettings();
 	}
 	
@@ -675,7 +927,7 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 		return trimmed.isEmpty() ? null : trimmed.toLowerCase();
 	}
 	
-	private static String deriveTracerLabel(String source)
+	private String deriveTracerLabel(String source)
 	{
 		if(source == null || source.isBlank())
 			return "Unknown tracer";
@@ -686,12 +938,44 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 		if(source.contains(":"))
 		{
 			String[] parts = source.split(":", 2);
-			return parts[0].substring(0, 1).toUpperCase()
-				+ parts[0].substring(1) + " " + parts[1];
+			String hackLabel = tracerLabels.getOrDefault(parts[0],
+				parts[0].substring(0, 1).toUpperCase() + parts[0].substring(1));
+			String category = switch(parts[0] + ":" + parts[1])
+			{
+				case "chestesp:normal_chest" -> "Chest";
+				case "chestesp:trapped_chest" -> "Trapped Chest";
+				case "chestesp:ender_chest" -> "Ender Chest";
+				case "chestesp:chest_minecart" -> "Chest Minecart";
+				case "chestesp:chest_boat" -> "Chest Boat";
+				case "chestesp:barrel" -> "Barrel";
+				case "chestesp:decorated_pot" -> "Decorated Pot";
+				case "chestesp:shulker_box" -> "Shulker Box";
+				case "chestesp:hopper" -> "Hopper";
+				case "chestesp:hopper_minecart" -> "Hopper Minecart";
+				case "chestesp:dropper" -> "Dropper";
+				case "chestesp:dispenser" -> "Dispenser";
+				case "chestesp:crafter" -> "Crafter";
+				case "chestesp:furnace" -> "Furnace";
+				case "portalesp:nether_portal" -> "Nether Portal";
+				case "portalesp:end_portal" -> "End Portal";
+				case "portalesp:end_portal_frame" -> "End Portal Frame";
+				case "portalesp:end_gateway" -> "End Gateway";
+				case "portalesp:broken_portal" -> "Broken Portal";
+				default -> null;
+			};
+			if(category != null)
+				return hackLabel + " (" + category + ")";
+			return hackLabel + " " + parts[1];
 		}
 		
 		if(source.endsWith("esp"))
-			return source.substring(0, source.length() - 3) + "ESP";
+		{
+			String name = source.substring(0, source.length() - 3);
+			if(name.isEmpty())
+				return "ESP";
+			return name.substring(0, 1).toUpperCase() + name.substring(1)
+				+ "ESP";
+		}
 		
 		return source.substring(0, 1).toUpperCase() + source.substring(1);
 	}

@@ -478,8 +478,12 @@ public final class MobEspHack extends Hack implements UpdateListener,
 		{
 			if(!(e instanceof Villager villager))
 				continue;
-			
-			double dist = MC.player.distanceTo(villager);
+				
+			// Use the render camera here: Freecam moves the camera
+			// independently
+			// of the player, and world-label scaling must follow what is on
+			// screen.
+			double dist = cam.distanceTo(villager.position());
 			boolean pointedAtVillager =
 				MC.hitResult instanceof EntityHitResult hit
 					&& hit.getEntity() == villager;

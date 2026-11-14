@@ -7,6 +7,8 @@
  */
 package net.wurstclient.mixin.ui_utils;
 
+import java.util.ArrayList;
+import java.util.List;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -20,6 +22,7 @@ import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.CycleButton;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
@@ -45,6 +48,9 @@ public abstract class UiUtilsAbstractContainerScreenMixin<T extends AbstractCont
 {
 	@Unique
 	private EditBox uiUtilsChatField;
+	
+	@Unique
+	private List<GuiEventListener> uiUtilsInputWidgets;
 	
 	@Shadow
 	protected int leftPos;
@@ -188,13 +194,20 @@ public abstract class UiUtilsAbstractContainerScreenMixin<T extends AbstractCont
 			+ (buttonCount - 1) * spacing + spacing + chatHeight;
 		int startY = Math.max(5, (this.height - blockHeight) / 2);
 		int baseX = 8;
-		int nextY = UiUtils.addUiWidgets(mc, baseX, startY, spacing,
-			this::addRenderableWidget);
+		uiUtilsInputWidgets = new ArrayList<>();
+		int nextY = UiUtils.addUiWidgets(mc, baseX, startY, spacing, widget -> {
+			uiUtilsInputWidgets.add(widget);
+			addRenderableWidget(widget);
+		});
 		uiUtilsChatField =
 			UiUtils.createChatField(mc, this.font, baseX, nextY + spacing);
 		addRenderableWidget(uiUtilsChatField);
 		
 		initFabricateOverlay();
+		updateOverlayVisibility();
+		if(UiUtilsState.fabricateOverlayOpen)
+			layoutFabricateOverlay();
+		raiseMyWidgetsForInput();
 	}
 	
 	@Inject(at = @At("TAIL"),
@@ -294,7 +307,14 @@ public abstract class UiUtilsAbstractContainerScreenMixin<T extends AbstractCont
 	private void initFabricateOverlay()
 	{
 		if(fabricateOverlayInitialized)
+		{
+			// Screen.repositionElements() rebuilds the child/renderable lists
+			// and
+			// calls init() again, so re-register the existing overlay widgets.
+			for(AbstractWidget widget : getFabricateOverlayWidgets())
+				addRenderableWidget(widget);
 			return;
+		}
 		
 		overlayClickSlotModeButton = Button
 			.builder(Component.literal("Click Slot"),
@@ -552,6 +572,41 @@ public abstract class UiUtilsAbstractContainerScreenMixin<T extends AbstractCont
 		this.overlayYPos = overlayY;
 		this.overlayBottomY = (fabricateMode == MODE_CLICK_SLOT) ? (y + 20 + 12)
 			: (buttonY + 20 + 12);
+		raiseMyWidgetsForInput();
+	}
+	
+	@Unique
+	private AbstractWidget[] getFabricateOverlayWidgets()
+	{
+		return new AbstractWidget[]{overlayClickSlotModeButton,
+			overlayButtonClickModeButton, overlayClickSyncIdField,
+			overlayClickRevisionField, overlayClickSlotField,
+			overlayClickButtonField, overlayClickActionButton,
+			overlayClickDelayToggle, overlayClickTimesField,
+			overlayClickSendButton, overlayButtonSyncIdField,
+			overlayButtonIdField, overlayButtonDelayToggle,
+			overlayButtonTimesField, overlayButtonSendButton};
+	}
+	
+	@Unique
+	@SuppressWarnings("unchecked")
+	private void raiseMyWidgetsForInput()
+	{
+		List<GuiEventListener> targets = (List<GuiEventListener>)children();
+		int front = 0;
+		for(AbstractWidget widget : getFabricateOverlayWidgets())
+			if(widget != null && targets.remove(widget))
+				targets.add(front++, widget);
+		if(uiUtilsChatField != null && targets.remove(uiUtilsChatField))
+			targets.add(front++, uiUtilsChatField);
+		if(uiUtilsInputWidgets != null)
+		{
+			for(GuiEventListener widget : uiUtilsInputWidgets)
+			{
+				if(widget != null && targets.remove(widget))
+					targets.add(front++, widget);
+			}
+		}
 	}
 	
 	@Unique

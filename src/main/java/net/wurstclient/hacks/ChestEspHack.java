@@ -1187,9 +1187,45 @@ public class ChestEspHack extends Hack implements UpdateListener,
 			if(tracerFlash.isChecked())
 				color = RenderUtils.flashColor(color);
 			
-			RenderUtils.drawTracers("chestesp", matrixStack, partialTicks, ends,
-				color, false);
+			RenderUtils.drawTracers(getTracerSource(group), matrixStack,
+				partialTicks, ends, color, false);
 		}
+	}
+	
+	private String getTracerSource(ChestEspGroup group)
+	{
+		String category;
+		if(group == groups.normalChests)
+			category = "normal_chest";
+		else if(group == groups.trapChests)
+			category = "trapped_chest";
+		else if(group == groups.enderChests)
+			category = "ender_chest";
+		else if(group == groups.chestCarts)
+			category = "chest_minecart";
+		else if(group == groups.chestBoats)
+			category = "chest_boat";
+		else if(group == groups.barrels)
+			category = "barrel";
+		else if(group == groups.pots)
+			category = "decorated_pot";
+		else if(group == groups.shulkerBoxes)
+			category = "shulker_box";
+		else if(group == groups.hoppers)
+			category = "hopper";
+		else if(group == groups.hopperCarts)
+			category = "hopper_minecart";
+		else if(group == groups.droppers)
+			category = "dropper";
+		else if(group == groups.dispensers)
+			category = "dispenser";
+		else if(group == groups.crafters)
+			category = "crafter";
+		else if(group == groups.furnaces)
+			category = "furnace";
+		else
+			category = "other";
+		return "chestesp:" + category;
 	}
 	
 	private void handleBlockUpdate(BlockPos pos, BlockState newState)

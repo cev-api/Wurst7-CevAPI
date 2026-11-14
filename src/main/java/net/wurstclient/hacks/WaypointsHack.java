@@ -1272,15 +1272,18 @@ public final class WaypointsHack extends Hack
 				double lx = wp.getX() + 0.5;
 				double ly = baseY;
 				double lz = wp.getZ() + 0.5;
+				Vec3 labelCamera = RenderUtils.getCameraPos();
+				double labelDistance =
+					labelCamera.distanceTo(new Vec3(lx, ly, lz));
 				// Anchor at a near, fixed distance when either:
 				// - Infinite labels are enabled (override distance completely),
 				// or
 				// - The label is extremely far away (to avoid engine culling),
 				// even if we're still within the slider distance.
-				boolean needAnchor = infiniteLabels || dist > 256.0;
+				boolean needAnchor = infiniteLabels || labelDistance > 256.0;
 				if(needAnchor)
 				{
-					Vec3 cam = RenderUtils.getCameraPos();
+					Vec3 cam = labelCamera;
 					Vec3 target = new Vec3(lx, ly, lz);
 					Vec3 dir = target.subtract(cam);
 					double len = dir.length();
@@ -1313,7 +1316,7 @@ public final class WaypointsHack extends Hack
 					if(maxRef < nearRef + 1.0)
 						maxRef = nearRef + 1.0;
 					
-					double t = (dist - nearRef) / (maxRef - nearRef);
+					double t = (labelDistance - nearRef) / (maxRef - nearRef);
 					t = Math.max(0.0, Math.min(1.0, t));
 					
 					t = t * t * (3.0 - 2.0 * t);

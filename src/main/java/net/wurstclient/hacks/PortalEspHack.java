@@ -444,9 +444,27 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 			List<ColoredPoint> points = ends.stream()
 				.map(v -> new ColoredPoint(v, finalColor)).toList();
 			
-			RenderUtils.drawTracers("portalesp", matrixStack, partialTicks,
-				points, false, width);
+			RenderUtils.drawTracers(getTracerSource(group), matrixStack,
+				partialTicks, points, false, width);
 		}
+	}
+	
+	private String getTracerSource(PortalEspBlockGroup group)
+	{
+		String category;
+		if(group == netherPortal)
+			category = "nether_portal";
+		else if(group == endPortal)
+			category = "end_portal";
+		else if(group == endPortalFrame)
+			category = "end_portal_frame";
+		else if(group == endGateway)
+			category = "end_gateway";
+		else if(group == brokenNetherPortal)
+			category = "broken_portal";
+		else
+			category = "other";
+		return "portalesp:" + category;
 	}
 	
 	private void updateGroupBoxes()

@@ -25,6 +25,8 @@ public final class IngameHUD implements GUIRenderListener
 		new ElytraInfoHud(WurstClient.INSTANCE.getHax().elytraInfoHack);
 	private final GameStatsHud gameStatsHud =
 		new GameStatsHud(WurstClient.INSTANCE.getHax().gameStatsHack);
+	private final TracerLegendHud tracerLegendHud =
+		new TracerLegendHud(WurstClient.INSTANCE.getHax().globalToggleHack);
 	private final ClientMessageOverlay clientMessageOverlay =
 		ClientMessageOverlay.getInstance();
 	private final HackPerformanceOverlay performanceOverlay =
@@ -54,6 +56,7 @@ public final class IngameHUD implements GUIRenderListener
 		elytraInfoHud.render(context);
 		elytraInfoHud.renderElytraPitchStatus(context);
 		gameStatsHud.render(context);
+		tracerLegendHud.render(context);
 		clientMessageOverlay.render(context);
 		
 		if(itemHandlerHud == null)

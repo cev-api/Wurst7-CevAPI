@@ -213,6 +213,21 @@ public enum RenderUtils
 		}
 	}
 	
+	private static void recordTracerLegendColor(int color)
+	{
+		if(WurstClient.INSTANCE == null
+			|| WurstClient.INSTANCE.getHax() == null)
+			return;
+		String source = TRACER_SOURCE.get();
+		if(source == null)
+			source = net.wurstclient.render.esp.EspViewCulling.getSource();
+		if(source == null)
+			source = deriveTracerSource();
+		if(source != null)
+			WurstClient.INSTANCE.getHax().globalToggleHack
+				.recordTracerLegendColor(source, color);
+	}
+	
 	public static void applyRegionalRenderOffset(PoseStack matrixStack)
 	{
 		applyRegionalRenderOffset(matrixStack, getCameraRegion());
@@ -634,6 +649,7 @@ public enum RenderUtils
 			return;
 		if(shouldCullEspPoint(end) || !tryReserveEspRenderSlot())
 			return;
+		recordTracerLegendColor(color);
 		
 		if(!enforceVisibility)
 			depthTest = NiceWurstModule.enforceDepthTest(depthTest);
@@ -668,6 +684,9 @@ public enum RenderUtils
 		ends = limitNearestTracerEnds(ends);
 		if(shouldSuppressAllTracers())
 			return;
+		if(ends == null || ends.isEmpty())
+			return;
+		recordTracerLegendColor(color);
 		
 		boolean enforceVisibility =
 			NiceWurstModule.shouldEnforceTracerVisibility();
@@ -739,6 +758,9 @@ public enum RenderUtils
 		ends = limitNearestColoredTracerEnds(ends);
 		if(shouldSuppressAllTracers())
 			return;
+		if(ends == null || ends.isEmpty())
+			return;
+		recordTracerLegendColor(ends.get(0).color());
 		
 		boolean enforceVisibility =
 			NiceWurstModule.shouldEnforceTracerVisibility();
@@ -815,6 +837,7 @@ public enum RenderUtils
 		
 		if(ends == null || ends.isEmpty())
 			return;
+		recordTracerLegendColor(ends.get(0).color());
 		
 		boolean enforceVisibility =
 			NiceWurstModule.shouldEnforceTracerVisibility();
