@@ -17,16 +17,17 @@ import net.wurstclient.util.HackPerformanceTracker;
 
 public interface GUIRenderListener extends Listener
 {
-	public void onRenderGUI(GuiGraphicsExtractor context, float partialTicks);
+	public void onRenderGUI(GuiGraphicsExtractor extractor, float partialTicks);
 	
 	public static class GUIRenderEvent extends Event<GUIRenderListener>
 	{
 		private final float partialTicks;
-		private final GuiGraphicsExtractor context;
+		private final GuiGraphicsExtractor extractor;
 		
-		public GUIRenderEvent(GuiGraphicsExtractor context, float partialTicks)
+		public GUIRenderEvent(GuiGraphicsExtractor extractor,
+			float partialTicks)
 		{
-			this.context = context;
+			this.extractor = extractor;
 			this.partialTicks = partialTicks;
 		}
 		
@@ -38,14 +39,14 @@ public interface GUIRenderListener extends Listener
 			{
 				if(!profile)
 				{
-					listener.onRenderGUI(context, partialTicks);
+					listener.onRenderGUI(extractor, partialTicks);
 					continue;
 				}
 				
 				long start = System.nanoTime();
 				try
 				{
-					listener.onRenderGUI(context, partialTicks);
+					listener.onRenderGUI(extractor, partialTicks);
 					
 				}finally
 				{

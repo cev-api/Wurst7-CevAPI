@@ -33,9 +33,9 @@ public final class ClickGuiScreen extends Screen
 	}
 	
 	@Override
-	public boolean mouseClicked(MouseButtonEvent context, boolean doubleClick)
+	public boolean mouseClicked(MouseButtonEvent extractor, boolean doubleClick)
 	{
-		return gui.handleMouseClick(context);
+		return gui.handleMouseClick(extractor);
 	}
 	
 	@Override
@@ -46,20 +46,21 @@ public final class ClickGuiScreen extends Screen
 	}
 	
 	@Override
-	public boolean mouseReleased(MouseButtonEvent context)
+	public boolean mouseReleased(MouseButtonEvent extractor)
 	{
-		gui.handleMouseRelease(context.x(), context.y(), context.button());
-		return super.mouseReleased(context);
+		gui.handleMouseRelease(extractor.x(), extractor.y(),
+			extractor.button());
+		return super.mouseReleased(extractor);
 	}
 	
 	@Override
-	public boolean mouseDragged(MouseButtonEvent context, double deltaX,
+	public boolean mouseDragged(MouseButtonEvent extractor, double deltaX,
 		double deltaY)
 	{
-		if(gui.handleMouseDrag(context))
+		if(gui.handleMouseDrag(extractor))
 			return true;
 		
-		return super.mouseDragged(context, deltaX, deltaY);
+		return super.mouseDragged(extractor, deltaX, deltaY);
 	}
 	
 	@Override
@@ -72,12 +73,12 @@ public final class ClickGuiScreen extends Screen
 	}
 	
 	@Override
-	public boolean keyPressed(KeyEvent context)
+	public boolean keyPressed(KeyEvent extractor)
 	{
-		if(gui.handleKeyPressed(context))
+		if(gui.handleKeyPressed(extractor))
 			return true;
 		
-		return super.keyPressed(context);
+		return super.keyPressed(extractor);
 	}
 	
 	@Override
@@ -90,17 +91,18 @@ public final class ClickGuiScreen extends Screen
 	}
 	
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+	public void extractRenderState(GuiGraphicsExtractor extractor, int mouseX,
 		int mouseY, float partialTicks)
 	{
 		for(Renderable drawable : renderables)
-			drawable.extractRenderState(context, mouseX, mouseY, partialTicks);
+			drawable.extractRenderState(extractor, mouseX, mouseY,
+				partialTicks);
 		
-		gui.extractRenderState(context, mouseX, mouseY, partialTicks);
+		gui.extractRenderState(extractor, mouseX, mouseY, partialTicks);
 	}
 	
 	@Override
-	public void extractBackground(GuiGraphicsExtractor context, int mouseX,
+	public void extractBackground(GuiGraphicsExtractor extractor, int mouseX,
 		int mouseY, float deltaTicks)
 	{
 		// Don't blur

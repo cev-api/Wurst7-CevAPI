@@ -37,7 +37,6 @@ import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.MiningStateCompat;
 import net.wurstclient.util.MovementPacketCompat;
 import net.wurstclient.util.MiningTunnel;
-import net.wurstclient.util.RotationUtils;
 
 @SearchTags({"speed nuker", "FastNuker", "fast nuker"})
 @DontSaveState
@@ -202,7 +201,7 @@ public final class SpeedNukerHack extends Hack
 			}
 		}
 		
-		Vec3 eyesVec = RotationUtils.getEyesPos();
+		Vec3 eyesVec = MC.player.getEyePosition();
 		BlockPos eyesBlock = BlockPos.containing(eyesVec);
 		double rangeSq = range.getValueSq();
 		int blockRange = range.getValueCeil();

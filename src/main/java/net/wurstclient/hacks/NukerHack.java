@@ -35,7 +35,6 @@ import net.wurstclient.util.BlockBreakingCache;
 import net.wurstclient.util.BlockUtils;
 import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.OverlayRenderer;
-import net.wurstclient.util.RotationUtils;
 
 public final class NukerHack extends Hack
 	implements UpdateListener, RenderListener
@@ -144,8 +143,7 @@ public final class NukerHack extends Hack
 		if(MC.options.keyAttack.isDown() || commonSettings.isIdModeWithAir())
 			return;
 		
-		Vec3 eyesVec = RotationUtils.getEyesPos();
-		BlockPos eyesBlock = BlockPos.containing(eyesVec);
+		BlockPos eyesBlock = BlockPos.containing(MC.player.getEyePosition());
 		double rangeSq = range.getValueSq();
 		int blockRange = range.getValueCeil();
 		
@@ -169,7 +167,7 @@ public final class NukerHack extends Hack
 				.filterOutRecentBlocks(stream.map(BlockBreakingParams::pos));
 			if(blocks.isEmpty())
 			{
-				attackOneEntity(eyesVec, rangeSq);
+				attackOneEntity(MC.player.getEyePosition(), rangeSq);
 				return;
 			}
 			
@@ -187,7 +185,7 @@ public final class NukerHack extends Hack
 		{
 			MC.gameMode.stopDestroyBlock();
 			overlay.resetProgress();
-			attackOneEntity(eyesVec, rangeSq);
+			attackOneEntity(MC.player.getEyePosition(), rangeSq);
 			return;
 		}
 		

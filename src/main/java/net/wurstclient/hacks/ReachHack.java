@@ -42,7 +42,4 @@ public final class ReachHack extends Hack
 	{
 		rangeOverride = override;
 	}
-	
-	// See LocalPlayerMixin.blockInteractionRange() and
-	// LocalPlayerMixin.entityInteractionRange()
 }

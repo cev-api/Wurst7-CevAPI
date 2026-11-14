@@ -148,10 +148,10 @@ public enum BlockUtils
 	public static BlockHitResult raycast(Vec3 from, Vec3 to,
 		ClipContext.Fluid fluidHandling)
 	{
-		ClipContext context = new ClipContext(from, to,
+		ClipContext extractor = new ClipContext(from, to,
 			ClipContext.Block.COLLIDER, fluidHandling, MC.player);
 		
-		return MC.level.clip(context);
+		return MC.level.clip(extractor);
 	}
 	
 	public static BlockHitResult raycast(Vec3 from, Vec3 to)
@@ -166,7 +166,7 @@ public enum BlockUtils
 	
 	public static boolean hasLineOfSight(Vec3 to)
 	{
-		return raycast(RotationUtils.getEyesPos(), to)
+		return raycast(MC.player.getEyePosition(), to)
 			.getType() == HitResult.Type.MISS;
 	}
 	

@@ -13,7 +13,6 @@ import java.util.List;
 import java.util.function.BiConsumer;
 
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
-import net.minecraft.util.Mth;
 import net.wurstclient.settings.Setting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
@@ -56,7 +55,7 @@ public final class SuggestionHandler
 				.filter(s -> s.startsWith(draftMessage.toLowerCase())).count();
 			int maxPerDraft = maxSuggestionsPerDraft.getValueI();
 			
-			return Mth.clamp(maxPerDraft - existing, 0, maxPerDraft);
+			return Math.clamp(maxPerDraft - existing, 0, maxPerDraft);
 		}
 	}
 	

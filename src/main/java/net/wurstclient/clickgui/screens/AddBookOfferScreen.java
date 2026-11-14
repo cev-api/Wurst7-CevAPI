@@ -321,44 +321,44 @@ public final class AddBookOfferScreen extends Screen
 	}
 	
 	@Override
-	public boolean mouseClicked(MouseButtonEvent context, boolean doubleClick)
+	public boolean mouseClicked(MouseButtonEvent extractor, boolean doubleClick)
 	{
-		if(searchField.mouseClicked(context, doubleClick))
+		if(searchField.mouseClicked(extractor, doubleClick))
 		{
 			setFocused(searchField);
 			return true;
 		}
 		
-		boolean childClicked = super.mouseClicked(context, doubleClick);
+		boolean childClicked = super.mouseClicked(extractor, doubleClick);
 		
-		levelField.mouseClicked(context, doubleClick);
-		priceField.mouseClicked(context, doubleClick);
+		levelField.mouseClicked(extractor, doubleClick);
+		priceField.mouseClicked(extractor, doubleClick);
 		
-		if(context.button() == InputConstants.MOUSE_BUTTON_4)
-			cancelButton.onPress(context);
+		if(extractor.button() == InputConstants.MOUSE_BUTTON_4)
+			cancelButton.onPress(extractor);
 		
 		return childClicked;
 	}
 	
 	@Override
-	public boolean keyPressed(KeyEvent context)
+	public boolean keyPressed(KeyEvent extractor)
 	{
-		switch(context.key())
+		switch(extractor.key())
 		{
 			case InputConstants.KEY_RETURN:
 			if(addButton.active)
-				addButton.onPress(context);
+				addButton.onPress(extractor);
 			break;
 			
 			case InputConstants.KEY_ESCAPE:
-			cancelButton.onPress(context);
+			cancelButton.onPress(extractor);
 			break;
 			
 			default:
 			break;
 		}
 		
-		return super.keyPressed(context);
+		return super.keyPressed(extractor);
 	}
 	
 	@Override
@@ -376,47 +376,51 @@ public final class AddBookOfferScreen extends Screen
 	}
 	
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+	public void extractRenderState(GuiGraphicsExtractor extractor, int mouseX,
 		int mouseY, float partialTicks)
 	{
-		Matrix3x2fStack matrixStack = context.pose();
+		Matrix3x2fStack matrixStack = extractor.pose();
 		
-		listGui.extractRenderState(context, mouseX, mouseY, partialTicks);
+		listGui.extractRenderState(extractor, mouseX, mouseY, partialTicks);
 		
 		matrixStack.pushMatrix();
 		
 		Font tr = minecraft.font;
 		String titleText =
 			"Available Books (" + listGui.children().size() + ")";
-		context.centeredText(tr, titleText, width / 2, 12, CommonColors.WHITE);
+		extractor.centeredText(tr, titleText, width / 2, 12,
+			CommonColors.WHITE);
 		
-		searchField.extractRenderState(context, mouseX, mouseY, partialTicks);
+		searchField.extractRenderState(extractor, mouseX, mouseY, partialTicks);
 		if(searchField.getValue().isEmpty() && !searchField.isFocused())
-			context.text(tr, "search or custom ID", searchField.getX() + 4,
+			extractor.text(tr, "search or custom ID", searchField.getX() + 4,
 				searchField.getY() + 5, CommonColors.GRAY);
 		
-		levelField.extractRenderState(context, mouseX, mouseY, partialTicks);
-		priceField.extractRenderState(context, mouseX, mouseY, partialTicks);
+		levelField.extractRenderState(extractor, mouseX, mouseY, partialTicks);
+		priceField.extractRenderState(extractor, mouseX, mouseY, partialTicks);
 		
 		for(Renderable drawable : renderables)
-			drawable.extractRenderState(context, mouseX, mouseY, partialTicks);
+			drawable.extractRenderState(extractor, mouseX, mouseY,
+				partialTicks);
 		
 		matrixStack.translate(width / 2 - 100, 0);
 		
-		context.text(tr, "Level:", 0, height - 72, WurstColors.VERY_LIGHT_GRAY);
-		context.text(tr, "Max price:", 0, height - 56,
+		extractor.text(tr, "Level:", 0, height - 72,
+			WurstColors.VERY_LIGHT_GRAY);
+		extractor.text(tr, "Max price:", 0, height - 56,
 			WurstColors.VERY_LIGHT_GRAY);
 		
 		if(alreadyAdded && offerToAdd != null)
 		{
 			String errorText = offerToAdd.getEnchantmentNameWithLevel()
 				+ " is already on your list!";
-			context.text(tr, errorText, 0, height - 40, WurstColors.LIGHT_RED);
+			extractor.text(tr, errorText, 0, height - 40,
+				WurstColors.LIGHT_RED);
 		}
 		
 		matrixStack.popMatrix();
 		
-		RenderUtils.drawItem(context, new ItemStack(Items.EMERALD),
+		RenderUtils.drawItem(extractor, new ItemStack(Items.EMERALD),
 			width / 2 - 16, height - 58, false);
 	}
 	
@@ -458,23 +462,23 @@ public final class AddBookOfferScreen extends Screen
 		}
 		
 		@Override
-		public boolean mouseClicked(MouseButtonEvent context,
+		public boolean mouseClicked(MouseButtonEvent extractor,
 			boolean doubleClick)
 		{
-			if(context.button() != InputConstants.MOUSE_BUTTON_LEFT)
+			if(extractor.button() != InputConstants.MOUSE_BUTTON_LEFT)
 				return false;
 			
 			long timeSinceLastClick = Util.getMillis() - lastClickTime;
 			lastClickTime = Util.getMillis();
 			
 			if(timeSinceLastClick < 250 && addButton.active)
-				addButton.onPress(context);
+				addButton.onPress(extractor);
 			
 			return true;
 		}
 		
 		@Override
-		public void extractContent(GuiGraphicsExtractor context, int mouseX,
+		public void extractContent(GuiGraphicsExtractor extractor, int mouseX,
 			int mouseY, boolean hovered, float tickDelta)
 		{
 			int x = getContentX();
@@ -483,7 +487,7 @@ public final class AddBookOfferScreen extends Screen
 			Item item = BuiltInRegistries.ITEM
 				.getValue(Identifier.parse("enchanted_book"));
 			ItemStack stack = new ItemStack(item);
-			RenderUtils.drawItem(context, stack, x + 1, y + 1, true);
+			RenderUtils.drawItem(extractor, stack, x + 1, y + 1, true);
 			
 			Font tr = minecraft.font;
 			String name = bookOffer.getEnchantmentName();
@@ -491,16 +495,16 @@ public final class AddBookOfferScreen extends Screen
 				.map(entry -> entry.is(EnchantmentTags.CURSE)).orElse(false);
 			int nameColor =
 				isCurse ? WurstColors.LIGHT_RED : WurstColors.VERY_LIGHT_GRAY;
-			context.text(tr, name, x + 28, y, nameColor, false);
+			extractor.text(tr, name, x + 28, y, nameColor, false);
 			
-			context.text(tr, bookOffer.id(), x + 28, y + 9,
+			extractor.text(tr, bookOffer.id(), x + 28, y + 9,
 				CommonColors.LIGHT_GRAY, false);
 			
 			int maxLevel = bookOffer.getEnchantmentEntry()
 				.map(entry -> entry.value().getMaxLevel())
 				.orElse(bookOffer.level());
 			String levels = maxLevel + (maxLevel == 1 ? " level" : " levels");
-			context.text(tr, levels, x + 28, y + 18, CommonColors.LIGHT_GRAY,
+			extractor.text(tr, levels, x + 28, y + 18, CommonColors.LIGHT_GRAY,
 				false);
 		}
 		

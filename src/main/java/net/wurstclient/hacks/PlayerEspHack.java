@@ -1047,8 +1047,8 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		// Otherwise fall back to the dynamic distance-based coloring (default).
 		
 		float f = MC.player.distanceTo(e) / 20F;
-		float r = Mth.clamp(2 - f, 0, 1);
-		float g = Mth.clamp(f, 0, 1);
+		float r = Math.clamp(2 - f, 0, 1);
+		float g = Math.clamp(f, 0, 1);
 		float[] rgb = {r, g, 0};
 		return RenderUtils.toIntColor(rgb, 0.5F);
 	}

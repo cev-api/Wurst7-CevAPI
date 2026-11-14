@@ -18,6 +18,7 @@ import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.events.MouseUpdateListener;
+import net.wurstclient.events.PreMotionListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.AttackSpeedSliderSetting;
@@ -33,7 +34,7 @@ import net.wurstclient.util.Rotation;
 import net.wurstclient.util.RotationUtils;
 
 public final class AimAssistHack extends Hack
-	implements UpdateListener, MouseUpdateListener
+	implements UpdateListener, PreMotionListener, MouseUpdateListener
 {
 	private final SliderSetting range =
 		new SliderSetting("Range", 4.5, 1, 128, 0.05, ValueDisplay.DECIMAL);
@@ -54,8 +55,7 @@ public final class AimAssistHack extends Hack
 		new SliderSetting("FOV", "description.wurst.setting.aimassist.fov", 120,
 			30, 360, 10, ValueDisplay.DEGREES);
 	
-	private final AimAtSetting aimAt = new AimAtSetting(
-		"What point in the target's hitbox AimAssist should aim at.");
+	private final AimAtSetting aimAt = new AimAtSetting(this);
 	
 	private final SliderSetting ignoreMouseInput =
 		new SliderSetting("Ignore mouse input",
@@ -176,6 +176,7 @@ public final class AimAssistHack extends Hack
 		
 		rightClickAttackSpeed.resetTimer();
 		EVENTS.add(UpdateListener.class, this);
+		EVENTS.add(PreMotionListener.class, this);
 		EVENTS.add(MouseUpdateListener.class, this);
 	}
 	
@@ -184,6 +185,7 @@ public final class AimAssistHack extends Hack
 	{
 		WURST.getHax().killauraHack.releaseConflict(this);
 		EVENTS.remove(UpdateListener.class, this);
+		EVENTS.remove(PreMotionListener.class, this);
 		EVENTS.remove(MouseUpdateListener.class, this);
 		target = null;
 		overrideAimPoint = null;
@@ -249,8 +251,16 @@ public final class AimAssistHack extends Hack
 		updateRightClickAutoAttack();
 		
 		WURST.getHax().autoSwordHack.setSlot(target);
+	}
+	
+	@Override
+	public void onPreMotion()
+	{
+		if(target == null)
+			return;
 		
 		// get needed rotation
+		Vec3 hitVec = getAimPoint(target);
 		Rotation needed = RotationUtils.getNeededRotations(hitVec);
 		if(horizontalRotationSuppressed)
 			needed = needed.withYaw(MC.player.getYRot());

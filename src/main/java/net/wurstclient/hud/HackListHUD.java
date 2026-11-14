@@ -41,7 +41,7 @@ public final class HackListHUD implements UpdateListener
 		WurstClient.INSTANCE.getEventManager().add(UpdateListener.class, this);
 	}
 	
-	public void render(GuiGraphicsExtractor context, float partialTicks)
+	public void render(GuiGraphicsExtractor extractor, float partialTicks)
 	{
 		lastRenderX = 0;
 		lastRenderY = 0;
@@ -63,13 +63,13 @@ public final class HackListHUD implements UpdateListener
 		int height = count == 0 ? 0
 			: count * lineHeight + Math.max(0, count - 1) * spacing;
 		
-		int baseY = isBottom ? context.guiHeight() - height - 2 : 2;
+		int baseY = isBottom ? extractor.guiHeight() - height - 2 : 2;
 		if(!isBottom)
 		{
 			IngameHUD hud = WurstClient.INSTANCE.getHud();
 			if(hud != null)
 				baseY +=
-					hud.getGameStatsHud().getHackListReservedHeight(context);
+					hud.getGameStatsHud().getHackListReservedHeight(extractor);
 		}
 		// Avoid overlapping with Wurst Logo in top-left
 		boolean isLeft = (otf.getPosition() == Position.TOP_LEFT
@@ -80,7 +80,7 @@ public final class HackListHUD implements UpdateListener
 			posY = baseY;
 		
 		int contentWidth = getContentWidth();
-		int drawX = getContentX(context, contentWidth);
+		int drawX = getContentX(extractor, contentWidth);
 		int drawY = posY + otf.getYOffset();
 		if(contentWidth > 0 && height > 0)
 		{
@@ -105,37 +105,37 @@ public final class HackListHUD implements UpdateListener
 		usePerHackColors = otf.useHackColors() && !rainbowUi;
 		
 		int totalHeight = height + posY;
-		if(otf.getMode() == Mode.COUNT || totalHeight > context.guiHeight())
-			drawCounter(context);
+		if(otf.getMode() == Mode.COUNT || totalHeight > extractor.guiHeight())
+			drawCounter(extractor);
 		else
-			drawHackList(context, partialTicks, lineHeight, spacing);
+			drawHackList(extractor, partialTicks, lineHeight, spacing);
 	}
 	
-	private void drawCounter(GuiGraphicsExtractor context)
+	private void drawCounter(GuiGraphicsExtractor extractor)
 	{
 		long size = activeHax.stream().filter(e -> isDisplayed(e.hack)).count();
 		if(getPacketToolsHackListName() != null)
 			size++;
 		String s = size + " hack" + (size != 1 ? "s" : "") + " active";
-		drawString(context, s,
+		drawString(extractor, s,
 			/* lineHeight */(int)Math.round(9 * getScale() * otf.getFontSize()),
 			/* spacing */0);
 	}
 	
-	private void drawHackList(GuiGraphicsExtractor context, float partialTicks,
-		int lineHeight, int spacing)
+	private void drawHackList(GuiGraphicsExtractor extractor,
+		float partialTicks, int lineHeight, int spacing)
 	{
 		if(otf.isAnimations())
 			for(HackListEntry e : activeHax)
-				drawWithOffset(context, e, partialTicks, lineHeight, spacing);
+				drawWithOffset(extractor, e, partialTicks, lineHeight, spacing);
 		else
 			for(HackListEntry e : activeHax)
-				drawString(context, e.hack, e.hack.getRenderName(), lineHeight,
-					spacing);
+				drawString(extractor, e.hack, e.hack.getRenderName(),
+					lineHeight, spacing);
 			
 		String packetToolsName = getPacketToolsHackListName();
 		if(packetToolsName != null)
-			drawString(context, packetToolsName, lineHeight, spacing);
+			drawString(extractor, packetToolsName, lineHeight, spacing);
 	}
 	
 	public void updateState(Hack hack)
@@ -205,7 +205,7 @@ public final class HackListHUD implements UpdateListener
 		}
 	}
 	
-	private void drawString(GuiGraphicsExtractor context, String s,
+	private void drawString(GuiGraphicsExtractor extractor, String s,
 		int lineHeight, int spacing)
 	{
 		Font tr = WurstClient.MC.font;
@@ -220,7 +220,7 @@ public final class HackListHUD implements UpdateListener
 			posX = 2 + otf.getXOffset();
 		else
 		{
-			int screenWidth = context.guiWidth();
+			int screenWidth = extractor.guiWidth();
 			posX = screenWidth - stringWidth - 2 + otf.getXOffset();
 		}
 		int alpha = (int)(otf.getTransparency() * 255) << 24;
@@ -249,20 +249,20 @@ public final class HackListHUD implements UpdateListener
 			int fillAlpha = (int)(WurstClient.INSTANCE.getOtfs().hackListOtf
 				.getShadowBoxAlpha() * otf.getTransparency() * 255);
 			int boxColor = (fillAlpha << 24);
-			context.fill(boxX1, boxY1, boxX2, boxY2, boxColor);
+			extractor.fill(boxX1, boxY1, boxX2, boxY2, boxColor);
 		}else
 		{
-			RenderUtils.drawScaledText(context, tr, s, shadowX, shadowY,
+			RenderUtils.drawScaledText(extractor, tr, s, shadowX, shadowY,
 				0x04000000 | alpha, false, scale);
 		}
-		context.guiRenderState.up();
-		RenderUtils.drawScaledText(context, tr, s, mainX, mainY,
+		extractor.guiRenderState.up();
+		RenderUtils.drawScaledText(extractor, tr, s, mainX, mainY,
 			(lineColor | alpha), false, scale);
 		
 		posY += lineHeight + spacing;
 	}
 	
-	private void drawString(GuiGraphicsExtractor context, Hack hack, String s,
+	private void drawString(GuiGraphicsExtractor extractor, Hack hack, String s,
 		int lineHeight, int spacing)
 	{
 		Font tr = WurstClient.MC.font;
@@ -282,7 +282,7 @@ public final class HackListHUD implements UpdateListener
 			posX = 2 + otf.getXOffset();
 		else
 		{
-			int screenWidth = context.guiWidth();
+			int screenWidth = extractor.guiWidth();
 			posX = screenWidth - totalWidth - 2 + otf.getXOffset();
 		}
 		int alpha = (int)(otf.getTransparency() * 255) << 24;
@@ -316,28 +316,28 @@ public final class HackListHUD implements UpdateListener
 			int fillAlpha = (int)(WurstClient.INSTANCE.getOtfs().hackListOtf
 				.getShadowBoxAlpha() * otf.getTransparency() * 255);
 			int boxColor = (fillAlpha << 24);
-			context.fill(boxX1, boxY1, boxX2, boxY2, boxColor);
+			extractor.fill(boxX1, boxY1, boxX2, boxY2, boxColor);
 		}else
 		{
 			if(statusText != null)
-				RenderUtils.drawScaledText(context, tr, s + " " + statusText,
+				RenderUtils.drawScaledText(extractor, tr, s + " " + statusText,
 					shadowX, shadowY, 0x04000000 | alpha, false, scale);
 			else
-				RenderUtils.drawScaledText(context, tr, s, shadowX, shadowY,
+				RenderUtils.drawScaledText(extractor, tr, s, shadowX, shadowY,
 					0x04000000 | alpha, false, scale);
 		}
-		context.guiRenderState.up();
-		RenderUtils.drawScaledText(context, tr, s, mainX, mainY,
+		extractor.guiRenderState.up();
+		RenderUtils.drawScaledText(extractor, tr, s, mainX, mainY,
 			(lineColor | alpha), false, scale);
 		if(statusText != null)
-			RenderUtils.drawScaledText(context, tr, statusText,
+			RenderUtils.drawScaledText(extractor, tr, statusText,
 				mainX + stringWidth + statusGap, mainY,
 				(hack.getStatusTextColor() | alpha), false, scale);
 		
 		posY += lineHeight + spacing;
 	}
 	
-	private void drawWithOffset(GuiGraphicsExtractor context, HackListEntry e,
+	private void drawWithOffset(GuiGraphicsExtractor extractor, HackListEntry e,
 		float partialTicks, int lineHeight, int spacing)
 	{
 		Font tr = WurstClient.MC.font;
@@ -361,7 +361,7 @@ public final class HackListHUD implements UpdateListener
 			posX = 2 - (int)(5 * offset * scale) + otf.getXOffset();
 		else
 		{
-			int screenWidth = context.guiWidth();
+			int screenWidth = extractor.guiWidth();
 			posX = screenWidth - totalWidth - 2 + (int)(5 * offset * scale)
 				+ otf.getXOffset();
 		}
@@ -394,21 +394,21 @@ public final class HackListHUD implements UpdateListener
 			int fillAlpha2 = (int)(WurstClient.INSTANCE.getOtfs().hackListOtf
 				.getShadowBoxAlpha() * otf.getTransparency() * 255);
 			int boxColor2 = (fillAlpha2 << 24);
-			context.fill(boxX12, boxY12, boxX22, boxY22, boxColor2);
+			extractor.fill(boxX12, boxY12, boxX22, boxY22, boxColor2);
 		}else
 		{
 			if(statusText != null)
-				RenderUtils.drawScaledText(context, tr, s + " " + statusText,
+				RenderUtils.drawScaledText(extractor, tr, s + " " + statusText,
 					shadowX2, shadowY2, 0x04000000 | alpha, false, scale);
 			else
-				RenderUtils.drawScaledText(context, tr, s, shadowX2, shadowY2,
+				RenderUtils.drawScaledText(extractor, tr, s, shadowX2, shadowY2,
 					0x04000000 | alpha, false, scale);
 		}
-		context.guiRenderState.up();
-		RenderUtils.drawScaledText(context, tr, s, mainX2, mainY2,
+		extractor.guiRenderState.up();
+		RenderUtils.drawScaledText(extractor, tr, s, mainX2, mainY2,
 			(lineColor | alpha), false, scale);
 		if(statusText != null)
-			RenderUtils.drawScaledText(context, tr, statusText,
+			RenderUtils.drawScaledText(extractor, tr, statusText,
 				mainX2 + stringWidth + statusGap, mainY2,
 				(e.hack.getStatusTextColor() | alpha), false, scale);
 		
@@ -488,13 +488,13 @@ public final class HackListHUD implements UpdateListener
 			: null;
 	}
 	
-	private int getContentX(GuiGraphicsExtractor context, int contentWidth)
+	private int getContentX(GuiGraphicsExtractor extractor, int contentWidth)
 	{
 		boolean isLeft = (otf.getPosition() == Position.TOP_LEFT
 			|| otf.getPosition() == Position.BOTTOM_LEFT);
 		if(isLeft)
 			return 2 + otf.getXOffset();
-		return context.guiWidth() - contentWidth - 2 + otf.getXOffset();
+		return extractor.guiWidth() - contentWidth - 2 + otf.getXOffset();
 	}
 	
 	private String getStatusText(Hack hack)

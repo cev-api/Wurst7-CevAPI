@@ -194,43 +194,44 @@ public class CleanUpScreen extends Screen
 	}
 	
 	@Override
-	public boolean keyPressed(KeyEvent context)
+	public boolean keyPressed(KeyEvent extractor)
 	{
-		if(context.key() == InputConstants.KEY_RETURN)
-			cleanUpButton.onPress(context);
+		if(extractor.key() == InputConstants.KEY_RETURN)
+			cleanUpButton.onPress(extractor);
 		
-		return super.keyPressed(context);
+		return super.keyPressed(extractor);
 	}
 	
 	@Override
-	public boolean mouseClicked(MouseButtonEvent context, boolean doubleClick)
+	public boolean mouseClicked(MouseButtonEvent extractor, boolean doubleClick)
 	{
-		if(context.button() == InputConstants.MOUSE_BUTTON_4)
+		if(extractor.button() == InputConstants.MOUSE_BUTTON_4)
 		{
 			onClose();
 			return true;
 		}
 		
-		return super.mouseClicked(context, doubleClick);
+		return super.mouseClicked(extractor, doubleClick);
 	}
 	
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+	public void extractRenderState(GuiGraphicsExtractor extractor, int mouseX,
 		int mouseY, float partialTicks)
 	{
-		context.centeredText(font, "Clean Up", width / 2, 20,
+		extractor.centeredText(font, "Clean Up", width / 2, 20,
 			CommonColors.WHITE);
-		context.centeredText(font,
+		extractor.centeredText(font,
 			"Please select the servers you want to remove:", width / 2, 36,
 			CommonColors.LIGHT_GRAY);
 		
 		for(Renderable drawable : renderables)
-			drawable.extractRenderState(context, mouseX, mouseY, partialTicks);
+			drawable.extractRenderState(extractor, mouseX, mouseY,
+				partialTicks);
 		
-		renderButtonTooltip(context, mouseX, mouseY);
+		renderButtonTooltip(extractor, mouseX, mouseY);
 	}
 	
-	private void renderButtonTooltip(GuiGraphicsExtractor context, int mouseX,
+	private void renderButtonTooltip(GuiGraphicsExtractor extractor, int mouseX,
 		int mouseY)
 	{
 		for(AbstractWidget button : Screens.getWidgets(this))
@@ -244,7 +245,7 @@ public class CleanUpScreen extends Screen
 			if(cuButton.tooltip.isEmpty())
 				continue;
 			
-			context.setComponentTooltipForNextFrame(font, cuButton.tooltip,
+			extractor.setComponentTooltipForNextFrame(font, cuButton.tooltip,
 				mouseX, mouseY);
 			break;
 		}
@@ -287,9 +288,9 @@ public class CleanUpScreen extends Screen
 		}
 		
 		@Override
-		public void onPress(InputWithModifiers context)
+		public void onPress(InputWithModifiers extractor)
 		{
-			super.onPress(context);
+			super.onPress(extractor);
 			setMessage(net.minecraft.network.chat.Component
 				.literal(messageSupplier.get()));
 		}

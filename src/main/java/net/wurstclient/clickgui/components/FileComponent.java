@@ -34,7 +34,7 @@ public final class FileComponent extends Component
 	
 	@Override
 	public void handleMouseClick(double mouseX, double mouseY, int mouseButton,
-		MouseButtonEvent context)
+		MouseButtonEvent extractor)
 	{
 		if(mouseButton != InputConstants.MOUSE_BUTTON_LEFT)
 			return;
@@ -46,7 +46,7 @@ public final class FileComponent extends Component
 	}
 	
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+	public void extractRenderState(GuiGraphicsExtractor extractor, int mouseX,
 		int mouseY, float partialTicks)
 	{
 		int x1 = getX();
@@ -66,25 +66,25 @@ public final class FileComponent extends Component
 			GUI.setTooltip("\u00a7e[left-click]\u00a7r to select file");
 		
 		// background
-		context.fill(x1, y1, x3, y2, getFillColor(false));
+		extractor.fill(x1, y1, x3, y2, getFillColor(false));
 		
 		// button
-		context.fill(x3, y1, x2, y2, getFillColor(hBox));
+		extractor.fill(x3, y1, x2, y2, getFillColor(hBox));
 		int outlineColor = RenderUtils.toIntColor(GUI.getAcColor(), 0.5F);
-		RenderUtils.drawBorder2D(context, x3, y1, x2, y2, outlineColor);
+		RenderUtils.drawBorder2D(extractor, x3, y1, x2, y2, outlineColor);
 		
 		// text
 		int txtColor = GUI.getTxtColor();
 		String labelText = setting.getName() + ":";
 		String buttonText = setting.getSelectedFileName();
-		context.guiRenderState.up();
+		extractor.guiRenderState.up();
 		boolean modern =
 			getParent() instanceof net.wurstclient.clickgui.modern.ModernWindow;
 		int textY = modern ? Math.round(y1 + (getHeight() - TR.lineHeight) / 2F)
 			: y1 + 2;
-		context.text(TR, labelText, x1 + (modern ? 8 : 0), textY, txtColor,
+		extractor.text(TR, labelText, x1 + (modern ? 8 : 0), textY, txtColor,
 			false);
-		context.text(TR, buttonText, x3 + (modern ? 6 : 2), textY, txtColor,
+		extractor.text(TR, buttonText, x3 + (modern ? 6 : 2), textY, txtColor,
 			false);
 	}
 	

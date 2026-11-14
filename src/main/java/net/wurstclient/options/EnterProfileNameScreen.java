@@ -89,9 +89,9 @@ public final class EnterProfileNameScreen extends Screen
 	}
 	
 	@Override
-	public boolean keyPressed(KeyEvent context)
+	public boolean keyPressed(KeyEvent extractor)
 	{
-		switch(context.key())
+		switch(extractor.key())
 		{
 			case InputConstants.KEY_RETURN:
 			done();
@@ -102,20 +102,21 @@ public final class EnterProfileNameScreen extends Screen
 			break;
 		}
 		
-		return super.keyPressed(context);
+		return super.keyPressed(extractor);
 	}
 	
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+	public void extractRenderState(GuiGraphicsExtractor extractor, int mouseX,
 		int mouseY, float partialTicks)
 	{
-		context.centeredText(minecraft.font, promptMessage.getString(),
+		extractor.centeredText(minecraft.font, promptMessage.getString(),
 			width / 2, 20, CommonColors.WHITE);
 		
-		valueField.extractRenderState(context, mouseX, mouseY, partialTicks);
+		valueField.extractRenderState(extractor, mouseX, mouseY, partialTicks);
 		
 		for(Renderable drawable : renderables)
-			drawable.extractRenderState(context, mouseX, mouseY, partialTicks);
+			drawable.extractRenderState(extractor, mouseX, mouseY,
+				partialTicks);
 	}
 	
 	@Override

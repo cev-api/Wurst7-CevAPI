@@ -11,6 +11,8 @@ import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.state.BlockState;
 import net.wurstclient.WurstClient;
+import net.wurstclient.event.EventManager;
+import net.wurstclient.events.FlyingSpeedListener.FlyingSpeedEvent;
 import net.wurstclient.hacks.AirMinerHack;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -31,5 +33,16 @@ public abstract class PlayerMixin
 		AirMinerHack airMiner = WurstClient.INSTANCE.getHax().airMinerHack;
 		return airMiner != null && airMiner.shouldBoostMining() ? speed * 5.0F
 			: speed;
+	}
+	
+	@ModifyReturnValue(method = "getFlyingSpeed()F", at = @At("RETURN"))
+	private float onGetFlyingSpeed(float original)
+	{
+		if((Object)this != WurstClient.MC.player)
+			return original;
+		
+		FlyingSpeedEvent event = new FlyingSpeedEvent(original);
+		EventManager.fire(event);
+		return event.getSpeed();
 	}
 }

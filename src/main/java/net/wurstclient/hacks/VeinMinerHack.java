@@ -20,7 +20,6 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
-import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.events.LeftClickListener;
 import net.wurstclient.events.RenderListener;
@@ -38,7 +37,6 @@ import net.wurstclient.util.BlockBreakingCache;
 import net.wurstclient.util.BlockUtils;
 import net.wurstclient.util.OverlayRenderer;
 import net.wurstclient.util.RenderUtils;
-import net.wurstclient.util.RotationUtils;
 
 public final class VeinMinerHack extends Hack
 	implements UpdateListener, LeftClickListener, RenderListener
@@ -127,8 +125,7 @@ public final class VeinMinerHack extends Hack
 		if(MC.options.keyAttack.isDown())
 			return;
 		
-		Vec3 eyesVec = RotationUtils.getEyesPos();
-		BlockPos eyesBlock = BlockPos.containing(eyesVec);
+		BlockPos eyesBlock = BlockPos.containing(MC.player.getEyePosition());
 		double rangeSq = range.getValueSq();
 		int blockRange = range.getValueCeil();
 		

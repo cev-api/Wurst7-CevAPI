@@ -20,7 +20,7 @@ public final class WurstLogo
 {
 	private static final WurstClient WURST = WurstClient.INSTANCE;
 	
-	public void render(GuiGraphicsExtractor context)
+	public void render(GuiGraphicsExtractor extractor)
 	{
 		if(!BuildConfig.includesOtherFeature("wurstLogoOtf"))
 			return;
@@ -48,16 +48,16 @@ public final class WurstLogo
 			bgColor = RenderUtils.toIntColor(WURST.getGui().getAcColor(), 0.5F);
 		else
 			bgColor = otf.getBackgroundColor();
-		context.fill(0, 6, bgWidth, 17, bgColor);
+		extractor.fill(0, 6, bgWidth, 17, bgColor);
 		
-		context.guiRenderState.up();
+		extractor.guiRenderState.up();
 		
 		// brand and version strings
 		int textY = 8;
 		int brandX = leftPadding;
 		int versionX = brandX + brandWidth + gap;
-		context.text(tr, brand, brandX, textY, otf.getTextColor(), false);
-		context.text(tr, version, versionX, textY, otf.getTextColor(), false);
+		extractor.text(tr, brand, brandX, textY, otf.getTextColor(), false);
+		extractor.text(tr, version, versionX, textY, otf.getTextColor(), false);
 	}
 	
 	private String getVersionString()

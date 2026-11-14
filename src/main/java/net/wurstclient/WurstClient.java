@@ -29,8 +29,6 @@ import net.wurstclient.events.ChatOutputListener;
 import net.wurstclient.events.GUIRenderListener;
 import net.wurstclient.events.KeyPressListener;
 import net.wurstclient.events.MouseButtonPressListener;
-import net.wurstclient.events.PostMotionListener;
-import net.wurstclient.events.PreMotionListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.hack.HackList;
@@ -67,7 +65,7 @@ public enum WurstClient
 	public static Minecraft MC;
 	public static IMinecraft IMC;
 	
-	public static final String VERSION = "7.56.1";
+	public static final String VERSION = "7.56.2";
 	public static final String MC_VERSION = "26.3";
 	
 	private EventManager eventManager;
@@ -202,8 +200,6 @@ public enum WurstClient
 		eventManager.add(GUIRenderListener.class, hud);
 		
 		rotationFaker = new RotationFaker();
-		eventManager.add(PreMotionListener.class, rotationFaker);
-		eventManager.add(PostMotionListener.class, rotationFaker);
 		
 		updater = new WurstUpdater();
 		// Disabled upstream's update checker. Because well, you're using CEVAPI

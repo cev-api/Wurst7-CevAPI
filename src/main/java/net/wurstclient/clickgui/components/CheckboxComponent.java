@@ -35,7 +35,7 @@ public final class CheckboxComponent extends Component
 	
 	@Override
 	public void handleMouseClick(double mouseX, double mouseY, int mouseButton,
-		MouseButtonEvent context)
+		MouseButtonEvent extractor)
 	{
 		switch(mouseButton)
 		{
@@ -50,7 +50,7 @@ public final class CheckboxComponent extends Component
 	}
 	
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+	public void extractRenderState(GuiGraphicsExtractor extractor, int mouseX,
 		int mouseY, float partialTicks)
 	{
 		int x1 = getX();
@@ -69,18 +69,18 @@ public final class CheckboxComponent extends Component
 			hovering = false;
 		
 		// background
-		context.fill(x3, y1, x2, y2, getFillColor(false));
+		extractor.fill(x3, y1, x2, y2, getFillColor(false));
 		
 		// box
-		context.fill(x1, y1, x3, y2, getFillColor(hovering));
+		extractor.fill(x1, y1, x3, y2, getFillColor(hovering));
 		int outlineColor = RenderUtils.toIntColor(GUI.getAcColor(), 0.5F);
-		RenderUtils.drawBorder2D(context, x1, y1, x3, y2, outlineColor);
+		RenderUtils.drawBorder2D(extractor, x1, y1, x3, y2, outlineColor);
 		
-		context.guiRenderState.up();
+		extractor.guiRenderState.up();
 		
 		// check
 		if(setting.isChecked())
-			ClickGuiIcons.drawCheck(context, x1, y1, x3, y2, hovering,
+			ClickGuiIcons.drawCheck(extractor, x1, y1, x3, y2, hovering,
 				setting.isLocked());
 		
 		// text
@@ -89,7 +89,7 @@ public final class CheckboxComponent extends Component
 			getParent() instanceof net.wurstclient.clickgui.modern.ModernWindow;
 		int textY = modern ? Math.round(y1 + (getHeight() - TR.lineHeight) / 2F)
 			: y1 + 2;
-		context.text(TR, name, x3 + 2, textY, GUI.getTxtColor(), false);
+		extractor.text(TR, name, x3 + 2, textY, GUI.getTxtColor(), false);
 	}
 	
 	private int getFillColor(boolean hovering)

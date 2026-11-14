@@ -48,7 +48,7 @@ public final class FeatureButton extends Component
 	
 	@Override
 	public void handleMouseClick(double mouseX, double mouseY, int mouseButton,
-		MouseButtonEvent context)
+		MouseButtonEvent extractor)
 	{
 		// middle click toggles favorites
 		if(mouseButton == InputConstants.MOUSE_BUTTON_MIDDLE)
@@ -138,7 +138,7 @@ public final class FeatureButton extends Component
 	}
 	
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+	public void extractRenderState(GuiGraphicsExtractor extractor, int mouseX,
 		int mouseY, float partialTicks)
 	{
 		int x1 = getX();
@@ -158,27 +158,27 @@ public final class FeatureButton extends Component
 		// Draw one continuous row. The settings hitbox remains separate, but
 		// its old contrasting rectangle looked like a square hole beside most
 		// hacks because nearly every hack has settings.
-		context.fill(x1, y1, x2, y2,
+		extractor.fill(x1, y1, x2, y2,
 			getButtonColor(feature.isEnabled(), hovering));
 		
-		context.guiRenderState.up();
+		extractor.guiRenderState.up();
 		
 		// outlines
 		int outlineColor = RenderUtils.toIntColor(GUI.getAcColor(), 0.5F);
-		RenderUtils.drawBorder2D(context, x1, y1, x2, y2, outlineColor);
+		RenderUtils.drawBorder2D(extractor, x1, y1, x2, y2, outlineColor);
 		if(hasSettings)
-			RenderUtils.drawLine2D(context, x3, y1, x3, y2, outlineColor);
+			RenderUtils.drawLine2D(extractor, x3, y1, x3, y2, outlineColor);
 		
 		// arrow
 		if(hasSettings)
-			ClickGuiIcons.drawMinimizeArrow(context, x3, y1 + 0.5F, x2,
+			ClickGuiIcons.drawMinimizeArrow(extractor, x3, y1 + 0.5F, x2,
 				y2 - 0.5F, hSettings, !isSettingsWindowOpen());
 		
 		// text
 		String name = feature.getDisplayName();
 		int tx = x1 + (x3 - x1 - TR.width(name)) / 2;
 		int ty = y1 + 2;
-		context.text(TR, name, tx, ty, GUI.getTxtColor(), false);
+		extractor.text(TR, name, tx, ty, GUI.getTxtColor(), false);
 	}
 	
 	private int getButtonColor(boolean enabled, boolean hovering)

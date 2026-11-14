@@ -27,7 +27,7 @@ import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.HandleInputListener;
 import net.wurstclient.events.RenderListener;
-import net.wurstclient.events.UpdateListener;
+import net.wurstclient.events.PreMotionListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.InteractSwingSetting.InteractSwing;
@@ -40,7 +40,7 @@ import net.wurstclient.util.RenderUtils;
 @SearchTags({"feed aura", "BreedAura", "breed aura", "AutoBreeder",
 	"auto breeder"})
 public final class FeedAuraHack extends Hack
-	implements UpdateListener, HandleInputListener, RenderListener
+	implements PreMotionListener, HandleInputListener, RenderListener
 {
 	private final SliderSetting range = new SliderSetting("Range",
 		"Determines how far FeedAura will reach to feed animals.\n"
@@ -75,7 +75,7 @@ public final class FeedAuraHack extends Hack
 	@Override
 	protected void onEnable()
 	{
-		EVENTS.add(UpdateListener.class, this);
+		EVENTS.add(PreMotionListener.class, this);
 		EVENTS.add(HandleInputListener.class, this);
 		EVENTS.add(RenderListener.class, this);
 	}
@@ -83,7 +83,7 @@ public final class FeedAuraHack extends Hack
 	@Override
 	protected void onDisable()
 	{
-		EVENTS.remove(UpdateListener.class, this);
+		EVENTS.remove(PreMotionListener.class, this);
 		EVENTS.remove(HandleInputListener.class, this);
 		EVENTS.remove(RenderListener.class, this);
 		
@@ -92,7 +92,7 @@ public final class FeedAuraHack extends Hack
 	}
 	
 	@Override
-	public void onUpdate()
+	public void onPreMotion()
 	{
 		ItemStack heldStack = MC.player.getInventory().getSelectedItem();
 		if(heldStack.isEmpty() || heldStack.typeHolder().tags()

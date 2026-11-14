@@ -443,10 +443,7 @@ public final class AutoEatHack extends Hack implements UpdateListener
 	
 	private boolean isClickable(HitResult hitResult)
 	{
-		if(hitResult == null)
-			return false;
-		
-		if(hitResult instanceof EntityHitResult)
+		if(hitResult instanceof EntityHitResult entityHitResult)
 		{
 			Entity entity = ((EntityHitResult)hitResult).getEntity();
 			if(entity instanceof Player)
@@ -455,9 +452,9 @@ public final class AutoEatHack extends Hack implements UpdateListener
 			return !eatWhileLookingAtMobs.isChecked();
 		}
 		
-		if(hitResult instanceof BlockHitResult)
+		if(hitResult instanceof BlockHitResult blockHitResult)
 		{
-			BlockPos pos = ((BlockHitResult)hitResult).getBlockPos();
+			BlockPos pos = blockHitResult.getBlockPos();
 			if(pos == null)
 				return false;
 			

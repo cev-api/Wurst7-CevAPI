@@ -298,7 +298,7 @@ public final class WurstOptionsOtf extends OtherFeature
 			.createNarration(sup -> narration).tooltip(tooltip);
 	}
 	
-	public void drawWurstLogoOnButton(GuiGraphicsExtractor context,
+	public void drawWurstLogoOnButton(GuiGraphicsExtractor extractor,
 		Button wurstOptionsButton)
 	{
 		// Logo disabled — no longer rendered on the options button.

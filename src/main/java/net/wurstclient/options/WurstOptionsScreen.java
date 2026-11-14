@@ -686,11 +686,11 @@ public final class WurstOptionsScreen extends Screen
 	}
 	
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+	public void extractRenderState(GuiGraphicsExtractor extractor, int mouseX,
 		int mouseY, float partialTicks)
 	{
-		renderBackground(context, mouseX, mouseY, partialTicks);
-		renderTitles(context);
+		renderBackground(extractor, mouseX, mouseY, partialTicks);
+		renderTitles(extractor);
 		applyScrollLayout();
 		
 		int viewTop = contentTop - 2;
@@ -698,27 +698,27 @@ public final class WurstOptionsScreen extends Screen
 		int viewLeft = columnX[0] - 6;
 		int viewRight = columnX[columnCount - 1] + buttonWidth + 6;
 		
-		context.enableScissor(viewLeft, viewTop, viewRight, viewBottom);
-		renderSectionHeaders(context, viewTop, viewBottom);
+		extractor.enableScissor(viewLeft, viewTop, viewRight, viewBottom);
+		renderSectionHeaders(extractor, viewTop, viewBottom);
 		for(WurstOptionsButton button : contentButtons)
-			button.extractRenderState(context, mouseX, mouseY, partialTicks);
-		context.disableScissor();
+			button.extractRenderState(extractor, mouseX, mouseY, partialTicks);
+		extractor.disableScissor();
 		
 		for(Renderable drawable : renderables)
 			if(!(drawable instanceof WurstOptionsButton wo)
 				|| !contentButtons.contains(wo))
-				drawable.extractRenderState(context, mouseX, mouseY,
+				drawable.extractRenderState(extractor, mouseX, mouseY,
 					partialTicks);
 			
-		renderScrollbar(context, viewRight + 4, viewTop, viewBottom);
+		renderScrollbar(extractor, viewRight + 4, viewTop, viewBottom);
 		
-		renderButtonTooltip(context, mouseX, mouseY);
+		renderButtonTooltip(extractor, mouseX, mouseY);
 	}
 	
-	private void renderBackground(GuiGraphicsExtractor context, int mouseX,
+	private void renderBackground(GuiGraphicsExtractor extractor, int mouseX,
 		int mouseY, float partialTicks)
 	{
-		context.fillGradient(0, 0, width, height, 0xDA10131B, 0xE0121B29);
+		extractor.fillGradient(0, 0, width, height, 0xDA10131B, 0xE0121B29);
 		
 		for(int i = 0; i < columnCount; i++)
 		{
@@ -726,15 +726,15 @@ public final class WurstOptionsScreen extends Screen
 			int x2 = columnX[i] + buttonWidth + 4;
 			int y1 = contentTop - 2;
 			int y2 = backButtonY - 8;
-			context.fill(x1, y1, x2, y2, 0x66111111);
-			context.fill(x1, y1, x2, y1 + 1, 0x884A4A4A);
-			context.fill(x1, y2 - 1, x2, y2, 0x884A4A4A);
-			context.fill(x1, y1, x1 + 1, y2, 0x884A4A4A);
-			context.fill(x2 - 1, y1, x2, y2, 0x884A4A4A);
+			extractor.fill(x1, y1, x2, y2, 0x66111111);
+			extractor.fill(x1, y1, x2, y1 + 1, 0x884A4A4A);
+			extractor.fill(x1, y2 - 1, x2, y2, 0x884A4A4A);
+			extractor.fill(x1, y1, x1 + 1, y2, 0x884A4A4A);
+			extractor.fill(x2 - 1, y1, x2, y2, 0x884A4A4A);
 		}
 	}
 	
-	private void renderTitles(GuiGraphicsExtractor context)
+	private void renderTitles(GuiGraphicsExtractor extractor)
 	{
 		Font tr = minecraft.font;
 		int middleX = width / 2;
@@ -742,13 +742,13 @@ public final class WurstOptionsScreen extends Screen
 		
 		String title =
 			NiceWurstModule.isActive() ? "NiceWurst Options" : "Wurst Options";
-		context.centeredText(tr, title, middleX, titleY, CommonColors.WHITE);
-		context.centeredText(tr, "Feature-rich controls and recovery tools",
+		extractor.centeredText(tr, title, middleX, titleY, CommonColors.WHITE);
+		extractor.centeredText(tr, "Feature-rich controls and recovery tools",
 			middleX, titleY + 12, CommonColors.LIGHT_GRAY);
 	}
 	
-	private void renderSectionHeaders(GuiGraphicsExtractor context, int viewTop,
-		int viewBottom)
+	private void renderSectionHeaders(GuiGraphicsExtractor extractor,
+		int viewTop, int viewBottom)
 	{
 		Font tr = minecraft.font;
 		for(SectionHeader header : sectionHeaders)
@@ -756,12 +756,12 @@ public final class WurstOptionsScreen extends Screen
 			int y = header.y() - scrollOffset;
 			if(y + tr.lineHeight < viewTop || y > viewBottom)
 				continue;
-			context.centeredText(tr, header.title(), header.centerX(), y,
+			extractor.centeredText(tr, header.title(), header.centerX(), y,
 				WurstColors.VERY_LIGHT_GRAY);
 		}
 	}
 	
-	private void renderScrollbar(GuiGraphicsExtractor context, int x, int top,
+	private void renderScrollbar(GuiGraphicsExtractor extractor, int x, int top,
 		int bottom)
 	{
 		if(maxScroll <= 0)
@@ -773,11 +773,11 @@ public final class WurstOptionsScreen extends Screen
 		int thumbTop = top + (int)Math.round(
 			(barH - thumbH) * (scrollOffset / (double)Math.max(1, maxScroll)));
 		
-		context.fill(x, top, x + 6, bottom, 0x66303030);
-		context.fill(x, thumbTop, x + 6, thumbTop + thumbH, 0xAA808080);
+		extractor.fill(x, top, x + 6, bottom, 0x66303030);
+		extractor.fill(x, thumbTop, x + 6, thumbTop + thumbH, 0xAA808080);
 	}
 	
-	private void renderButtonTooltip(GuiGraphicsExtractor context, int mouseX,
+	private void renderButtonTooltip(GuiGraphicsExtractor extractor, int mouseX,
 		int mouseY)
 	{
 		for(AbstractWidget button : Screens.getWidgets(this))
@@ -796,7 +796,7 @@ public final class WurstOptionsScreen extends Screen
 			if(woButton.tooltip.isEmpty())
 				continue;
 			
-			context.setComponentTooltipForNextFrame(font, woButton.tooltip,
+			extractor.setComponentTooltipForNextFrame(font, woButton.tooltip,
 				mouseX, mouseY);
 			break;
 		}
@@ -846,9 +846,9 @@ public final class WurstOptionsScreen extends Screen
 		}
 		
 		@Override
-		public void onPress(InputWithModifiers context)
+		public void onPress(InputWithModifiers extractor)
 		{
-			super.onPress(context);
+			super.onPress(extractor);
 			setMessage(Component.literal(messageSupplier.get()));
 		}
 		

@@ -176,36 +176,36 @@ public final class EditItemListScreen extends Screen
 	}
 	
 	@Override
-	public boolean mouseClicked(MouseButtonEvent context, boolean doubleClick)
+	public boolean mouseClicked(MouseButtonEvent extractor, boolean doubleClick)
 	{
-		itemNameField.mouseClicked(context, doubleClick);
-		return super.mouseClicked(context, doubleClick);
+		itemNameField.mouseClicked(extractor, doubleClick);
+		return super.mouseClicked(extractor, doubleClick);
 	}
 	
 	@Override
-	public boolean keyPressed(KeyEvent context)
+	public boolean keyPressed(KeyEvent extractor)
 	{
-		switch(context.key())
+		switch(extractor.key())
 		{
 			case InputConstants.KEY_RETURN:
 			if(addButton.active)
-				addButton.onPress(context);
+				addButton.onPress(extractor);
 			break;
 			
 			case InputConstants.KEY_DELETE:
 			if(!itemNameField.isFocused())
-				removeButton.onPress(context);
+				removeButton.onPress(extractor);
 			break;
 			
 			case InputConstants.KEY_ESCAPE:
-			doneButton.onPress(context);
+			doneButton.onPress(extractor);
 			break;
 			
 			default:
 			break;
 		}
 		
-		return super.keyPressed(context);
+		return super.keyPressed(extractor);
 	}
 	
 	@Override
@@ -261,33 +261,35 @@ public final class EditItemListScreen extends Screen
 	}
 	
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+	public void extractRenderState(GuiGraphicsExtractor extractor, int mouseX,
 		int mouseY, float partialTicks)
 	{
-		Matrix3x2fStack matrixStack = context.pose();
+		Matrix3x2fStack matrixStack = extractor.pose();
 		
-		listGui.extractRenderState(context, mouseX, mouseY, partialTicks);
+		listGui.extractRenderState(extractor, mouseX, mouseY, partialTicks);
 		
-		context.centeredText(minecraft.font,
+		extractor.centeredText(minecraft.font,
 			itemList.getName() + " (" + itemList.getItemNames().size() + ")",
 			width / 2, 12, CommonColors.WHITE);
 		
 		matrixStack.pushMatrix();
 		
-		itemNameField.extractRenderState(context, mouseX, mouseY, partialTicks);
+		itemNameField.extractRenderState(extractor, mouseX, mouseY,
+			partialTicks);
 		
 		for(Renderable drawable : renderables)
-			drawable.extractRenderState(context, mouseX, mouseY, partialTicks);
+			drawable.extractRenderState(extractor, mouseX, mouseY,
+				partialTicks);
 		
 		// Draw placeholder + decorative left icon frame anchored to the field
-		context.guiRenderState.up();
+		extractor.guiRenderState.up();
 		
 		int x0 = itemNameField.getX();
 		int y0 = itemNameField.getY();
 		int y1 = y0 + itemNameField.getHeight();
 		
 		if(itemNameField.getValue().isEmpty() && !itemNameField.isFocused())
-			context.text(minecraft.font, "item name or ID", x0 + 6, y0 + 6,
+			extractor.text(minecraft.font, "item name or ID", x0 + 6, y0 + 6,
 				CommonColors.GRAY);
 		
 		int border = itemNameField.isFocused() ? CommonColors.WHITE
@@ -295,10 +297,10 @@ public final class EditItemListScreen extends Screen
 		int black = CommonColors.BLACK;
 		int iconBoxLeft = x0 - 20;
 		
-		context.fill(iconBoxLeft, y0, x0, y1, border);
-		context.fill(iconBoxLeft + 1, y0 + 1, x0 - 1, y1 - 1, black);
+		extractor.fill(iconBoxLeft, y0, x0, y1, border);
+		extractor.fill(iconBoxLeft + 1, y0 + 1, x0 - 1, y1 - 1, black);
 		
-		RenderUtils.drawItem(context,
+		RenderUtils.drawItem(extractor,
 			itemToAdd == null ? ItemStack.EMPTY : new ItemStack(itemToAdd),
 			iconBoxLeft + 2, y0 + 2, false);
 		
@@ -359,7 +361,7 @@ public final class EditItemListScreen extends Screen
 		}
 		
 		@Override
-		public void extractContent(GuiGraphicsExtractor context, int mouseX,
+		public void extractContent(GuiGraphicsExtractor extractor, int mouseX,
 			int mouseY, boolean hovered, float tickDelta)
 		{
 			int x = getContentX();
@@ -371,12 +373,12 @@ public final class EditItemListScreen extends Screen
 			ItemStack stack = new ItemStack(item);
 			Font tr = minecraft.font;
 			
-			RenderUtils.drawItem(context, stack, x + 1, y + 1, true);
-			context.text(tr, getDisplayName(stack), x + 28, y,
+			RenderUtils.drawItem(extractor, stack, x + 1, y + 1, true);
+			extractor.text(tr, getDisplayName(stack), x + 28, y,
 				WurstColors.VERY_LIGHT_GRAY, false);
-			context.text(tr, itemName, x + 28, y + 9, CommonColors.LIGHT_GRAY,
+			extractor.text(tr, itemName, x + 28, y + 9, CommonColors.LIGHT_GRAY,
 				false);
-			context.text(tr, getIdText(item), x + 28, y + 18,
+			extractor.text(tr, getIdText(item), x + 28, y + 18,
 				CommonColors.LIGHT_GRAY, false);
 		}
 		

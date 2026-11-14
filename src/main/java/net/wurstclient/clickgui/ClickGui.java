@@ -886,13 +886,13 @@ public final class ClickGui
 		return false;
 	}
 	
-	private void renderModernNavigation(GuiGraphicsExtractor context,
+	private void renderModernNavigation(GuiGraphicsExtractor extractor,
 		int mouseX, int mouseY)
 	{
 		int screenWidth = MC.getWindow().getGuiScaledWidth();
-		context.fill(0, 0, screenWidth, 30,
+		extractor.fill(0, 0, screenWidth, 30,
 			RenderUtils.toIntColor(topBarColor, topBarOpacity));
-		RenderUtils.drawLine2D(context, 0, 29, screenWidth, 29,
+		RenderUtils.drawLine2D(extractor, 0, 29, screenWidth, 29,
 			RenderUtils.toIntColor(acColor, topBarOpacity));
 		int x = getModernNavigationStartX();
 		Window enabled = modernCategoryWindows.get("Enabled");
@@ -901,8 +901,8 @@ public final class ClickGui
 			enabled != null && windows.contains(enabled) && !enabledMinimized;
 		boolean enabledFocused = enabledOpen && !windows.isEmpty()
 			&& windows.get(windows.size() - 1) == enabled;
-		x = renderModernNavigationButton(context, "Enabled", x, mouseX, mouseY,
-			enabledOpen, enabledMinimized, enabledFocused) + 2;
+		x = renderModernNavigationButton(extractor, "Enabled", x, mouseX,
+			mouseY, enabledOpen, enabledMinimized, enabledFocused) + 2;
 		for(Category category : Category.values())
 		{
 			Window window = modernCategoryWindows.get(category.getName());
@@ -911,7 +911,7 @@ public final class ClickGui
 				window != null && windows.contains(window) && !minimized;
 			boolean focused = open && !windows.isEmpty()
 				&& windows.get(windows.size() - 1) == window;
-			x = renderModernNavigationButton(context, category.getName(), x,
+			x = renderModernNavigationButton(extractor, category.getName(), x,
 				mouseX, mouseY, open, minimized, focused) + 2;
 		}
 		Window clientSettings = modernCategoryWindows.get("Client Settings");
@@ -921,7 +921,7 @@ public final class ClickGui
 			&& windows.contains(clientSettings) && !clientMinimized;
 		boolean clientFocused = clientOpen && !windows.isEmpty()
 			&& windows.get(windows.size() - 1) == clientSettings;
-		renderModernNavigationButton(context, "Client Settings", x, mouseX,
+		renderModernNavigationButton(extractor, "Client Settings", x, mouseX,
 			mouseY, clientOpen, clientMinimized, clientFocused);
 	}
 	
@@ -978,7 +978,7 @@ public final class ClickGui
 		}
 	}
 	
-	private int renderModernNavigationButton(GuiGraphicsExtractor context,
+	private int renderModernNavigationButton(GuiGraphicsExtractor extractor,
 		String label, int x, int mouseX, int mouseY, boolean open,
 		boolean minimized, boolean focused)
 	{
@@ -986,23 +986,23 @@ public final class ClickGui
 		boolean hovering =
 			mouseX >= x && mouseX < x + width && mouseY >= 4 && mouseY < 25;
 		if(focused)
-			context.fill(x, 4, x + width, 25, RenderUtils.toIntColor(acColor,
+			extractor.fill(x, 4, x + width, 25, RenderUtils.toIntColor(acColor,
 				Math.min(1F, topBarOpacity + 0.18F)));
 		else if(open)
-			context.fill(x, 4, x + width, 25,
+			extractor.fill(x, 4, x + width, 25,
 				RenderUtils.toIntColor(acColor, topBarOpacity * 0.62F));
 		else
-			context.fill(x, 4, x + width, 25,
+			extractor.fill(x, 4, x + width, 25,
 				RenderUtils.toIntColor(new float[]{bgColor[0] * 0.62F,
 					bgColor[1] * 0.62F, bgColor[2] * 0.62F},
 					topBarOpacity * 0.9F));
 		if(hovering && !focused)
-			RenderUtils.drawBorder2D(context, x, 4, x + width, 25,
+			RenderUtils.drawBorder2D(extractor, x, 4, x + width, 25,
 				RenderUtils.toIntColor(acColor, topBarOpacity * 0.45F));
 		if(open || focused)
-			context.fill(x + 1, 25, x + width - 1, 27, RenderUtils.toIntColor(
+			extractor.fill(x + 1, 25, x + width - 1, 27, RenderUtils.toIntColor(
 				enabledHackColor, Math.min(1F, topBarOpacity * 0.85F)));
-		context.text(MC.font, label, x + 5, 10, txtColor, false);
+		extractor.text(MC.font, label, x + 5, 10, txtColor, false);
 		return x + width;
 	}
 	
@@ -1224,11 +1224,11 @@ public final class ClickGui
 		}
 	}
 	
-	public boolean handleMouseClick(MouseButtonEvent context)
+	public boolean handleMouseClick(MouseButtonEvent extractor)
 	{
-		int mouseX = (int)context.x();
-		int mouseY = (int)context.y();
-		int mouseButton = context.button();
+		int mouseX = (int)extractor.x();
+		int mouseY = (int)extractor.y();
+		int mouseButton = extractor.button();
 		if(mouseButton == InputConstants.MOUSE_BUTTON_LEFT)
 			leftMouseButtonPressed = true;
 		
@@ -1237,7 +1237,7 @@ public final class ClickGui
 			closeActivePopups();
 			return true;
 		}
-		if(handleModernSearchClick(context))
+		if(handleModernSearchClick(extractor))
 			return true;
 		
 		boolean popupClicked =
@@ -1249,7 +1249,7 @@ public final class ClickGui
 			boolean closedPopups = closeActivePopups();
 			if(!closedPopups || modernStyle)
 				handled = handleWindowMouseClick(mouseX, mouseY, mouseButton,
-					context);
+					extractor);
 			else
 				handled = closedPopups;
 		}
@@ -1259,11 +1259,11 @@ public final class ClickGui
 		return handled;
 	}
 	
-	public boolean handlePinnedMouseClick(MouseButtonEvent context)
+	public boolean handlePinnedMouseClick(MouseButtonEvent extractor)
 	{
-		int mouseX = (int)context.x();
-		int mouseY = (int)context.y();
-		int mouseButton = context.button();
+		int mouseX = (int)extractor.x();
+		int mouseY = (int)extractor.y();
+		int mouseButton = extractor.button();
 		if(mouseButton == InputConstants.MOUSE_BUTTON_LEFT)
 			leftMouseButtonPressed = true;
 		
@@ -1281,7 +1281,7 @@ public final class ClickGui
 			boolean closedPopups = closePinnedPopups();
 			if(!closedPopups || modernStyle)
 				windowClicked = handlePinnedWindowMouseClick(mouseX, mouseY,
-					mouseButton, context);
+					mouseButton, extractor);
 		}
 		
 		for(Popup popup : popups)
@@ -1363,19 +1363,20 @@ public final class ClickGui
 	 * render loop still updates these states as a fallback for pinned overlays,
 	 * but handling the event here makes dragging independent of render timing.
 	 */
-	public boolean handleMouseDrag(MouseButtonEvent context)
+	public boolean handleMouseDrag(MouseButtonEvent extractor)
 	{
 		if(modernStyle && modernSearchFocused && modernSearchBox != null
-			&& context.button() == InputConstants.MOUSE_BUTTON_LEFT)
-			return modernSearchBox.mouseDragged(context, 0, 0);
+			&& extractor.button() == InputConstants.MOUSE_BUTTON_LEFT)
+			return modernSearchBox.mouseDragged(extractor, 0, 0);
 		
-		return updateActiveWindowDrag((int)context.x(), (int)context.y(),
+		return updateActiveWindowDrag((int)extractor.x(), (int)extractor.y(),
 			false);
 	}
 	
-	public boolean handlePinnedMouseDrag(MouseButtonEvent context)
+	public boolean handlePinnedMouseDrag(MouseButtonEvent extractor)
 	{
-		return updateActiveWindowDrag((int)context.x(), (int)context.y(), true);
+		return updateActiveWindowDrag((int)extractor.x(), (int)extractor.y(),
+			true);
 	}
 	
 	/**
@@ -1584,12 +1585,12 @@ public final class ClickGui
 		return popupScrolled;
 	}
 	
-	public boolean handleKeyPressed(KeyEvent context)
+	public boolean handleKeyPressed(KeyEvent extractor)
 	{
 		boolean modernSearchInput = isModernSearchInputActive();
 		if(modernSearchInput && modernSearchFocused && modernSearchBox != null)
 		{
-			if(context.key() == InputConstants.KEY_ESCAPE)
+			if(extractor.key() == InputConstants.KEY_ESCAPE)
 			{
 				modernSearchBox.setValue("");
 				modernSearchBox.setFocused(false);
@@ -1597,15 +1598,15 @@ public final class ClickGui
 				syncModernSearchQuery();
 				return true;
 			}
-			if(context.key() == InputConstants.KEY_A
-				&& context.hasControlDown())
+			if(extractor.key() == InputConstants.KEY_A
+				&& extractor.hasControlDown())
 			{
 				modernSearchBox.setCursorPosition(0);
 				modernSearchBox
 					.setHighlightPos(modernSearchBox.getValue().length());
 				return true;
 			}
-			if(modernSearchBox.keyPressed(context))
+			if(modernSearchBox.keyPressed(extractor))
 			{
 				syncModernSearchQuery();
 				return true;
@@ -1614,7 +1615,7 @@ public final class ClickGui
 		
 		if(modernSearchInput && keyboardInput == null)
 		{
-			if(context.key() == InputConstants.KEY_ESCAPE
+			if(extractor.key() == InputConstants.KEY_ESCAPE
 				&& !modernSearchQuery.isEmpty())
 			{
 				modernSearchQuery = "";
@@ -1623,7 +1624,7 @@ public final class ClickGui
 				updateModernSearchResults();
 				return true;
 			}
-			if(context.key() == InputConstants.KEY_BACKSPACE
+			if(extractor.key() == InputConstants.KEY_BACKSPACE
 				&& !modernSearchQuery.isEmpty())
 			{
 				modernSearchQuery = modernSearchQuery.substring(0,
@@ -1633,7 +1634,7 @@ public final class ClickGui
 				return true;
 			}
 			
-			int codepoint = getModernSearchCodepoint(context);
+			int codepoint = getModernSearchCodepoint(extractor);
 			if(codepoint >= 0)
 			{
 				appendModernSearchCodepoint(codepoint);
@@ -1642,10 +1643,11 @@ public final class ClickGui
 				return true;
 			}
 		}
-		if(keyboardInput != null && keyboardInput.onKeyPressed(context))
+		if(keyboardInput != null && keyboardInput.onKeyPressed(extractor))
 			return true;
 		
-		if(context.key() == InputConstants.KEY_ESCAPE && keyboardInput != null)
+		if(extractor.key() == InputConstants.KEY_ESCAPE
+			&& keyboardInput != null)
 		{
 			clearKeyboardInput();
 			return true;
@@ -1693,19 +1695,19 @@ public final class ClickGui
 			.screen() instanceof net.wurstclient.clickgui.screens.ClickGuiScreen;
 	}
 	
-	private int getModernSearchCodepoint(KeyEvent context)
+	private int getModernSearchCodepoint(KeyEvent extractor)
 	{
-		if(context.hasControlDown())
+		if(extractor.hasControlDown())
 			return -1;
 		
-		int key = context.key();
+		int key = extractor.key();
 		if(key >= InputConstants.KEY_A && key <= InputConstants.KEY_Z)
 		{
 			int codepoint = 'a' + key - InputConstants.KEY_A;
-			return context.hasShiftDown() ? Character.toUpperCase(codepoint)
+			return extractor.hasShiftDown() ? Character.toUpperCase(codepoint)
 				: codepoint;
 		}
-		if(!context.hasShiftDown() && key >= InputConstants.KEY_0
+		if(!extractor.hasShiftDown() && key >= InputConstants.KEY_0
 			&& key <= InputConstants.KEY_9)
 			return '0' + key - InputConstants.KEY_0;
 		if(key == InputConstants.KEY_SPACE)
@@ -1761,13 +1763,13 @@ public final class ClickGui
 	}
 	
 	public void handleNavigatorMouseClick(double cMouseX, double cMouseY,
-		int mouseButton, Window window, MouseButtonEvent context)
+		int mouseButton, Window window, MouseButtonEvent extractor)
 	{
 		if(mouseButton == InputConstants.MOUSE_BUTTON_LEFT)
 			leftMouseButtonPressed = true;
 		
 		handleComponentMouseClick(window, cMouseX, cMouseY, mouseButton,
-			context);
+			extractor);
 		
 		closeInvalidPopups();
 	}
@@ -2026,7 +2028,7 @@ public final class ClickGui
 	}
 	
 	private boolean handleWindowMouseClick(int mouseX, int mouseY,
-		int mouseButton, MouseButtonEvent context)
+		int mouseButton, MouseButtonEvent extractor)
 	{
 		for(int i = windows.size() - 1; i >= 0; i--)
 		{
@@ -2069,7 +2071,7 @@ public final class ClickGui
 						cMouseY -= window.getScrollOffset();
 					
 					handleComponentMouseClick(window, cMouseX, cMouseY,
-						mouseButton, context);
+						mouseButton, extractor);
 				}
 				
 			}else
@@ -2090,7 +2092,7 @@ public final class ClickGui
 	}
 	
 	private boolean handlePinnedWindowMouseClick(int mouseX, int mouseY,
-		int mouseButton, MouseButtonEvent context)
+		int mouseButton, MouseButtonEvent extractor)
 	{
 		for(int i = windows.size() - 1; i >= 0; i--)
 		{
@@ -2133,7 +2135,7 @@ public final class ClickGui
 						cMouseY -= window.getScrollOffset();
 					
 					handleComponentMouseClick(window, cMouseX, cMouseY,
-						mouseButton, context);
+						mouseButton, extractor);
 				}
 				
 			}else
@@ -2242,7 +2244,7 @@ public final class ClickGui
 	}
 	
 	private void handleComponentMouseClick(Window window, double mouseX,
-		double mouseY, int mouseButton, MouseButtonEvent context)
+		double mouseY, int mouseButton, MouseButtonEvent extractor)
 	{
 		for(int i2 = window.countChildren() - 1; i2 >= 0; i2--)
 		{
@@ -2257,7 +2259,7 @@ public final class ClickGui
 			if(keyboardInput != null && keyboardInput != c)
 				clearKeyboardInput();
 			
-			c.handleMouseClick(mouseX, mouseY, mouseButton, context);
+			c.handleMouseClick(mouseX, mouseY, mouseButton, extractor);
 			break;
 		}
 	}
@@ -2290,7 +2292,7 @@ public final class ClickGui
 			window);
 	}
 	
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+	public void extractRenderState(GuiGraphicsExtractor extractor, int mouseX,
 		int mouseY, float partialTicks)
 	{
 		// Apply Classic/Modern selection immediately instead of waiting for the
@@ -2307,14 +2309,14 @@ public final class ClickGui
 		updateColors();
 		adaptModernLayoutToScreen();
 		
-		Matrix3x2fStack matrixStack = context.pose();
+		Matrix3x2fStack matrixStack = extractor.pose();
 		matrixStack.pushMatrix();
 		
 		tooltip = "";
 		if(modernStyle)
 		{
-			renderModernNavigation(context, mouseX, mouseY);
-			renderModernSearchOverlay(context, mouseX, mouseY);
+			renderModernNavigation(extractor, mouseX, mouseY);
+			renderModernSearchOverlay(extractor, mouseX, mouseY);
 		}
 		
 		ArrayList<Window> visibleWindows = new ArrayList<>();
@@ -2362,28 +2364,28 @@ public final class ClickGui
 		}
 		
 		if(isolateWindows && !visibleWindows.isEmpty())
-			renderWindowsWithIsolation(context, visibleWindows, windowMouseX,
+			renderWindowsWithIsolation(extractor, visibleWindows, windowMouseX,
 				windowMouseY, partialTicks);
 		else
 			for(Window window : visibleWindows)
 			{
-				context.guiRenderState.up();
-				renderWindow(context, window, windowMouseX, windowMouseY,
+				extractor.guiRenderState.up();
+				renderWindow(extractor, window, windowMouseX, windowMouseY,
 					partialTicks);
 			}
 		
-		renderPopups(context, mouseX, mouseY);
-		renderTooltip(context, mouseX, mouseY);
+		renderPopups(extractor, mouseX, mouseY);
+		renderTooltip(extractor, mouseX, mouseY);
 		
 		matrixStack.popMatrix();
 	}
 	
-	public void renderPopups(GuiGraphicsExtractor context, int mouseX,
+	public void renderPopups(GuiGraphicsExtractor extractor, int mouseX,
 		int mouseY)
 	{
 		closeInvalidPopups();
 		
-		Matrix3x2fStack matrixStack = context.pose();
+		Matrix3x2fStack matrixStack = extractor.pose();
 		for(Popup popup : popups)
 		{
 			Component owner = popup.getOwner();
@@ -2397,11 +2399,11 @@ public final class ClickGui
 			
 			matrixStack.pushMatrix();
 			matrixStack.translate(x1, y1);
-			context.guiRenderState.up();
+			extractor.guiRenderState.up();
 			
 			int cMouseX = mouseX - x1;
 			int cMouseY = mouseY - y1;
-			popup.render(context, cMouseX, cMouseY);
+			popup.render(extractor, cMouseX, cMouseY);
 			
 			matrixStack.popMatrix();
 		}
@@ -2428,10 +2430,10 @@ public final class ClickGui
 		return false;
 	}
 	
-	private void renderPinnedPopups(GuiGraphicsExtractor context, int mouseX,
+	private void renderPinnedPopups(GuiGraphicsExtractor extractor, int mouseX,
 		int mouseY)
 	{
-		Matrix3x2fStack matrixStack = context.pose();
+		Matrix3x2fStack matrixStack = extractor.pose();
 		for(Popup popup : popups)
 		{
 			Component owner = popup.getOwner();
@@ -2445,17 +2447,17 @@ public final class ClickGui
 			
 			matrixStack.pushMatrix();
 			matrixStack.translate(x1, y1);
-			context.guiRenderState.up();
+			extractor.guiRenderState.up();
 			
 			int cMouseX = mouseX - x1;
 			int cMouseY = mouseY - y1;
-			popup.render(context, cMouseX, cMouseY);
+			popup.render(extractor, cMouseX, cMouseY);
 			
 			matrixStack.popMatrix();
 		}
 	}
 	
-	public void renderTooltip(GuiGraphicsExtractor context, int mouseX,
+	public void renderTooltip(GuiGraphicsExtractor extractor, int mouseX,
 		int mouseY)
 	{
 		if(tooltip.isEmpty())
@@ -2480,26 +2482,26 @@ public final class ClickGui
 		int yt1 = mouseY + th - 2 <= sh ? mouseY - 4 : mouseY - th - 4;
 		int yt2 = yt1 + th + 2;
 		
-		context.guiRenderState.up();
+		extractor.guiRenderState.up();
 		
 		// background
 		float[] tooltipBg =
 			{bgColor[0] * 0.42F, bgColor[1] * 0.42F, bgColor[2] * 0.42F};
-		context.fill(xt1, yt1, xt2, yt2,
+		extractor.fill(xt1, yt1, xt2, yt2,
 			RenderUtils.toIntColor(tooltipBg, ttOpacity));
 		
 		// outline
-		RenderUtils.drawBorder2D(context, xt1, yt1, xt2, yt2,
+		RenderUtils.drawBorder2D(extractor, xt1, yt1, xt2, yt2,
 			RenderUtils.toIntColor(acColor, 0.5F));
 		
 		// text
-		context.guiRenderState.up();
+		extractor.guiRenderState.up();
 		for(int i = 0; i < lines.length; i++)
-			context.text(tr, lines[i], xt1 + 2, yt1 + 2 + i * tr.lineHeight,
+			extractor.text(tr, lines[i], xt1 + 2, yt1 + 2 + i * tr.lineHeight,
 				txtColor, false);
 	}
 	
-	public void renderPinnedWindows(GuiGraphicsExtractor context,
+	public void renderPinnedWindows(GuiGraphicsExtractor extractor,
 		float partialTicks)
 	{
 		// Apply Classic/Modern selection immediately instead of waiting for the
@@ -2550,16 +2552,16 @@ public final class ClickGui
 		
 		tooltip = "";
 		if(isolateWindows)
-			renderWindowsWithIsolation(context, pinnedWindows, mouseX, mouseY,
+			renderWindowsWithIsolation(extractor, pinnedWindows, mouseX, mouseY,
 				partialTicks);
 		else
 			for(Window window : pinnedWindows)
 			{
-				context.guiRenderState.up();
-				renderWindow(context, window, mouseX, mouseY, partialTicks);
+				extractor.guiRenderState.up();
+				renderWindow(extractor, window, mouseX, mouseY, partialTicks);
 			}
 		
-		renderPinnedPopups(context, mouseX, mouseY);
+		renderPinnedPopups(extractor, mouseX, mouseY);
 	}
 	
 	public void updateColors()
@@ -2588,8 +2590,8 @@ public final class ClickGui
 			acColor = clickGui.getAccentColor();
 	}
 	
-	private void renderModernWindow(GuiGraphicsExtractor context, Window window,
-		int mouseX, int mouseY, float partialTicks)
+	private void renderModernWindow(GuiGraphicsExtractor extractor,
+		Window window, int mouseX, int mouseY, float partialTicks)
 	{
 		int x1 = window.getX();
 		int y1 = window.getY();
@@ -2616,14 +2618,14 @@ public final class ClickGui
 		int modernBackground = RenderUtils.toIntColor(bgColor, opacity);
 		int modernHeader = RenderUtils.toIntColor(hackHeaderColor,
 			opacity * hackHeaderOpacity);
-		context.fill(x1, y1, x2, y2, modernBackground);
-		context.fill(x1, y1, x2, headerBottom, modernHeader);
-		RenderUtils.drawBorder2D(context, x1, y1, x2, y2, border);
-		RenderUtils.drawLine2D(context, x1 + 1, headerBottom, x2 - 1,
+		extractor.fill(x1, y1, x2, y2, modernBackground);
+		extractor.fill(x1, y1, x2, headerBottom, modernHeader);
+		RenderUtils.drawBorder2D(extractor, x1, y1, x2, y2, border);
+		RenderUtils.drawLine2D(extractor, x1 + 1, headerBottom, x2 - 1,
 			headerBottom, RenderUtils.toIntColor(acColor, opacity * 0.6F));
 		int titleY = y1 + Math.max(0,
 			Math.round((getModernHeaderHeight() - MC.font.lineHeight) / 2F));
-		context.text(MC.font, window.getTitle(), x1 + 8, titleY, txtColor,
+		extractor.text(MC.font, window.getTitle(), x1 + 8, titleY, txtColor,
 			false);
 		int controlX =
 			x2 - MODERN_TITLE_CONTROL_RIGHT_PADDING - MODERN_TITLE_CONTROL_SIZE;
@@ -2631,16 +2633,16 @@ public final class ClickGui
 			.round((getModernHeaderHeight() - MODERN_TITLE_CONTROL_SIZE) / 2F));
 		if(window.isClosable())
 		{
-			context.fill(controlX, controlY,
+			extractor.fill(controlX, controlY,
 				controlX + MODERN_TITLE_CONTROL_SIZE,
 				controlY + MODERN_TITLE_CONTROL_SIZE,
 				RenderUtils.toIntColor(dropdownButtonColor, opacity));
-			drawModernClose(context, controlX, controlY, txtColor);
+			drawModernClose(extractor, controlX, controlY, txtColor);
 			controlX -= MODERN_TITLE_CONTROL_SLOT;
 		}
 		if(window.isPinnable())
 		{
-			context.fill(controlX, controlY,
+			extractor.fill(controlX, controlY,
 				controlX + MODERN_TITLE_CONTROL_SIZE,
 				controlY + MODERN_TITLE_CONTROL_SIZE,
 				RenderUtils.toIntColor(dropdownButtonColor, opacity));
@@ -2649,7 +2651,7 @@ public final class ClickGui
 				&& mouseY >= controlY
 				&& mouseY < controlY + MODERN_TITLE_CONTROL_SIZE;
 			// Inset the pin by one pixel so it doesn't touch the button edges.
-			ClickGuiIcons.drawPin(context, controlX + 1, controlY + 1,
+			ClickGuiIcons.drawPin(extractor, controlX + 1, controlY + 1,
 				controlX + MODERN_TITLE_CONTROL_SIZE - 1,
 				controlY + MODERN_TITLE_CONTROL_SIZE - 1, pinHovered,
 				window.isPinned());
@@ -2657,18 +2659,18 @@ public final class ClickGui
 		}
 		if(window.isMinimizable())
 		{
-			context.fill(controlX, controlY,
+			extractor.fill(controlX, controlY,
 				controlX + MODERN_TITLE_CONTROL_SIZE,
 				controlY + MODERN_TITLE_CONTROL_SIZE,
 				RenderUtils.toIntColor(dropdownButtonColor, opacity));
-			drawModernMinimize(context, controlX, controlY, txtColor,
+			drawModernMinimize(extractor, controlX, controlY, txtColor,
 				minimized);
 		}
 		if(minimized)
 			return;
 		int bodyBottom = y2 - 2;
-		context.enableScissor(x1 + 2, headerBottom + 1, x2 - 2, bodyBottom);
-		Matrix3x2fStack matrixStack = context.pose();
+		extractor.enableScissor(x1 + 2, headerBottom + 1, x2 - 2, bodyBottom);
+		Matrix3x2fStack matrixStack = extractor.pose();
 		matrixStack.pushMatrix();
 		matrixStack.translate(x1, headerBottom + window.getScrollOffset());
 		int childMouseX = mouseX - x1;
@@ -2679,14 +2681,14 @@ public final class ClickGui
 		for(int i = 0; i < window.countChildren(); i++)
 		{
 			Component child = window.getChild(i);
-			child.extractRenderState(context, childMouseX, childMouseY,
+			child.extractRenderState(extractor, childMouseX, childMouseY,
 				partialTicks);
-			RenderUtils.drawBorder2D(context, child.getX(), child.getY(),
+			RenderUtils.drawBorder2D(extractor, child.getX(), child.getY(),
 				child.getX() + child.getWidth(),
 				child.getY() + child.getHeight(), settingsBorder);
 		}
 		matrixStack.popMatrix();
-		context.disableScissor();
+		extractor.disableScissor();
 		if(window.isScrollingEnabled())
 		{
 			int trackTop = headerBottom + window.getScrollbarTrackTop();
@@ -2695,41 +2697,41 @@ public final class ClickGui
 			int thumbY = headerBottom + window.getScrollbarThumbY();
 			// Keep the track visually continuous with the window. The accent
 			// color belongs only to the draggable scrollbar thumb.
-			context.fill(x2 - 7, trackTop, x2 - 3, trackBottom,
+			extractor.fill(x2 - 7, trackTop, x2 - 3, trackBottom,
 				modernBackground);
-			context.fill(x2 - 7, thumbY, x2 - 3, thumbY + thumbHeight,
+			extractor.fill(x2 - 7, thumbY, x2 - 3, thumbY + thumbHeight,
 				modernHeader);
 		}
 	}
 	
-	private void drawModernClose(GuiGraphicsExtractor context, int x, int y,
+	private void drawModernClose(GuiGraphicsExtractor extractor, int x, int y,
 		int color)
 	{
-		drawCenteredTitleGlyph(context, "×", x, y, color);
+		drawCenteredTitleGlyph(extractor, "×", x, y, color);
 	}
 	
-	private void drawModernMinimize(GuiGraphicsExtractor context, int x, int y,
-		int color, boolean minimized)
+	private void drawModernMinimize(GuiGraphicsExtractor extractor, int x,
+		int y, int color, boolean minimized)
 	{
-		drawCenteredTitleGlyph(context, minimized ? "+" : "-", x, y, color);
+		drawCenteredTitleGlyph(extractor, minimized ? "+" : "-", x, y, color);
 	}
 	
-	private void drawCenteredTitleGlyph(GuiGraphicsExtractor context,
+	private void drawCenteredTitleGlyph(GuiGraphicsExtractor extractor,
 		String glyph, int x, int y, int color)
 	{
 		int glyphX = Math
 			.round(x + (MODERN_TITLE_CONTROL_SIZE - MC.font.width(glyph)) / 2F);
 		int glyphY = Math
 			.round(y + (MODERN_TITLE_CONTROL_SIZE - MC.font.lineHeight) / 2F);
-		context.text(MC.font, glyph, glyphX, glyphY, color, false);
+		extractor.text(MC.font, glyph, glyphX, glyphY, color, false);
 	}
 	
-	private void renderWindow(GuiGraphicsExtractor context, Window window,
+	private void renderWindow(GuiGraphicsExtractor extractor, Window window,
 		int mouseX, int mouseY, float partialTicks)
 	{
 		if(window instanceof ModernWindow)
 		{
-			renderModernWindow(context, window, mouseX, mouseY, partialTicks);
+			renderModernWindow(extractor, window, mouseX, mouseY, partialTicks);
 			return;
 		}
 		int x1 = window.getX();
@@ -2741,13 +2743,13 @@ public final class ClickGui
 		boolean modernWindow = window instanceof ModernWindow;
 		if(modernWindow)
 		{
-			renderModernWindow(context, window, mouseX, mouseY, partialTicks);
+			renderModernWindow(extractor, window, mouseX, mouseY, partialTicks);
 			return;
 		}
 		int windowBgColor = RenderUtils.toIntColor(bgColor, opacity);
 		int outlineColor = RenderUtils.toIntColor(acColor, 0.5F);
 		
-		Matrix3x2fStack matrixStack = context.pose();
+		Matrix3x2fStack matrixStack = extractor.pose();
 		
 		if(window.isMinimized())
 			y2 = y3;
@@ -2774,9 +2776,9 @@ public final class ClickGui
 				int ys4 = ys3 + window.getScrollbarThumbHeight();
 				
 				// window background
-				context.fill(xs2, ys1, xs3, ys2, windowBgColor);
-				context.fill(xs1, ys1, xs2, ys3, windowBgColor);
-				context.fill(xs1, ys4, xs2, ys2, windowBgColor);
+				extractor.fill(xs2, ys1, xs3, ys2, windowBgColor);
+				extractor.fill(xs1, ys1, xs2, ys3, windowBgColor);
+				extractor.fill(xs1, ys4, xs2, ys2, windowBgColor);
 				
 				boolean hovering = mouseX >= xs1 && mouseY >= ys3
 					&& mouseX < xs2 && mouseY < ys4;
@@ -2784,10 +2786,10 @@ public final class ClickGui
 				// scrollbar
 				int scrollbarColor = RenderUtils.toIntColor(acColor,
 					hovering ? opacity * 1.5F : opacity);
-				context.fill(xs1, ys3, xs2, ys4, scrollbarColor);
+				extractor.fill(xs1, ys3, xs2, ys4, scrollbarColor);
 				
 				// outline
-				RenderUtils.drawBorder2D(context, xs1, ys3, xs2, ys4,
+				RenderUtils.drawBorder2D(extractor, xs1, ys3, xs2, ys4,
 					outlineColor);
 			}
 			
@@ -2798,10 +2800,10 @@ public final class ClickGui
 			
 			// window background
 			// left & right
-			context.fill(x1, y3, x3, y2, windowBgColor);
-			context.fill(x5, y3, x4, y2, windowBgColor);
+			extractor.fill(x1, y3, x3, y2, windowBgColor);
+			extractor.fill(x5, y3, x4, y2, windowBgColor);
 			
-			context.enableScissor(x1, y3, x2, y2);
+			extractor.enableScissor(x1, y3, x2, y2);
 			
 			matrixStack.pushMatrix();
 			matrixStack.translate(x1, y4);
@@ -2814,7 +2816,7 @@ public final class ClickGui
 			{
 				int yc1 = window.getChild(i).getY();
 				int yc2 = yc1 - 2;
-				context.fill(xc1, yc2, xc2, yc1, windowBgColor);
+				extractor.fill(xc1, yc2, xc2, yc1, windowBgColor);
 			}
 			
 			// window background
@@ -2829,32 +2831,32 @@ public final class ClickGui
 				yc1 = lastChild.getY() + lastChild.getHeight();
 			}
 			int yc2 = yc1 + 2;
-			context.fill(xc1, yc2, xc2, yc1, windowBgColor);
+			extractor.fill(xc1, yc2, xc2, yc1, windowBgColor);
 			
 			// render children
 			int cMouseX = mouseX - x1;
 			int cMouseY = mouseY - y4;
 			for(int i = 0; i < window.countChildren(); i++)
-				window.getChild(i).extractRenderState(context, cMouseX, cMouseY,
-					partialTicks);
+				window.getChild(i).extractRenderState(extractor, cMouseX,
+					cMouseY, partialTicks);
 			
 			matrixStack.popMatrix();
-			context.disableScissor();
+			extractor.disableScissor();
 		}
 		
 		// window outline
-		RenderUtils.drawBorder2D(context, x1, y1, x2, y2, outlineColor);
+		RenderUtils.drawBorder2D(extractor, x1, y1, x2, y2, outlineColor);
 		if(window.isResizable() && !window.isMinimized())
 		{
-			RenderUtils.drawLine2D(context, x2 - 6, y2 - 2, x2 - 2, y2 - 6,
+			RenderUtils.drawLine2D(extractor, x2 - 6, y2 - 2, x2 - 2, y2 - 6,
 				RenderUtils.toIntColor(acColor, opacity));
-			RenderUtils.drawLine2D(context, x2 - 4, y2 - 2, x2 - 2, y2 - 4,
+			RenderUtils.drawLine2D(extractor, x2 - 4, y2 - 2, x2 - 2, y2 - 4,
 				RenderUtils.toIntColor(acColor, opacity));
 		}
 		
 		// title bar separator line
 		if(!window.isMinimized())
-			RenderUtils.drawLine2D(context, x1, y3, x2, y3, outlineColor);
+			RenderUtils.drawLine2D(extractor, x1, y3, x2, y3, outlineColor);
 		
 		// title bar buttons
 		int x3 = x2;
@@ -2867,12 +2869,12 @@ public final class ClickGui
 			int x4 = x3 + (modernWindow ? 15 : 9);
 			boolean hovering = hoveringY && mouseX >= x3 && mouseX < x4;
 			if(modernWindow)
-				renderModernTitleButton(context, x3, y4, x4, y5, hovering,
+				renderModernTitleButton(extractor, x3, y4, x4, y5, hovering,
 					hovering ? "✖" : "✕");
 			else
 			{
-				renderTitleBarButton(context, x3, y4, x4, y5, hovering);
-				ClickGuiIcons.drawCross(context, x3, y4, x4, y5, hovering);
+				renderTitleBarButton(extractor, x3, y4, x4, y5, hovering);
+				ClickGuiIcons.drawCross(extractor, x3, y4, x4, y5, hovering);
 			}
 		}
 		
@@ -2882,12 +2884,12 @@ public final class ClickGui
 			int x4 = x3 + (modernWindow ? 15 : 9);
 			boolean hovering = hoveringY && mouseX >= x3 && mouseX < x4;
 			if(modernWindow)
-				renderModernTitleButton(context, x3, y4, x4, y5, hovering,
+				renderModernTitleButton(extractor, x3, y4, x4, y5, hovering,
 					window.isPinned() ? "◆" : "◇");
 			else
 			{
-				renderTitleBarButton(context, x3, y4, x4, y5, hovering);
-				ClickGuiIcons.drawPin(context, x3, y4, x4, y5, hovering,
+				renderTitleBarButton(extractor, x3, y4, x4, y5, hovering);
+				ClickGuiIcons.drawPin(extractor, x3, y4, x4, y5, hovering,
 					window.isPinned());
 			}
 		}
@@ -2898,11 +2900,12 @@ public final class ClickGui
 			int x4 = x3 + (modernWindow ? 15 : 9);
 			boolean hovering = hoveringY && mouseX >= x3 && mouseX < x4;
 			if(modernWindow)
-				renderModernTitleButton(context, x3, y4, x4, y5, hovering, "−");
+				renderModernTitleButton(extractor, x3, y4, x4, y5, hovering,
+					"−");
 			else
 			{
-				renderTitleBarButton(context, x3, y4, x4, y5, hovering);
-				ClickGuiIcons.drawMinimizeArrow(context, x3, y4, x4, y5,
+				renderTitleBarButton(extractor, x3, y4, x4, y5, hovering);
+				ClickGuiIcons.drawMinimizeArrow(extractor, x3, y4, x4, y5,
 					hovering, window.isMinimized());
 			}
 		}
@@ -2911,33 +2914,33 @@ public final class ClickGui
 		// above & below buttons
 		int titleBgColor = modernWindow ? 0xED27242D
 			: RenderUtils.toIntColor(acColor, opacity);
-		context.fill(x3, y1, x2, y4, titleBgColor);
-		context.fill(x3, y5, x2, y3, titleBgColor);
+		extractor.fill(x3, y1, x2, y4, titleBgColor);
+		extractor.fill(x3, y5, x2, y3, titleBgColor);
 		
 		// title bar background
 		// behind title
-		context.fill(x1, y1, x3, y3, titleBgColor);
+		extractor.fill(x1, y1, x3, y3, titleBgColor);
 		
 		// window title
 		Font tr = MC.font;
 		String title = tr.substrByWidth(
 			net.minecraft.network.chat.Component.literal(window.getTitle()),
 			x3 - x1).getString();
-		context.guiRenderState.up();
-		context.text(tr, title, x1 + 2, y1 + 3, txtColor, false);
+		extractor.guiRenderState.up();
+		extractor.text(tr, title, x1 + 2, y1 + 3, txtColor, false);
 	}
 	
-	private void renderModernTitleButton(GuiGraphicsExtractor context, int x1,
+	private void renderModernTitleButton(GuiGraphicsExtractor extractor, int x1,
 		int y1, int x2, int y2, boolean hovering, String icon)
 	{
-		context.fill(x1, y1, x2, y2,
+		extractor.fill(x1, y1, x2, y2,
 			hovering ? RenderUtils.toIntColor(acColor, opacity * 0.7F)
 				: RenderUtils.toIntColor(bgColor, opacity));
-		context.text(MC.font, icon, x1 + (x2 - x1 - MC.font.width(icon)) / 2,
+		extractor.text(MC.font, icon, x1 + (x2 - x1 - MC.font.width(icon)) / 2,
 			y1 + (y2 - y1 - MC.font.lineHeight) / 2, txtColor, false);
 	}
 	
-	private void renderTitleBarButton(GuiGraphicsExtractor context, int x1,
+	private void renderTitleBarButton(GuiGraphicsExtractor extractor, int x1,
 		int y1, int x2, int y2, boolean hovering)
 	{
 		int x3 = x2 + 2;
@@ -2945,15 +2948,15 @@ public final class ClickGui
 		// button background
 		int buttonBgColor = RenderUtils.toIntColor(bgColor,
 			hovering ? opacity * 1.5F : opacity);
-		context.fill(x1, y1, x2, y2, buttonBgColor);
+		extractor.fill(x1, y1, x2, y2, buttonBgColor);
 		
 		// background between buttons
 		int windowBgColor = RenderUtils.toIntColor(acColor, opacity);
-		context.fill(x2, y1, x3, y2, windowBgColor);
+		extractor.fill(x2, y1, x3, y2, windowBgColor);
 		
 		// button outline
 		int outlineColor = RenderUtils.toIntColor(acColor, 0.5F);
-		RenderUtils.drawBorder2D(context, x1, y1, x2, y2, outlineColor);
+		RenderUtils.drawBorder2D(extractor, x1, y1, x2, y2, outlineColor);
 	}
 	
 	private void adaptModernLayoutToScreen()
@@ -3185,7 +3188,7 @@ public final class ClickGui
 		return modernSearchQuery;
 	}
 	
-	private void renderModernSearchOverlay(GuiGraphicsExtractor context,
+	private void renderModernSearchOverlay(GuiGraphicsExtractor extractor,
 		int mouseX, int mouseY)
 	{
 		if(modernSearchBox == null || (!modernSearchActive
@@ -3204,12 +3207,12 @@ public final class ClickGui
 		int screenWidth = MC.getWindow().getGuiScaledWidth();
 		int x = (screenWidth - width) / 2;
 		int y = modernSearchBarY;
-		context.fill(x, y, x + width, y + 16,
+		extractor.fill(x, y, x + width, y + 16,
 			RenderUtils.toIntColor(bgColor, opacity));
-		RenderUtils.drawBorder2D(context, x, y, x + width, y + 16,
+		RenderUtils.drawBorder2D(extractor, x, y, x + width, y + 16,
 			RenderUtils.toIntColor(acColor, opacity));
 		int textY = Math.round(y + (16 - MC.font.lineHeight) / 2F);
-		context.text(MC.font, prefix, x + 7, textY, txtColor, false);
+		extractor.text(MC.font, prefix, x + 7, textY, txtColor, false);
 		int fieldX = x + 7 + MC.font.width(prefix);
 		int countX = x + width - 7 - MC.font.width(count);
 		modernSearchBox.setX(fieldX);
@@ -3225,22 +3228,22 @@ public final class ClickGui
 			modernSearchBox.moveCursorToEnd(false);
 			modernSearchNeedsPositionRefresh = false;
 		}
-		modernSearchBox.extractRenderState(context, mouseX, mouseY, 0);
-		context.text(MC.font, count, countX, textY, txtColor, false);
+		modernSearchBox.extractRenderState(extractor, mouseX, mouseY, 0);
+		extractor.text(MC.font, count, countX, textY, txtColor, false);
 	}
 	
-	private boolean handleModernSearchClick(MouseButtonEvent context)
+	private boolean handleModernSearchClick(MouseButtonEvent extractor)
 	{
 		if(!modernStyle || modernSearchBox == null
 			|| modernSearchQuery.isEmpty()
-			|| !isModernSearchBarHovered(context.x(), context.y()))
+			|| !isModernSearchBarHovered(extractor.x(), extractor.y()))
 			return false;
 		
 		if(keyboardInput != null)
 			clearKeyboardInput();
 		modernSearchFocused = true;
 		modernSearchBox.setFocused(true);
-		modernSearchBox.onClick(context, false);
+		modernSearchBox.onClick(extractor, false);
 		return true;
 	}
 	
@@ -3329,7 +3332,7 @@ public final class ClickGui
 		return isolateWindows;
 	}
 	
-	private void renderWindowsWithIsolation(GuiGraphicsExtractor context,
+	private void renderWindowsWithIsolation(GuiGraphicsExtractor extractor,
 		List<Window> windowsToRender, int mouseX, int mouseY,
 		float partialTicks)
 	{
@@ -3346,10 +3349,10 @@ public final class ClickGui
 			
 			for(Rect rect : visibleAreas)
 			{
-				context.enableScissor(rect.x1, rect.y1, rect.x2, rect.y2);
-				context.guiRenderState.up();
-				renderWindow(context, window, mouseX, mouseY, partialTicks);
-				context.disableScissor();
+				extractor.enableScissor(rect.x1, rect.y1, rect.x2, rect.y2);
+				extractor.guiRenderState.up();
+				renderWindow(extractor, window, mouseX, mouseY, partialTicks);
+				extractor.disableScissor();
 			}
 		}
 	}

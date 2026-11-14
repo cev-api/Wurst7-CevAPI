@@ -7,6 +7,7 @@
  */
 package net.wurstclient.mixin;
 
+import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -15,7 +16,6 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
@@ -37,7 +37,6 @@ import net.wurstclient.InputFaker;
 import net.wurstclient.InputFaker.TempRealInput;
 import net.wurstclient.WurstClient;
 import net.wurstclient.event.EventManager;
-import net.wurstclient.events.FlyingSpeedListener.FlyingSpeedEvent;
 import net.wurstclient.events.IsPlayerInLavaListener.IsPlayerInLavaEvent;
 import net.wurstclient.events.IsPlayerInWaterListener.IsPlayerInWaterEvent;
 import net.wurstclient.events.MobEffectListener.MobEffectEvent;
@@ -74,26 +73,21 @@ public abstract class LocalPlayerMixin extends AbstractClientPlayer
 		super(world, profile);
 	}
 	
-	@Inject(method = "tick()V", at = @At("HEAD"))
+	@Inject(method = {"tick()V", "rideTick()V"}, at = @At("HEAD"))
 	private void onTickHead(CallbackInfo ci)
 	{
-		InputFaker.swapIfNeeded();
+		InputFaker.swapIfNeeded(true);
 	}
 	
-	@Inject(method = "tick()V", at = @At("RETURN"))
-	private void onTickReturn(CallbackInfo ci)
+	@Inject(method = "sendChanges()V", at = @At("HEAD"))
+	private void onSendChangesHead(CallbackInfo ci)
 	{
-		InputFaker.restoreIfNeeded();
+		InputFaker.swapIfNeeded(false);
 	}
 	
-	@Inject(method = "rideTick()V", at = @At("HEAD"))
-	private void onRideTickHead(CallbackInfo ci)
-	{
-		InputFaker.swapIfNeeded();
-	}
-	
-	@Inject(method = "rideTick()V", at = @At("RETURN"))
-	private void onRideTickReturn(CallbackInfo ci)
+	@Inject(method = {"tick()V", "rideTick()V", "sendChanges()V"},
+		at = @At("RETURN"))
+	private void onInputFakerReturn(CallbackInfo ci)
 	{
 		InputFaker.restoreIfNeeded();
 	}
@@ -167,16 +161,31 @@ public abstract class LocalPlayerMixin extends AbstractClientPlayer
 		positionReminder = value;
 	}
 	
+	@Inject(method = "sendChanges()V",
+		at = @At(value = "INVOKE",
+			target = "Lnet/minecraft/client/player/LocalPlayer;isPassenger()Z"))
+	private void onSendChangesPreMotion(CallbackInfo ci)
+	{
+		EventManager.fire(PreMotionEvent.INSTANCE);
+	}
+	
+	@Inject(method = "sendChanges()V", at = @At("TAIL"))
+	private void onSendChangesPostMotion(CallbackInfo ci)
+	{
+		EventManager.fire(PostMotionEvent.INSTANCE);
+	}
+	
 	@Inject(method = "sendPosition()V", at = @At("HEAD"))
 	private void onSendMovementPacketsHEAD(CallbackInfo ci)
 	{
-		EventManager.fire(PreMotionEvent.INSTANCE);
+		// Run RotationFaker after events so PreMotionListeners can use it
+		WurstClient.INSTANCE.getRotationFaker().applyIfNeeded();
 	}
 	
 	@Inject(method = "sendPosition()V", at = @At("TAIL"))
 	private void onSendMovementPacketsTAIL(CallbackInfo ci)
 	{
-		EventManager.fire(PostMotionEvent.INSTANCE);
+		
 	}
 	
 	@WrapOperation(method = "sendPosition()V",
@@ -211,15 +220,6 @@ public abstract class LocalPlayerMixin extends AbstractClientPlayer
 		EventManager.fire(PlayerMoveEvent.INSTANCE);
 	}
 	
-	@Inject(method = "isAutoJumpEnabled()Z",
-		at = @At("HEAD"),
-		cancellable = true)
-	private void onIsAutoJumpEnabled(CallbackInfoReturnable<Boolean> cir)
-	{
-		if(!WurstClient.INSTANCE.getHax().stepHack.isAutoJumpAllowed())
-			cir.setReturnValue(false);
-	}
-	
 	/**
 	 * Getter method for what used to be airStrafingSpeed.
 	 * Overridden to allow for the speed to be modified by hacks.
@@ -227,29 +227,13 @@ public abstract class LocalPlayerMixin extends AbstractClientPlayer
 	/**
 	 * Prevents flying up with Flight activating elytra.
 	 */
-	@Override
-	public boolean canGlide()
+	@ModifyExpressionValue(method = "updateAutoJump(FF)V",
+		at = @At(value = "INVOKE",
+			target = "Lnet/minecraft/client/player/LocalPlayer;canAutoJump()Z"))
+	private boolean modifyCanAutoJump(boolean original)
 	{
-		return !WurstClient.INSTANCE.getHax().flightHack.isEnabled()
-			&& super.canGlide();
-	}
-	
-	/**
-	 * Prevents Flight getting horizontally stuck if elytra is already active.
-	 */
-	@Override
-	public boolean isFallFlying()
-	{
-		return !WurstClient.INSTANCE.getHax().flightHack.isEnabled()
-			&& super.isFallFlying();
-	}
-	
-	@Override
-	protected float getFlyingSpeed()
-	{
-		FlyingSpeedEvent event = new FlyingSpeedEvent(super.getFlyingSpeed());
-		EventManager.fire(event);
-		return event.getSpeed();
+		return original && !WurstClient.INSTANCE.getHax().stepHack.isEnabled()
+			&& !WurstClient.INSTANCE.getCmds().goToCmd.isActive();
 	}
 	
 	@Override
@@ -276,39 +260,6 @@ public abstract class LocalPlayerMixin extends AbstractClientPlayer
 	public boolean isTouchingWaterBypass()
 	{
 		return super.isInWater();
-	}
-	
-	@Override
-	protected float getJumpPower()
-	{
-		return super.getJumpPower() + WurstClient.INSTANCE.getHax().highJumpHack
-			.getAdditionalJumpMotion();
-	}
-	
-	/**
-	 * This is the part that makes SafeWalk work.
-	 */
-	@Override
-	protected boolean isStayingOnGroundSurface()
-	{
-		return super.isStayingOnGroundSurface()
-			|| WurstClient.INSTANCE.getHax().safeWalkHack.isEnabled();
-	}
-	
-	/**
-	 * This mixin allows SafeWalk to sneak visibly when the player is
-	 * near a ledge.
-	 */
-	@Override
-	protected Vec3 maybeBackOffFromEdge(Vec3 movement, MoverType type)
-	{
-		Vec3 result = super.maybeBackOffFromEdge(movement, type);
-		
-		if(movement != null)
-			WurstClient.INSTANCE.getHax().safeWalkHack
-				.onMaybeBackOffFromEdge(!movement.equals(result));
-		
-		return result;
 	}
 	
 	@Override

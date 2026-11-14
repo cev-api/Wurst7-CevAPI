@@ -33,7 +33,7 @@ public abstract class AbstractListEditButton extends Component
 	
 	@Override
 	public void handleMouseClick(double mouseX, double mouseY, int mouseButton,
-		MouseButtonEvent context)
+		MouseButtonEvent extractor)
 	{
 		if(mouseButton != InputConstants.MOUSE_BUTTON_LEFT)
 			return;
@@ -45,7 +45,7 @@ public abstract class AbstractListEditButton extends Component
 	}
 	
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+	public void extractRenderState(GuiGraphicsExtractor extractor, int mouseX,
 		int mouseY, float partialTicks)
 	{
 		int x1 = getX();
@@ -62,24 +62,24 @@ public abstract class AbstractListEditButton extends Component
 			GUI.setTooltip(getSetting().getWrappedDescription(200));
 		
 		// background
-		context.fill(x1, y1, x3, y2, getRowFillColor());
+		extractor.fill(x1, y1, x3, y2, getRowFillColor());
 		
 		// button
-		context.fill(x3, y1, x2, y2, getButtonFillColor(hBox));
+		extractor.fill(x3, y1, x2, y2, getButtonFillColor(hBox));
 		int outlineColor = RenderUtils.toIntColor(GUI.getAcColor(), 0.5F);
-		RenderUtils.drawBorder2D(context, x3, y1, x2, y2, outlineColor);
+		RenderUtils.drawBorder2D(extractor, x3, y1, x2, y2, outlineColor);
 		
 		// text
 		int txtColor = GUI.getTxtColor();
-		context.guiRenderState.up();
+		extractor.guiRenderState.up();
 		boolean modern =
 			getParent() instanceof net.wurstclient.clickgui.modern.ModernWindow;
 		int textY = modern ? Math.round(y1 + (getHeight() - TR.lineHeight) / 2F)
 			: y1 + 2;
-		context.text(TR, getText(), x1 + (modern ? 8 : 0), textY, txtColor,
+		extractor.text(TR, getText(), x1 + (modern ? 8 : 0), textY, txtColor,
 			false);
 		int buttonTextX = x3 + (x2 - x3 - buttonWidth) / 2;
-		context.text(TR, buttonText, buttonTextX, textY, txtColor, false);
+		extractor.text(TR, buttonText, buttonTextX, textY, txtColor, false);
 	}
 	
 	private int getButtonAreaWidth()

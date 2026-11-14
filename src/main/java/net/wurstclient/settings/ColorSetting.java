@@ -15,7 +15,6 @@ import java.util.Set;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
-import net.minecraft.util.Mth;
 import net.wurstclient.WurstClient;
 import net.wurstclient.clickgui.Component;
 import net.wurstclient.clickgui.components.ColorComponent;
@@ -72,7 +71,7 @@ public final class ColorSetting extends Setting
 	
 	public int getColorI(float alpha)
 	{
-		return getColorI((int)(Mth.clamp(alpha, 0, 1) * 255));
+		return getColorI((int)(Math.clamp(alpha, 0, 1) * 255));
 	}
 	
 	public int getRed()

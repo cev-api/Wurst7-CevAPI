@@ -176,32 +176,38 @@ public final class EditColorScreen extends Screen
 	}
 	
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+	public void extractRenderState(GuiGraphicsExtractor extractor, int mouseX,
 		int mouseY, float partialTicks)
 	{
 		Font tr = minecraft.font;
 		
-		context.centeredText(minecraft.font, "HSV Color Picker", width / 2, 16,
-			WurstColors.VERY_LIGHT_GRAY);
+		extractor.centeredText(minecraft.font, "HSV Color Picker", width / 2,
+			16, WurstColors.VERY_LIGHT_GRAY);
 		
-		renderSvPicker(context);
-		renderHueSlider(context);
-		renderPickerHandles(context);
+		renderSvPicker(extractor);
+		renderHueSlider(extractor);
+		renderPickerHandles(extractor);
 		
 		// RGB letters
-		context.text(tr, "#", fieldsX, fieldsY + 6, WurstColors.VERY_LIGHT_GRAY,
+		extractor.text(tr, "#", fieldsX, fieldsY + 6,
+			WurstColors.VERY_LIGHT_GRAY, false);
+		extractor.text(tr, "R:", fieldsX, fieldsY + 6 + 35, CommonColors.RED,
 			false);
-		context.text(tr, "R:", fieldsX, fieldsY + 6 + 35, CommonColors.RED,
-			false);
-		context.text(tr, "G:", fieldsX + 75, fieldsY + 6 + 35,
+		extractor.text(tr, "G:", fieldsX + 75, fieldsY + 6 + 35,
 			CommonColors.GREEN, false);
-		context.text(tr, "B:", fieldsX + 150, fieldsY + 6 + 35,
+		extractor.text(tr, "B:", fieldsX + 150, fieldsY + 6 + 35,
 			CommonColors.BLUE, false);
-		hexValueField.extractRenderState(context, mouseX, mouseY, partialTicks);
-		redValueField.extractRenderState(context, mouseX, mouseY, partialTicks);
-		greenValueField.extractRenderState(context, mouseX, mouseY,
+		hexValueField.extractRenderState(extractor, mouseX, mouseY,
 			partialTicks);
-		blueValueField.extractRenderState(context, mouseX, mouseY,
+		redValueField.extractRenderState(extractor, mouseX, mouseY,
+			partialTicks);
+		greenValueField.extractRenderState(extractor, mouseX, mouseY,
+			partialTicks);
+		redValueField.extractRenderState(extractor, mouseX, mouseY,
+			partialTicks);
+		greenValueField.extractRenderState(extractor, mouseX, mouseY,
+			partialTicks);
+		blueValueField.extractRenderState(extractor, mouseX, mouseY,
 			partialTicks);
 		
 		// Centered long preview bar below RGB row.
@@ -209,18 +215,19 @@ public final class EditColorScreen extends Screen
 		int boxHeight = 12;
 		int boxX = fieldsX + 12;
 		int boxY = fieldsY + 62;
-		context.fill(boxX - 1, boxY - 1, boxX + boxWidth + 1,
+		extractor.fill(boxX - 1, boxY - 1, boxX + boxWidth + 1,
 			boxY + boxHeight + 1, CommonColors.LIGHT_GRAY);
-		context.fill(boxX, boxY, boxX + boxWidth, boxY + boxHeight,
+		extractor.fill(boxX, boxY, boxX + boxWidth, boxY + boxHeight,
 			color.getRGB());
 		
 		for(Renderable drawable : renderables)
-			drawable.extractRenderState(context, mouseX, mouseY, partialTicks);
+			drawable.extractRenderState(extractor, mouseX, mouseY,
+				partialTicks);
 	}
 	
-	private void renderSvPicker(GuiGraphicsExtractor context)
+	private void renderSvPicker(GuiGraphicsExtractor extractor)
 	{
-		context.fill(svX - 1, svY - 1, svX + svW + 1, svY + svH + 1,
+		extractor.fill(svX - 1, svY - 1, svX + svW + 1, svY + svH + 1,
 			CommonColors.LIGHT_GRAY);
 		int hueRgb = Color.HSBtoRGB(hue, 1F, 1F) & 0x00FFFFFF;
 		
@@ -228,35 +235,35 @@ public final class EditColorScreen extends Screen
 		{
 			float t = svW <= 1 ? 0 : x / (float)(svW - 1);
 			int topColor = blendRgb(0xFFFFFF, hueRgb, t) | 0xFF000000;
-			context.fillGradient(svX + x, svY, svX + x + 1, svY + svH, topColor,
-				0xFF000000);
+			extractor.fillGradient(svX + x, svY, svX + x + 1, svY + svH,
+				topColor, 0xFF000000);
 		}
 	}
 	
-	private void renderHueSlider(GuiGraphicsExtractor context)
+	private void renderHueSlider(GuiGraphicsExtractor extractor)
 	{
-		context.fill(hueX - 1, hueY - 1, hueX + hueW + 1, hueY + hueH + 1,
+		extractor.fill(hueX - 1, hueY - 1, hueX + hueW + 1, hueY + hueH + 1,
 			CommonColors.LIGHT_GRAY);
 		for(int y = 0; y < hueH; y++)
 		{
 			float h = hueH <= 1 ? 0 : y / (float)(hueH - 1);
 			int rgb = Color.HSBtoRGB(h, 1F, 1F) | 0xFF000000;
-			context.fill(hueX, hueY + y, hueX + hueW, hueY + y + 1, rgb);
+			extractor.fill(hueX, hueY + y, hueX + hueW, hueY + y + 1, rgb);
 		}
 	}
 	
-	private void renderPickerHandles(GuiGraphicsExtractor context)
+	private void renderPickerHandles(GuiGraphicsExtractor extractor)
 	{
 		int cx = svX + Math.round(saturation * (svW - 1));
 		int cy = svY + Math.round((1F - brightness) * (svH - 1));
-		context.fill(cx - 3, cy, cx + 4, cy + 1, 0xFFFFFFFF);
-		context.fill(cx, cy - 3, cx + 1, cy + 4, 0xFFFFFFFF);
-		context.fill(cx - 2, cy, cx + 3, cy + 1, 0xFF000000);
-		context.fill(cx, cy - 2, cx + 1, cy + 3, 0xFF000000);
+		extractor.fill(cx - 3, cy, cx + 4, cy + 1, 0xFFFFFFFF);
+		extractor.fill(cx, cy - 3, cx + 1, cy + 4, 0xFFFFFFFF);
+		extractor.fill(cx - 2, cy, cx + 3, cy + 1, 0xFF000000);
+		extractor.fill(cx, cy - 2, cx + 1, cy + 3, 0xFF000000);
 		
 		int hy = hueY + Math.round(hue * (hueH - 1));
-		context.fill(hueX - 3, hy - 1, hueX + hueW + 3, hy + 1, 0xFFFFFFFF);
-		context.fill(hueX - 2, hy, hueX + hueW + 2, hy + 1, 0xFF000000);
+		extractor.fill(hueX - 3, hy - 1, hueX + hueW + 3, hy + 1, 0xFFFFFFFF);
+		extractor.fill(hueX - 2, hy, hueX + hueW + 2, hy + 1, 0xFF000000);
 	}
 	
 	private static int blendRgb(int rgb1, int rgb2, float t)
@@ -291,38 +298,38 @@ public final class EditColorScreen extends Screen
 	}
 	
 	@Override
-	public boolean mouseDragged(MouseButtonEvent context, double dragX,
+	public boolean mouseDragged(MouseButtonEvent extractor, double dragX,
 		double dragY)
 	{
 		if(draggingSv)
 		{
-			updateSvFromMouse(context.x(), context.y());
+			updateSvFromMouse(extractor.x(), extractor.y());
 			return true;
 		}
 		if(draggingHue)
 		{
-			updateHueFromMouse(context.y());
+			updateHueFromMouse(extractor.y());
 			return true;
 		}
 		
-		return super.mouseDragged(context, dragX, dragY);
+		return super.mouseDragged(extractor, dragX, dragY);
 	}
 	
 	@Override
-	public boolean mouseReleased(MouseButtonEvent context)
+	public boolean mouseReleased(MouseButtonEvent extractor)
 	{
 		draggingSv = false;
 		draggingHue = false;
-		return super.mouseReleased(context);
+		return super.mouseReleased(extractor);
 	}
 	
 	@Override
-	public boolean mouseClicked(MouseButtonEvent context, boolean doubleClick)
+	public boolean mouseClicked(MouseButtonEvent extractor, boolean doubleClick)
 	{
-		double mouseX = context.x();
-		double mouseY = context.y();
+		double mouseX = extractor.x();
+		double mouseY = extractor.y();
 		
-		if(context.button() == InputConstants.MOUSE_BUTTON_LEFT)
+		if(extractor.button() == InputConstants.MOUSE_BUTTON_LEFT)
 		{
 			if(mouseX >= svX && mouseX <= svX + svW && mouseY >= svY
 				&& mouseY <= svY + svH)
@@ -341,7 +348,7 @@ public final class EditColorScreen extends Screen
 			}
 		}
 		
-		return super.mouseClicked(context, doubleClick);
+		return super.mouseClicked(extractor, doubleClick);
 	}
 	
 	@Override
@@ -362,9 +369,9 @@ public final class EditColorScreen extends Screen
 	}
 	
 	@Override
-	public boolean keyPressed(KeyEvent context)
+	public boolean keyPressed(KeyEvent extractor)
 	{
-		switch(context.key())
+		switch(extractor.key())
 		{
 			case InputConstants.KEY_RETURN:
 			done();
@@ -375,7 +382,7 @@ public final class EditColorScreen extends Screen
 			break;
 		}
 		
-		return super.keyPressed(context);
+		return super.keyPressed(extractor);
 	}
 	
 	@Override

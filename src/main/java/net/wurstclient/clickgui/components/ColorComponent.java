@@ -37,7 +37,7 @@ public final class ColorComponent extends Component
 	
 	@Override
 	public void handleMouseClick(double mouseX, double mouseY, int mouseButton,
-		MouseButtonEvent context)
+		MouseButtonEvent extractor)
 	{
 		if(!(getParent() instanceof net.wurstclient.clickgui.modern.ModernWindow)
 			&& mouseY < getY() + TEXT_HEIGHT)
@@ -56,7 +56,7 @@ public final class ColorComponent extends Component
 	}
 	
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+	public void extractRenderState(GuiGraphicsExtractor extractor, int mouseX,
 		int mouseY, float partialTicks)
 	{
 		int x1 = getX();
@@ -71,17 +71,17 @@ public final class ColorComponent extends Component
 				GUI.setTooltip(getColorTooltip());
 			int rowBg =
 				RenderUtils.toIntColor(GUI.getBgColor(), GUI.getOpacity());
-			context.fill(x1, y1, x2, y2, rowBg);
+			extractor.fill(x1, y1, x2, y2, rowBg);
 			int swatchX2 = x2 - 8;
 			int swatchX1 = swatchX2 - 40;
 			int swatchHeight = Math.min(7, Math.max(4, getHeight() - 10));
 			int swatchY1 = y1 + (getHeight() - swatchHeight) / 2;
 			int swatchY2 = swatchY1 + swatchHeight;
-			context.fill(swatchX1, swatchY1, swatchX2, swatchY2,
+			extractor.fill(swatchX1, swatchY1, swatchX2, swatchY2,
 				setting.getColorI(hovering ? 1F : GUI.getOpacity()));
-			RenderUtils.drawBorder2D(context, swatchX1, swatchY1, swatchX2,
+			RenderUtils.drawBorder2D(extractor, swatchX1, swatchY1, swatchX2,
 				swatchY2, RenderUtils.toIntColor(GUI.getAcColor(), 0.75F));
-			context.text(TR, setting.getName(), x1 + 8,
+			extractor.text(TR, setting.getName(), x1 + 8,
 				Math.round(y1 + (getHeight() - TR.lineHeight) / 2F),
 				GUI.getTxtColor(), false);
 			return;
@@ -100,22 +100,22 @@ public final class ColorComponent extends Component
 		// background
 		float opacity = GUI.getOpacity();
 		int bgColor = RenderUtils.toIntColor(GUI.getBgColor(), opacity);
-		context.fill(x1, y1, x2, y3, bgColor);
+		extractor.fill(x1, y1, x2, y3, bgColor);
 		
 		// box
-		context.fill(x1, y3, x2, y2,
+		extractor.fill(x1, y3, x2, y2,
 			setting.getColorI(hovering ? 1F : opacity));
 		int outlineColor = RenderUtils.toIntColor(GUI.getAcColor(), 0.5F);
-		RenderUtils.drawBorder2D(context, x1, y3, x2, y2, outlineColor);
+		RenderUtils.drawBorder2D(extractor, x1, y3, x2, y2, outlineColor);
 		
 		// text
 		String name = setting.getName();
 		String value = ColorUtils.toHex(setting.getColor());
 		int valueWidth = TR.width(value);
 		int txtColor = GUI.getTxtColor();
-		context.guiRenderState.up();
-		context.text(TR, name, x1, y1 + 2, txtColor, false);
-		context.text(TR, value, x2 - valueWidth, y1 + 2, txtColor, false);
+		extractor.guiRenderState.up();
+		extractor.text(TR, name, x1, y1 + 2, txtColor, false);
+		extractor.text(TR, value, x2 - valueWidth, y1 + 2, txtColor, false);
 	}
 	
 	private String getColorTooltip()

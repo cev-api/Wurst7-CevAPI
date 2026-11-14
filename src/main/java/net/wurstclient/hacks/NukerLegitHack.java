@@ -37,7 +37,6 @@ import net.wurstclient.util.BlockBreaker;
 import net.wurstclient.util.BlockBreaker.BlockBreakingParams;
 import net.wurstclient.util.BlockUtils;
 import net.wurstclient.util.OverlayRenderer;
-import net.wurstclient.util.RotationUtils;
 
 @SearchTags({"LegitNuker", "nuker legit", "legit nuker"})
 public final class NukerLegitHack extends Hack
@@ -147,8 +146,7 @@ public final class NukerLegitHack extends Hack
 			return;
 		}
 		
-		Vec3 eyesVec = RotationUtils.getEyesPos();
-		BlockPos eyesBlock = BlockPos.containing(eyesVec);
+		BlockPos eyesBlock = BlockPos.containing(MC.player.getEyePosition());
 		double maxRange = MC.player.blockInteractionRange() + 1;
 		double rangeSq = commonSettings.isSphereShape() ? range.getValueSq()
 			: maxRange * maxRange;
@@ -171,7 +169,7 @@ public final class NukerLegitHack extends Hack
 		{
 			IKeyMapping.get(MC.options.keyAttack).resetDownState();
 			overlay.resetProgress();
-			attackOneEntity(eyesVec, rangeSq);
+			attackOneEntity(MC.player.getEyePosition(), rangeSq);
 		}
 		
 		overlay.updateProgress();
@@ -182,9 +180,8 @@ public final class NukerLegitHack extends Hack
 		MultiPlayerGameMode im = MC.gameMode;
 		
 		WURST.getRotationFaker().faceVectorClient(params.hitVec());
-		HitResult hitResult = MC.hitResult;
-		if(hitResult == null || hitResult.getType() != HitResult.Type.BLOCK
-			|| !(hitResult instanceof BlockHitResult bHitResult))
+		if(!(MC.hitResult instanceof BlockHitResult bHitResult)
+			|| bHitResult.getType() != HitResult.Type.BLOCK)
 		{
 			im.stopDestroyBlock();
 			return true;

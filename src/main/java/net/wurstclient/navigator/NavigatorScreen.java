@@ -47,14 +47,14 @@ public abstract class NavigatorScreen extends Screen
 	}
 	
 	@Override
-	public final boolean keyPressed(KeyEvent context)
+	public final boolean keyPressed(KeyEvent extractor)
 	{
 		ClickGui gui = WurstClient.INSTANCE.getGui();
-		if(gui.handleKeyPressed(context))
+		if(gui.handleKeyPressed(extractor))
 			return true;
 		
-		onKeyPress(context);
-		return super.keyPressed(context);
+		onKeyPress(extractor);
+		return super.keyPressed(extractor);
 	}
 	
 	@Override
@@ -68,32 +68,33 @@ public abstract class NavigatorScreen extends Screen
 	}
 	
 	@Override
-	public final boolean mouseClicked(MouseButtonEvent context,
+	public final boolean mouseClicked(MouseButtonEvent extractor,
 		boolean doubleClick)
 	{
 		// scrollbar
 		if(new Rectangle(width / 2 + 170, 60, 12, height - 103)
-			.contains(context.x(), context.y()))
+			.contains(extractor.x(), extractor.y()))
 			scrolling = true;
 		
-		onMouseClick(context);
+		onMouseClick(extractor);
 		
 		// vanilla buttons
-		return super.mouseClicked(context, doubleClick);
+		return super.mouseClicked(extractor, doubleClick);
 	}
 	
 	@Override
-	public final boolean mouseDragged(MouseButtonEvent context, double double_3,
-		double double_4)
+	public final boolean mouseDragged(MouseButtonEvent extractor,
+		double double_3, double double_4)
 	{
 		// scrollbar
 		if(scrolling && !scrollbarLocked
-			&& context.button() == InputConstants.MOUSE_BUTTON_LEFT)
+			&& extractor.button() == InputConstants.MOUSE_BUTTON_LEFT)
 		{
 			if(maxScroll == 0)
 				scroll = 0;
 			else
-				scroll = (int)((context.y() - 72) * maxScroll / (height - 131));
+				scroll =
+					(int)((extractor.y() - 72) * maxScroll / (height - 131));
 			
 			if(scroll > 0)
 				scroll = 0;
@@ -108,22 +109,22 @@ public abstract class NavigatorScreen extends Screen
 			scrollKnobPosition += 2;
 		}
 		
-		onMouseDrag(context.x(), context.y(), context.button(), double_3,
+		onMouseDrag(extractor.x(), extractor.y(), extractor.button(), double_3,
 			double_4);
 		
-		return super.mouseDragged(context, double_3, double_4);
+		return super.mouseDragged(extractor, double_3, double_4);
 	}
 	
 	@Override
-	public final boolean mouseReleased(MouseButtonEvent context)
+	public final boolean mouseReleased(MouseButtonEvent extractor)
 	{
 		// scrollbar
 		scrolling = false;
 		
-		onMouseRelease(context.x(), context.y(), context.button());
+		onMouseRelease(extractor.x(), extractor.y(), extractor.button());
 		
 		// vanilla buttons
-		return super.mouseReleased(context);
+		return super.mouseReleased(extractor);
 	}
 	
 	@Override
@@ -166,7 +167,7 @@ public abstract class NavigatorScreen extends Screen
 	}
 	
 	@Override
-	public final void extractRenderState(GuiGraphicsExtractor context,
+	public final void extractRenderState(GuiGraphicsExtractor extractor,
 		int mouseX, int mouseY, float partialTicks)
 	{
 		// background
@@ -175,7 +176,7 @@ public abstract class NavigatorScreen extends Screen
 		int bgy1 = 60;
 		int bgy2 = height - 43;
 		if(hasBackground)
-			drawBackgroundBox(context, bgx1, bgy1, bgx2, bgy2);
+			drawBackgroundBox(extractor, bgx1, bgy1, bgx2, bgy2);
 		
 		// scrollbar
 		if(showScrollbar)
@@ -185,27 +186,27 @@ public abstract class NavigatorScreen extends Screen
 			int x2 = x1 + 12;
 			int y1 = bgy1;
 			int y2 = bgy2;
-			drawBackgroundBox(context, x1, y1, x2, y2);
+			drawBackgroundBox(extractor, x1, y1, x2, y2);
 			
 			// knob
 			x1 += 2;
 			x2 -= 2;
 			y1 += scrollKnobPosition;
 			y2 = y1 + 24;
-			drawBackgroundBox(context, x1, y1, x2, y2);
+			drawBackgroundBox(extractor, x1, y1, x2, y2);
 			x1++;
 			x2--;
 			y1 += 8;
 			y2 -= 15;
 			for(int i = 0; i < 3; y1 += 4, y2 += 4, i++)
-				drawDownShadow(context, x1, y1, x2, y2);
+				drawDownShadow(extractor, x1, y1, x2, y2);
 		}
 		
-		onRender(context, mouseX, mouseY, partialTicks);
+		onRender(extractor, mouseX, mouseY, partialTicks);
 	}
 	
 	@Override
-	public void extractBackground(GuiGraphicsExtractor context, int mouseX,
+	public void extractBackground(GuiGraphicsExtractor extractor, int mouseX,
 		int mouseY, float deltaTicks)
 	{
 		// Dark overlay so the world does not show through semi-transparent
@@ -214,7 +215,7 @@ public abstract class NavigatorScreen extends Screen
 		if(!isBackgroundOverlayEnabled())
 			return;
 		
-		context.fillGradient(0, 0, width, height, 0xDA10131B, 0xE0121B29);
+		extractor.fillGradient(0, 0, width, height, 0xDA10131B, 0xE0121B29);
 	}
 	
 	private static boolean isBackgroundOverlayEnabled()
@@ -232,9 +233,9 @@ public abstract class NavigatorScreen extends Screen
 	
 	protected abstract void onResize();
 	
-	protected abstract void onKeyPress(KeyEvent context);
+	protected abstract void onKeyPress(KeyEvent extractor);
 	
-	protected abstract void onMouseClick(MouseButtonEvent context);
+	protected abstract void onMouseClick(MouseButtonEvent extractor);
 	
 	protected abstract void onMouseDrag(double mouseX, double mouseY,
 		int button, double double_3, double double_4);
@@ -249,7 +250,7 @@ public abstract class NavigatorScreen extends Screen
 	
 	protected abstract void onUpdate();
 	
-	protected abstract void onRender(GuiGraphicsExtractor context, int mouseX,
+	protected abstract void onRender(GuiGraphicsExtractor extractor, int mouseX,
 		int mouseY, float partialTicks);
 	
 	protected final int getStringHeight(String s)
@@ -275,27 +276,27 @@ public abstract class NavigatorScreen extends Screen
 			scroll = maxScroll;
 	}
 	
-	protected final void drawDownShadow(GuiGraphicsExtractor context, int x1,
+	protected final void drawDownShadow(GuiGraphicsExtractor extractor, int x1,
 		int y1, int x2, int y2)
 	{
 		float[] acColor = WurstClient.INSTANCE.getGui().getAcColor();
 		
 		// line
 		int lineColor = RenderUtils.toIntColor(acColor, 0.5F);
-		RenderUtils.drawLine2D(context, x1 + 0.1F, y1, x2 + 0.1F, y1,
+		RenderUtils.drawLine2D(extractor, x1 + 0.1F, y1, x2 + 0.1F, y1,
 			lineColor);
 		
 		// shadow
 		int shadowColor1 = RenderUtils.toIntColor(acColor, 0.75F);
 		int shadowColor2 = 0x00000000;
-		context.fillGradient(x1, y1, x2, y2, shadowColor1, shadowColor2);
+		extractor.fillGradient(x1, y1, x2, y2, shadowColor1, shadowColor2);
 	}
 	
-	protected final void drawBox(GuiGraphicsExtractor context, int x1, int y1,
+	protected final void drawBox(GuiGraphicsExtractor extractor, int x1, int y1,
 		int x2, int y2, int color)
 	{
-		context.fill(x1, y1, x2, y2, color);
-		RenderUtils.drawBoxShadow2D(context, x1, y1, x2, y2);
+		extractor.fill(x1, y1, x2, y2, color);
+		RenderUtils.drawBoxShadow2D(extractor, x1, y1, x2, y2);
 	}
 	
 	protected final int getBackgroundColor()
@@ -308,9 +309,9 @@ public abstract class NavigatorScreen extends Screen
 			Math.max(0.85F, gui.getOpacity()));
 	}
 	
-	protected final void drawBackgroundBox(GuiGraphicsExtractor context, int x1,
-		int y1, int x2, int y2)
+	protected final void drawBackgroundBox(GuiGraphicsExtractor extractor,
+		int x1, int y1, int x2, int y2)
 	{
-		drawBox(context, x1, y1, x2, y2, getBackgroundColor());
+		drawBox(extractor, x1, y1, x2, y2, getBackgroundColor());
 	}
 }

@@ -226,7 +226,7 @@ public final class CaveFinderHack extends Hack
 	
 	private void startGetMatchingBlocksTask()
 	{
-		BlockPos eyesPos = BlockPos.containing(RotationUtils.getEyesPos());
+		BlockPos eyesPos = BlockPos.containing(MC.player.getEyePosition());
 		Comparator<BlockPos> comparator =
 			Comparator.comparingInt(pos -> eyesPos.distManhattan(pos));
 		currentBuildGeneration = buildGeneration;

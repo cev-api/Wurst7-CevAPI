@@ -9,7 +9,6 @@ package net.wurstclient.clickgui;
 
 import java.util.ArrayList;
 import net.minecraft.client.gui.Font;
-import net.minecraft.util.Mth;
 import net.wurstclient.WurstClient;
 
 public class Window
@@ -77,7 +76,7 @@ public class Window
 			return x;
 		
 		int scaledWidth = WurstClient.MC.getWindow().getGuiScaledWidth();
-		return Mth.clamp(x, -width + 1, scaledWidth - 1);
+		return Math.clamp(x, -width + 1, scaledWidth - 1);
 	}
 	
 	/**
@@ -104,7 +103,7 @@ public class Window
 			return y;
 		
 		int scaledHeight = WurstClient.MC.getWindow().getGuiScaledHeight();
-		return Mth.clamp(y, -12, scaledHeight - 1);
+		return Math.clamp(y, -12, scaledHeight - 1);
 	}
 	
 	/**
@@ -506,7 +505,7 @@ public class Window
 				: 8;
 		int proportional = (int)Math.round(
 			trackHeight * outerHeight / (double)Math.max(1, innerHeight));
-		return Mth.clamp(Math.max(minimum, proportional), 1, trackHeight);
+		return Math.clamp(Math.max(minimum, proportional), 1, trackHeight);
 	}
 	
 	public final int getScrollbarThumbY()
@@ -538,7 +537,7 @@ public class Window
 			return;
 		}
 		int localMouseY = mouseY - getY() - getHeaderHeight();
-		int thumbY = Mth.clamp(localMouseY - getScrollbarThumbHeight() / 2,
+		int thumbY = Math.clamp(localMouseY - getScrollbarThumbHeight() / 2,
 			getScrollbarTrackTop(), getScrollbarTrackTop() + travel);
 		scrollOffset = -(int)Math.round(
 			(thumbY - getScrollbarTrackTop()) / (double)travel * maxScroll);
@@ -563,7 +562,7 @@ public class Window
 			return;
 		}
 		int localMouseY = mouseY - getY() - getHeaderHeight();
-		int thumbY = Mth.clamp(localMouseY + scrollbarDragOffsetY,
+		int thumbY = Math.clamp(localMouseY + scrollbarDragOffsetY,
 			getScrollbarTrackTop(), getScrollbarTrackTop() + travel);
 		scrollOffset = -(int)Math.round(
 			(thumbY - getScrollbarTrackTop()) / (double)travel * maxScroll);

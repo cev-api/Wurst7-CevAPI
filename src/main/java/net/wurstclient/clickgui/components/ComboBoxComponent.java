@@ -44,7 +44,7 @@ public final class ComboBoxComponent<T extends Enum<T>> extends Component
 	
 	@Override
 	public void handleMouseClick(double mouseX, double mouseY, int mouseButton,
-		MouseButtonEvent context)
+		MouseButtonEvent extractor)
 	{
 		boolean modern =
 			getParent() instanceof net.wurstclient.clickgui.modern.ModernWindow;
@@ -110,7 +110,7 @@ public final class ComboBoxComponent<T extends Enum<T>> extends Component
 	}
 	
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+	public void extractRenderState(GuiGraphicsExtractor extractor, int mouseX,
 		int mouseY, float partialTicks)
 	{
 		int x1 = getX();
@@ -136,22 +136,23 @@ public final class ComboBoxComponent<T extends Enum<T>> extends Component
 			GUI.setTooltip(setting.getWrappedDescription(200));
 		
 		// background
-		context.fill(x1, y1, x4, y2, getRowFillColor());
+		extractor.fill(x1, y1, x4, y2, getRowFillColor());
 		
 		// box
-		context.fill(x4, controlY1, x2, controlY2, getDropdownFillColor(hBox));
+		extractor.fill(x4, controlY1, x2, controlY2,
+			getDropdownFillColor(hBox));
 		
-		context.guiRenderState.up();
+		extractor.guiRenderState.up();
 		
 		// outlines
 		int outlineColor = RenderUtils.toIntColor(GUI.getAcColor(), 0.5F);
-		RenderUtils.drawBorder2D(context, x4, controlY1, x2, controlY2,
+		RenderUtils.drawBorder2D(extractor, x4, controlY1, x2, controlY2,
 			outlineColor);
-		RenderUtils.drawLine2D(context, x3, controlY1, x3, controlY2,
+		RenderUtils.drawLine2D(extractor, x3, controlY1, x3, controlY2,
 			outlineColor);
 		
 		// arrow
-		ClickGuiIcons.drawMinimizeArrow(context, x3, controlY1 + 0.5F, x2,
+		ClickGuiIcons.drawMinimizeArrow(extractor, x3, controlY1 + 0.5F, x2,
 			controlY2 - 0.5F, hBox, !isPopupOpen());
 		
 		// text
@@ -160,8 +161,9 @@ public final class ComboBoxComponent<T extends Enum<T>> extends Component
 		int textY = modern ? Math.round(y1 + (getHeight() - TR.lineHeight) / 2F)
 			: y1 + (getHeight() - TR.lineHeight) / 2;
 		int txtColor = GUI.getTxtColor();
-		context.text(TR, name, x1 + (modern ? 8 : 0), textY, txtColor, false);
-		context.text(TR, value, x4 + (modern ? 6 : 2), textY, txtColor, false);
+		extractor.text(TR, name, x1 + (modern ? 8 : 0), textY, txtColor, false);
+		extractor.text(TR, value, x4 + (modern ? 6 : 2), textY, txtColor,
+			false);
 	}
 	
 	private int getVisibleValueWidth()

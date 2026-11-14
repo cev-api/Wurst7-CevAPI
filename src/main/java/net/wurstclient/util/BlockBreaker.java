@@ -63,7 +63,7 @@ public enum BlockBreaker
 	 */
 	public static BlockBreakingParams getBlockBreakingParams(BlockPos pos)
 	{
-		return getBlockBreakingParams(RotationUtils.getEyesPos(), pos);
+		return getBlockBreakingParams(MC.player.getEyePosition(), pos);
 	}
 	
 	/**

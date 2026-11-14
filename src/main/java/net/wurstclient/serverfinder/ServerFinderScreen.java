@@ -928,19 +928,19 @@ public class ServerFinderScreen extends Screen
 	}
 	
 	@Override
-	public boolean mouseClicked(MouseButtonEvent context, boolean doubleClick)
+	public boolean mouseClicked(MouseButtonEvent extractor, boolean doubleClick)
 	{
-		if(context.button() == InputConstants.MOUSE_BUTTON_4)
+		if(extractor.button() == InputConstants.MOUSE_BUTTON_4)
 		{
 			onClose();
 			return true;
 		}
 		
 		if(isCompactLayout()
-			&& context.button() == InputConstants.MOUSE_BUTTON_LEFT)
+			&& extractor.button() == InputConstants.MOUSE_BUTTON_LEFT)
 		{
-			int mouseX = (int)context.x();
-			int mouseY = (int)context.y();
+			int mouseX = (int)extractor.x();
+			int mouseY = (int)extractor.y();
 			if(isInside(mouseX, mouseY, compactLogHeaderX, compactLogHeaderY,
 				compactLogHeaderW, compactLogHeaderH))
 			{
@@ -961,16 +961,16 @@ public class ServerFinderScreen extends Screen
 			}
 		}
 		
-		return super.mouseClicked(context, doubleClick);
+		return super.mouseClicked(extractor, doubleClick);
 	}
 	
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+	public void extractRenderState(GuiGraphicsExtractor extractor, int mouseX,
 		int mouseY, float partialTicks)
 	{
 		layoutWidgets();
 		
-		context.fillGradient(0, 0, width, height, 0xB0101215, 0xD0080A0C);
+		extractor.fillGradient(0, 0, width, height, 0xB0101215, 0xD0080A0C);
 		
 		int panelX = getPanelX();
 		int panelY = getPanelY();
@@ -981,62 +981,64 @@ public class ServerFinderScreen extends Screen
 		int rightX = leftX + leftW + getColumnGap();
 		int rightW = panelW - (leftW + getColumnGap() + getPanelPadding() * 2);
 		
-		drawPanel(context, panelX, panelY, panelW, panelH);
-		context.fill(panelX, panelY, panelX + panelW, panelY + getHeaderH(),
+		drawPanel(extractor, panelX, panelY, panelW, panelH);
+		extractor.fill(panelX, panelY, panelX + panelW, panelY + getHeaderH(),
 			0xFF18212B);
-		context.fill(panelX, panelY + getHeaderH() - 1, panelX + panelW,
+		extractor.fill(panelX, panelY + getHeaderH() - 1, panelX + panelW,
 			panelY + getHeaderH(), 0xFF2E4050);
 		
-		context.text(font, "Server Finder", panelX + 18, panelY + 10,
+		extractor.text(font, "Server Finder", panelX + 18, panelY + 10,
 			CommonColors.WHITE, false);
-		context.text(font, "CIDR, IP range, ASN lookup, offline-mode detection",
-			panelX + 18, panelY + 24, 0xFF9FB2C4, false);
+		extractor.text(font,
+			"CIDR, IP range, ASN lookup, offline-mode detection", panelX + 18,
+			panelY + 24, 0xFF9FB2C4, false);
 		
 		String accountText = hasAuthenticatedSession()
 			? "Account: authenticated" : "Account: offline/cracked";
 		int accountW = font.width(accountText) + 16;
-		drawChip(context, panelX + panelW - accountW - getPanelPadding(),
+		drawChip(extractor, panelX + panelW - accountW - getPanelPadding(),
 			panelY + 10, accountW, accountText,
 			hasAuthenticatedSession() ? 0xFF1E6D42 : 0xFF7B2D2D);
 		
 		if(!isCompactLayout())
-			context.fill(leftX + leftW + 9, panelY + getHeaderH() + 12,
+			extractor.fill(leftX + leftW + 9, panelY + getHeaderH() + 12,
 				leftX + leftW + 10, panelY + panelH - getPanelPadding(),
 				0xFF2A3541);
 		
 		int scanHeaderY = ipBox.getY() - 34;
-		context.text(font, "Scan Target", leftX, scanHeaderY,
+		extractor.text(font, "Scan Target", leftX, scanHeaderY,
 			CommonColors.WHITE, false);
-		context.text(font,
+		extractor.text(font,
 			trimToWidth("Use CIDR, IP range, host, or ASN", leftW), leftX,
 			scanHeaderY + 14, 0xFF93A4B4, false);
-		context.text(font,
+		extractor.text(font,
 			trimToWidth("Example: 203.0.113.0/24 or AS15169", leftW), leftX,
 			scanHeaderY + 25, 0xFF93A4B4, false);
-		ipBox.extractRenderState(context, mouseX, mouseY, partialTicks);
+		ipBox.extractRenderState(extractor, mouseX, mouseY, partialTicks);
 		
-		context.text(font, "Threads", leftX, maxThreadsBox.getY() - 12,
+		extractor.text(font, "Threads", leftX, maxThreadsBox.getY() - 12,
 			CommonColors.WHITE, false);
-		maxThreadsBox.extractRenderState(context, mouseX, mouseY, partialTicks);
-		
-		context.text(font, "Server Prefix", leftX, prefixBox.getY() - 12,
-			CommonColors.WHITE, false);
-		prefixBox.extractRenderState(context, mouseX, mouseY, partialTicks);
-		
-		context.text(font, "Version / Software Filter", leftX,
-			versionFilterBox.getY() - 12, CommonColors.WHITE, false);
-		versionFilterBox.extractRenderState(context, mouseX, mouseY,
+		maxThreadsBox.extractRenderState(extractor, mouseX, mouseY,
 			partialTicks);
 		
-		context.text(font, "Whitelist Handling", leftX,
+		extractor.text(font, "Server Prefix", leftX, prefixBox.getY() - 12,
+			CommonColors.WHITE, false);
+		prefixBox.extractRenderState(extractor, mouseX, mouseY, partialTicks);
+		
+		extractor.text(font, "Version / Software Filter", leftX,
+			versionFilterBox.getY() - 12, CommonColors.WHITE, false);
+		versionFilterBox.extractRenderState(extractor, mouseX, mouseY,
+			partialTicks);
+		
+		extractor.text(font, "Whitelist Handling", leftX,
 			ignoreWhitelistButton.getY() - 12, CommonColors.WHITE, false);
 		
 		int progressY = ignoreWhitelistButton.getY() + 28;
 		int progress = totalTargets <= 0 ? 0
 			: Math.min(100, checked * 100 / Math.max(1, totalTargets));
-		drawMetric(context, leftX, progressY, leftW, "Progress",
+		drawMetric(extractor, leftX, progressY, leftW, "Progress",
 			checked + " / " + totalTargets, progress);
-		drawMiniStats(context, leftX, progressY + 54, leftW);
+		drawMiniStats(extractor, leftX, progressY + 54, leftW);
 		
 		int logsY =
 			isCompactLayout() ? progressY + 118 : panelY + getHeaderH() + 16;
@@ -1049,107 +1051,108 @@ public class ServerFinderScreen extends Screen
 			int expandedH =
 				Math.max(70, panelY + panelH - expandedY - getPanelPadding());
 			
-			drawCollapsibleHeader(context, "Live Scan Log",
+			drawCollapsibleHeader(extractor, "Live Scan Log",
 				snapshot(liveLog).size(), leftX, logsY, leftW,
 				compactLogExpanded);
-			drawCollapsibleHeader(context, "Discovered Servers",
+			drawCollapsibleHeader(extractor, "Discovered Servers",
 				snapshot(discovered).size(), leftX, logsY + collapsedTopH + 2,
 				leftW, compactDiscoveredExpanded);
 			
 			if(compactLogExpanded)
-				drawListPanel(context, "Live Scan Log", snapshot(liveLog),
+				drawListPanel(extractor, "Live Scan Log", snapshot(liveLog),
 					leftX, expandedY, leftW, expandedH,
 					"Waiting for scan output...");
 			else if(compactDiscoveredExpanded)
-				drawDiscoveredPanel(context, "Discovered Servers",
+				drawDiscoveredPanel(extractor, "Discovered Servers",
 					snapshot(discovered), leftX, expandedY, leftW, expandedH,
 					"No servers discovered yet.");
 			else
-				drawCompactHint(context, leftX, expandedY, leftW);
+				drawCompactHint(extractor, leftX, expandedY, leftW);
 		}else
 		{
 			int logW = (rightW - gap) / 2;
-			drawListPanel(context, "Live Scan Log", snapshot(liveLog), rightX,
+			drawListPanel(extractor, "Live Scan Log", snapshot(liveLog), rightX,
 				logsY, logW, logsH, "Waiting for scan output...");
-			drawDiscoveredPanel(context, "Discovered Servers",
+			drawDiscoveredPanel(extractor, "Discovered Servers",
 				snapshot(discovered), rightX + logW + gap, logsY,
 				rightW - logW - gap, logsH, "No servers discovered yet.");
 		}
 		
 		for(Renderable drawable : renderables)
-			drawable.extractRenderState(context, mouseX, mouseY, partialTicks);
+			drawable.extractRenderState(extractor, mouseX, mouseY,
+				partialTicks);
 	}
 	
-	private void drawMiniStats(GuiGraphicsExtractor context, int x, int y,
+	private void drawMiniStats(GuiGraphicsExtractor extractor, int x, int y,
 		int w)
 	{
-		context.fill(x, y, x + w, y + 82, 0xFF101820);
-		drawBorder(context, x, y, w, 82, 0xFF34495A);
-		context.text(font, "Classified", x + 8, y + 7, 0xFF9FB2C4, false);
-		context.text(font, "Online found: " + onlineFound, x + 8, y + 20,
+		extractor.fill(x, y, x + w, y + 82, 0xFF101820);
+		drawBorder(extractor, x, y, w, 82, 0xFF34495A);
+		extractor.text(font, "Classified", x + 8, y + 7, 0xFF9FB2C4, false);
+		extractor.text(font, "Online found: " + onlineFound, x + 8, y + 20,
 			CommonColors.WHITE, false);
-		context.text(font, "Added: " + working, x + 8, y + 32,
+		extractor.text(font, "Added: " + working, x + 8, y + 32,
 			CommonColors.WHITE, false);
-		context.text(font, "Offline-mode: " + offlineMode, x + 8, y + 44,
+		extractor.text(font, "Offline-mode: " + offlineMode, x + 8, y + 44,
 			0xFF7DE38D, false);
-		context.text(font, "Whitelisted: " + whitelisted, x + 8, y + 56,
+		extractor.text(font, "Whitelisted: " + whitelisted, x + 8, y + 56,
 			0xFFFFD166, false);
-		context.text(font, "Ignored: " + ignoredWhitelisted, x + w / 2, y + 56,
-			0xFFFF8A8A, false);
-		context.text(font, "Unverified: " + ignoredUnverified, x + w / 2,
+		extractor.text(font, "Ignored: " + ignoredWhitelisted, x + w / 2,
+			y + 56, 0xFFFF8A8A, false);
+		extractor.text(font, "Unverified: " + ignoredUnverified, x + w / 2,
 			y + 68, 0xFFFF8A8A, false);
-		context.text(font, "Version filtered: " + versionFiltered, x + 8,
+		extractor.text(font, "Version filtered: " + versionFiltered, x + 8,
 			y + 68, 0xFFB39DDB, false);
 	}
 	
-	private void drawStatusBlock(GuiGraphicsExtractor context, int x, int y,
+	private void drawStatusBlock(GuiGraphicsExtractor extractor, int x, int y,
 		int w, int h)
 	{
-		context.fill(x, y, x + w, y + h, 0xFF101820);
-		drawBorder(context, x, y, w, h, 0xFF34495A);
+		extractor.fill(x, y, x + w, y + h, 0xFF101820);
+		drawBorder(extractor, x, y, w, h, 0xFF34495A);
 		
 		int color = state == ServerFinderState.ERROR
 			|| state == ServerFinderState.UNKNOWN_HOST
 			|| state == ServerFinderState.AUTH_REQUIRED ? 0xFFFF6B6B
 				: state.isRunning() ? 0xFF7DE38D : 0xFFB6C2CC;
-		context.text(font,
+		extractor.text(font,
 			state.toString().isEmpty() ? "Ready" : state.toString(), x + 10,
 			y + 10, color, false);
-		context.text(font,
+		extractor.text(font,
 			trimToWidth(
 				"Use 203.0.113.0/24, 203.0.113.10-203.0.113.80, or AS15169",
 				w - 20),
 			x + 10, y + 28, 0xFF8FA3B5, false);
 	}
 	
-	private void drawMetric(GuiGraphicsExtractor context, int x, int y, int w,
+	private void drawMetric(GuiGraphicsExtractor extractor, int x, int y, int w,
 		String label, String value, int percent)
 	{
-		context.fill(x, y, x + w, y + 42, 0xFF101820);
-		drawBorder(context, x, y, w, 42, 0xFF34495A);
-		context.text(font, label, x + 8, y + 7, 0xFF9FB2C4, false);
-		context.text(font, value, x + 8, y + 20, CommonColors.WHITE, false);
+		extractor.fill(x, y, x + w, y + 42, 0xFF101820);
+		drawBorder(extractor, x, y, w, 42, 0xFF34495A);
+		extractor.text(font, label, x + 8, y + 7, 0xFF9FB2C4, false);
+		extractor.text(font, value, x + 8, y + 20, CommonColors.WHITE, false);
 		if(percent > 0)
 		{
 			int barX = x + 82;
 			int barY = y + 24;
 			int barW = w - 94;
-			context.fill(barX, barY, barX + barW, barY + 4, 0xFF26313B);
-			context.fill(barX, barY, barX + barW * percent / 100, barY + 4,
+			extractor.fill(barX, barY, barX + barW, barY + 4, 0xFF26313B);
+			extractor.fill(barX, barY, barX + barW * percent / 100, barY + 4,
 				0xFF58A6FF);
 		}
 	}
 	
-	private void drawCollapsibleHeader(GuiGraphicsExtractor context,
+	private void drawCollapsibleHeader(GuiGraphicsExtractor extractor,
 		String title, int count, int x, int y, int w, boolean expanded)
 	{
 		int h = 22;
-		context.fill(x, y, x + w, y + h, 0xFF17212B);
-		drawBorder(context, x, y, w, h, 0xFF34495A);
+		extractor.fill(x, y, x + w, y + h, 0xFF17212B);
+		drawBorder(extractor, x, y, w, h, 0xFF34495A);
 		String prefix = expanded ? "[-] " : "[+] ";
-		context.text(font, prefix + title, x + 8, y + 7, CommonColors.WHITE,
+		extractor.text(font, prefix + title, x + 8, y + 7, CommonColors.WHITE,
 			false);
-		context.text(font, Integer.toString(count), x + w - 20, y + 7,
+		extractor.text(font, Integer.toString(count), x + w - 20, y + 7,
 			0xFF9FB2C4, false);
 		
 		if("Live Scan Log".equals(title))
@@ -1167,33 +1170,33 @@ public class ServerFinderScreen extends Screen
 		}
 	}
 	
-	private void drawCompactHint(GuiGraphicsExtractor context, int x, int y,
+	private void drawCompactHint(GuiGraphicsExtractor extractor, int x, int y,
 		int w)
 	{
-		context.fill(x, y, x + w, y + 52, 0xFF0C1117);
-		drawBorder(context, x, y, w, 52, 0xFF34495A);
-		context.centeredText(font, "Tap a panel above to expand it.", x + w / 2,
-			y + 16, 0xFF9FB2C4);
-		context.centeredText(font,
+		extractor.fill(x, y, x + w, y + 52, 0xFF0C1117);
+		drawBorder(extractor, x, y, w, 52, 0xFF34495A);
+		extractor.centeredText(font, "Tap a panel above to expand it.",
+			x + w / 2, y + 16, 0xFF9FB2C4);
+		extractor.centeredText(font,
 			"Compact mode keeps one output open at a time.", x + w / 2, y + 29,
 			0xFF7F92A2);
 	}
 	
-	private void drawListPanel(GuiGraphicsExtractor context, String title,
+	private void drawListPanel(GuiGraphicsExtractor extractor, String title,
 		List<String> rows, int x, int y, int w, int h, String emptyText)
 	{
-		context.fill(x, y, x + w, y + h, 0xFF0C1117);
-		context.fill(x, y, x + w, y + 22, 0xFF17212B);
-		drawBorder(context, x, y, w, h, 0xFF34495A);
-		context.text(font, title, x + 8, y + 7, CommonColors.WHITE, false);
-		context.text(font, Integer.toString(rows.size()), x + w - 20, y + 7,
+		extractor.fill(x, y, x + w, y + h, 0xFF0C1117);
+		extractor.fill(x, y, x + w, y + 22, 0xFF17212B);
+		drawBorder(extractor, x, y, w, h, 0xFF34495A);
+		extractor.text(font, title, x + 8, y + 7, CommonColors.WHITE, false);
+		extractor.text(font, Integer.toString(rows.size()), x + w - 20, y + 7,
 			0xFF9FB2C4, false);
 		
 		int rowTop = y + 28;
 		int visible = Math.max(1, (h - 34) / 11);
 		if(rows.isEmpty())
 		{
-			context.text(font, emptyText, x + 8, rowTop, 0xFF697987, false);
+			extractor.text(font, emptyText, x + 8, rowTop, 0xFF697987, false);
 			return;
 		}
 		
@@ -1205,9 +1208,10 @@ public class ServerFinderScreen extends Screen
 			
 			int rowY = rowTop + i * 11;
 			if(i % 2 == 0)
-				context.fill(x + 4, rowY - 1, x + w - 4, rowY + 10, 0x201D2A36);
+				extractor.fill(x + 4, rowY - 1, x + w - 4, rowY + 10,
+					0x201D2A36);
 			String row = rows.get(index);
-			context.text(font, trimToWidth(row, w - 14), x + 8, rowY,
+			extractor.text(font, trimToWidth(row, w - 14), x + 8, rowY,
 				getLogColor(row), false);
 		}
 	}
@@ -1239,22 +1243,22 @@ public class ServerFinderScreen extends Screen
 		return CommonColors.WHITE;
 	}
 	
-	private void drawDiscoveredPanel(GuiGraphicsExtractor context, String title,
-		List<DiscoveredServer> rows, int x, int y, int w, int h,
+	private void drawDiscoveredPanel(GuiGraphicsExtractor extractor,
+		String title, List<DiscoveredServer> rows, int x, int y, int w, int h,
 		String emptyText)
 	{
-		context.fill(x, y, x + w, y + h, 0xFF0C1117);
-		context.fill(x, y, x + w, y + 22, 0xFF17212B);
-		drawBorder(context, x, y, w, h, 0xFF34495A);
-		context.text(font, title, x + 8, y + 7, CommonColors.WHITE, false);
-		context.text(font, Integer.toString(rows.size()), x + w - 20, y + 7,
+		extractor.fill(x, y, x + w, y + h, 0xFF0C1117);
+		extractor.fill(x, y, x + w, y + 22, 0xFF17212B);
+		drawBorder(extractor, x, y, w, h, 0xFF34495A);
+		extractor.text(font, title, x + 8, y + 7, CommonColors.WHITE, false);
+		extractor.text(font, Integer.toString(rows.size()), x + w - 20, y + 7,
 			0xFF9FB2C4, false);
 		
 		int rowTop = y + 28;
 		int visible = Math.max(1, (h - 34) / 11);
 		if(rows.isEmpty())
 		{
-			context.text(font, emptyText, x + 8, rowTop, 0xFF697987, false);
+			extractor.text(font, emptyText, x + 8, rowTop, 0xFF697987, false);
 			return;
 		}
 		
@@ -1267,35 +1271,37 @@ public class ServerFinderScreen extends Screen
 			DiscoveredServer row = rows.get(index);
 			int rowY = rowTop + i * 11;
 			if(i % 2 == 0)
-				context.fill(x + 4, rowY - 1, x + w - 4, rowY + 10, 0x201D2A36);
-			context.text(font, trimToWidth(row.text(), w - 14), x + 8, rowY,
+				extractor.fill(x + 4, rowY - 1, x + w - 4, rowY + 10,
+					0x201D2A36);
+			extractor.text(font, trimToWidth(row.text(), w - 14), x + 8, rowY,
 				row.color(), false);
 		}
 	}
 	
-	private void drawPanel(GuiGraphicsExtractor context, int x, int y, int w,
+	private void drawPanel(GuiGraphicsExtractor extractor, int x, int y, int w,
 		int h)
 	{
-		context.fill(x - 2, y - 2, x + w + 2, y + h + 2, 0xAA000000);
-		context.fill(x, y, x + w, y + h, 0xEE0D1319);
-		drawBorder(context, x, y, w, h, 0xFF415366);
+		extractor.fill(x - 2, y - 2, x + w + 2, y + h + 2, 0xAA000000);
+		extractor.fill(x, y, x + w, y + h, 0xEE0D1319);
+		drawBorder(extractor, x, y, w, h, 0xFF415366);
 	}
 	
-	private void drawBorder(GuiGraphicsExtractor context, int x, int y, int w,
+	private void drawBorder(GuiGraphicsExtractor extractor, int x, int y, int w,
 		int h, int color)
 	{
-		context.fill(x, y, x + w, y + 1, color);
-		context.fill(x, y + h - 1, x + w, y + h, color);
-		context.fill(x, y, x + 1, y + h, color);
-		context.fill(x + w - 1, y, x + w, y + h, color);
+		extractor.fill(x, y, x + w, y + 1, color);
+		extractor.fill(x, y + h - 1, x + w, y + h, color);
+		extractor.fill(x, y, x + 1, y + h, color);
+		extractor.fill(x + w - 1, y, x + w, y + h, color);
 	}
 	
-	private void drawChip(GuiGraphicsExtractor context, int x, int y, int w,
+	private void drawChip(GuiGraphicsExtractor extractor, int x, int y, int w,
 		String text, int color)
 	{
-		context.fill(x, y, x + w, y + 15, color);
-		context.fill(x, y, x + w, y + 1, 0x55FFFFFF);
-		context.centeredText(font, text, x + w / 2, y + 4, CommonColors.WHITE);
+		extractor.fill(x, y, x + w, y + 15, color);
+		extractor.fill(x, y, x + w, y + 1, 0x55FFFFFF);
+		extractor.centeredText(font, text, x + w / 2, y + 4,
+			CommonColors.WHITE);
 	}
 	
 	private String trimToWidth(String text, int maxWidth)

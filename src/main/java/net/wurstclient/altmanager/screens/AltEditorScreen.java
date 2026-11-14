@@ -409,18 +409,18 @@ public abstract class AltEditorScreen extends Screen
 	}
 	
 	@Override
-	public boolean keyPressed(KeyEvent context)
+	public boolean keyPressed(KeyEvent extractor)
 	{
-		if(context.key() == InputConstants.KEY_RETURN)
-			doneButton.onPress(context);
+		if(extractor.key() == InputConstants.KEY_RETURN)
+			doneButton.onPress(extractor);
 			
 		// Intercept Ctrl+V paste when the name/email box is focused
 		// and the subclass requests tab preservation.
 		// Minecraft's EditBox/MultiLineEditBox strips tabs via
 		// SharedConstants.isAllowedChatCharacter(), so we bypass that by
 		// reading the system clipboard directly and using setValue().
-		if(preserveTabsOnPaste() && context.hasControlDown()
-			&& context.key() == InputConstants.KEY_V)
+		if(preserveTabsOnPaste() && extractor.hasControlDown()
+			&& extractor.key() == InputConstants.KEY_V)
 		{
 			String rawClipboard = minecraft.keyboardHandler.getClipboard();
 			
@@ -431,7 +431,7 @@ public abstract class AltEditorScreen extends Screen
 			}
 		}
 		
-		return super.keyPressed(context);
+		return super.keyPressed(extractor);
 	}
 	
 	/**
@@ -446,14 +446,14 @@ public abstract class AltEditorScreen extends Screen
 	}
 	
 	@Override
-	public boolean mouseClicked(MouseButtonEvent context, boolean doubleClick)
+	public boolean mouseClicked(MouseButtonEvent extractor, boolean doubleClick)
 	{
 		if(nameOrEmailBox != null)
-			nameOrEmailBox.mouseClicked(context, doubleClick);
+			nameOrEmailBox.mouseClicked(extractor, doubleClick);
 		if(multiLineNameOrEmailBox != null)
-			multiLineNameOrEmailBox.mouseClicked(context, doubleClick);
+			multiLineNameOrEmailBox.mouseClicked(extractor, doubleClick);
 		if(shouldShowPasswordInput())
-			passwordBox.mouseClicked(context, doubleClick);
+			passwordBox.mouseClicked(extractor, doubleClick);
 		
 		if((nameOrEmailBox != null && nameOrEmailBox.isFocused())
 			|| (multiLineNameOrEmailBox != null
@@ -461,46 +461,46 @@ public abstract class AltEditorScreen extends Screen
 			|| (shouldShowPasswordInput() && passwordBox.isFocused()))
 			message = "";
 		
-		if(context.button() == InputConstants.MOUSE_BUTTON_4)
+		if(extractor.button() == InputConstants.MOUSE_BUTTON_4)
 		{
 			onClose();
 			return true;
 		}
 		
-		return super.mouseClicked(context, doubleClick);
+		return super.mouseClicked(extractor, doubleClick);
 	}
 	
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+	public void extractRenderState(GuiGraphicsExtractor extractor, int mouseX,
 		int mouseY, float partialTicks)
 	{
 		if(shouldRenderSkinPreview())
 		{
 			String previewName = getSkinPreviewName();
 			
-			AltRenderer.drawAltBack(context, previewName,
+			AltRenderer.drawAltBack(extractor, previewName,
 				(width / 2 - 100) / 2 - 64, height / 2 - 128, 128, 256);
-			AltRenderer.drawAltBody(context, previewName,
+			AltRenderer.drawAltBody(extractor, previewName,
 				width - (width / 2 - 100) / 2 - 64, height / 2 - 128, 128, 256);
 		}
 		
 		String topInfo = getTopInfoLabel();
 		if(!topInfo.isEmpty())
-			context.text(font, topInfo, width / 2 - 100,
+			extractor.text(font, topInfo, width / 2 - 100,
 				getNameOrEmailBoxY() - 58, CommonColors.LIGHT_GRAY);
 		
 		// dynamic labels next to inputs
 		int nameBoxY = getNameOrEmailBoxY();
 		int passBoxY = getPasswordBoxY();
-		context.text(font, getNameOrEmailLabelLine1(), getNameOrEmailBoxX(),
+		extractor.text(font, getNameOrEmailLabelLine1(), getNameOrEmailBoxX(),
 			nameBoxY - 23, CommonColors.LIGHT_GRAY);
-		context.text(font, getNameOrEmailLabelLine2(), getNameOrEmailBoxX(),
+		extractor.text(font, getNameOrEmailLabelLine2(), getNameOrEmailBoxX(),
 			nameBoxY - 13, CommonColors.LIGHT_GRAY);
 		if(shouldShowPasswordInput())
 		{
-			context.text(font, getPasswordLabel(), width / 2 - 100,
+			extractor.text(font, getPasswordLabel(), width / 2 - 100,
 				passBoxY - 13, CommonColors.LIGHT_GRAY);
-			context.text(font, "Account type: " + getAccountTypeLabel(),
+			extractor.text(font, "Account type: " + getAccountTypeLabel(),
 				width / 2 - 100, passBoxY + 27, CommonColors.LIGHT_GRAY);
 		}
 		
@@ -509,18 +509,18 @@ public abstract class AltEditorScreen extends Screen
 		int messageBaseY = shouldShowPasswordInput() ? passBoxY + 42
 			: nameBoxY + getNameOrEmailBoxHeight() + 12;
 		for(int i = 0; i < lines.length; i++)
-			context.centeredText(font, lines[i], width / 2,
+			extractor.centeredText(font, lines[i], width / 2,
 				messageBaseY + 10 * i, CommonColors.WHITE);
 		
 		// text boxes
 		if(nameOrEmailBox != null)
-			nameOrEmailBox.extractRenderState(context, mouseX, mouseY,
+			nameOrEmailBox.extractRenderState(extractor, mouseX, mouseY,
 				partialTicks);
 		if(multiLineNameOrEmailBox != null)
-			multiLineNameOrEmailBox.extractRenderState(context, mouseX, mouseY,
-				partialTicks);
+			multiLineNameOrEmailBox.extractRenderState(extractor, mouseX,
+				mouseY, partialTicks);
 		if(shouldShowPasswordInput())
-			passwordBox.extractRenderState(context, mouseX, mouseY,
+			passwordBox.extractRenderState(extractor, mouseX, mouseY,
 				partialTicks);
 		
 		// red flash for errors
@@ -528,12 +528,13 @@ public abstract class AltEditorScreen extends Screen
 		{
 			int alpha = (int)(Math.min(1, errorTimer / 16F) * 255);
 			int color = 0xFF0000 | alpha << 24;
-			context.fill(0, 0, width, height, color);
+			extractor.fill(0, 0, width, height, color);
 			errorTimer--;
 		}
 		
 		for(Renderable drawable : renderables)
-			drawable.extractRenderState(context, mouseX, mouseY, partialTicks);
+			drawable.extractRenderState(extractor, mouseX, mouseY,
+				partialTicks);
 	}
 	
 	@Override
