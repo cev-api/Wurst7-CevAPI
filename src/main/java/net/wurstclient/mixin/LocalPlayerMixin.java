@@ -185,7 +185,7 @@ public abstract class LocalPlayerMixin extends AbstractClientPlayer
 	@Inject(method = "sendPosition()V", at = @At("TAIL"))
 	private void onSendMovementPacketsTAIL(CallbackInfo ci)
 	{
-		
+		WurstClient.INSTANCE.getRotationFaker().restoreIfNeeded();
 	}
 	
 	@WrapOperation(method = "sendPosition()V",
