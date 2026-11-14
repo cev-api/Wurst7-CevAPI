@@ -1,4 +1,4 @@
-# Wurst Client v7.56.1 (MC26.3) - Modified by CevAPI
+# Wurst Client v7.56.2 (MC26.3) - Modified by CevAPI
 ![CevAPI Logo](https://i.imgur.com/WS95aOA.png)
 
 - Original Repo: https://github.com/Wurst-Imperium/Wurst7  
@@ -16,6 +16,8 @@ Pre-compiled versioned and polished releases are available on the [Release Page]
 I have versions for [1.21.1](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.1), [1.21.8](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.8), [1.21.10](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.10), [1.21.11](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.11), [26.1.2](https://github.com/cev-api/Wurst7-CevAPI/tree/26.1.2), [26.2](https://github.com/cev-api/Wurst7-CevAPI/tree/26.2) but I only update and maintain the latest; [26.3](https://github.com/cev-api/Wurst7-CevAPI/tree/master)
 
 **Not happy with the supported versions?** Download [ViaFabricPlus](https://modrinth.com/mod/viafabricplus) and use latest release on an older server.
+
+**Want 1.21.11 or something else?** Pay me!
 
 ## Pre-Releases
 
@@ -37,6 +39,42 @@ The benefit of this is that it is the exact code here on this repo, no need to d
 - Might not say its a new version
 - Will only support MC26.3
 - No NiceWurst
+
+## Addon API
+
+This Wurst fork now supports Meteor-style addons through a custom entrypoint using Fabric.
+
+- Entrypoint key: `wurst`
+- Entrypoint class type: `net.wurstclient.addons.WurstAddon`
+- Registration API:
+  - `addHack(Hack hack)`
+  - `addCommand(Command command)`
+  - `addOtherFeature(OtherFeature feature)`
+
+Minimal example:
+
+```java
+public final class MyAddon extends WurstAddon
+{
+	@Override
+	public void onInitialize()
+	{
+		addHack(new MyHack());
+		addCommand(new MyCommand());
+	}
+}
+```
+
+`fabric.mod.json` entrypoint example:
+
+```json
+"entrypoints": {
+  "wurst": ["com.example.addon.MyAddon"]
+}
+```
+
+A ready-to-publish starter project is included here: [https://github.com/cev-api/Wurst-Addon-Template](https://github.com/cev-api/Wurst-Addon-Template)
+
 
 ## Custom Builds
 
