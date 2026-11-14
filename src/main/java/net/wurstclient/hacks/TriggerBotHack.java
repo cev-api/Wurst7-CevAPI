@@ -10,6 +10,7 @@ package net.wurstclient.hacks;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.EntityHitResult;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
@@ -58,6 +59,10 @@ public final class TriggerBotHack extends Hack
 				+ " \"Simulate mouse click\" is enabled.",
 			false);
 	
+	private final CheckboxSetting onlyCriticalHits =
+		new CheckboxSetting("Only Critical Hits",
+			"Only attack when a natural critical hit is possible.", false);
+	
 	private final CheckboxSetting requireAttackKey =
 		new CheckboxSetting("Require left click",
 			"Only attack while the left mouse button is held.", false);
@@ -98,6 +103,7 @@ public final class TriggerBotHack extends Hack
 		addSetting(speedRandMS);
 		addSetting(attackSwing);
 		addSetting(attackWhileBlocking);
+		addSetting(onlyCriticalHits);
 		addSetting(requireAttackKey);
 		addSetting(simulateMouseClick);
 		
@@ -192,6 +198,9 @@ public final class TriggerBotHack extends Hack
 		if(!usedCustomRule)
 			WURST.getHax().autoSwordHack.setSlot(target);
 		
+		if(onlyCriticalHits.isChecked() && !canCriticalHit(player, target))
+			return;
+		
 		if(simulateMouseClick.isChecked())
 		{
 			IKeyMapping.get(MC.options.keyAttack).simulatePress(true);
@@ -204,6 +213,17 @@ public final class TriggerBotHack extends Hack
 		}
 		
 		speed.resetTimer(speedRandMS.getValue());
+	}
+	
+	private boolean canCriticalHit(LocalPlayer player, Entity target)
+	{
+		return target instanceof LivingEntity && player.fallDistance > 0
+			&& !player.onGround() && !player.onClimbable()
+			&& !player.isInWater() && !player.isSwimming()
+			&& !player.isMobilityRestricted() && !player.isPassenger()
+			&& !player.isSprinting() && !player.isFallFlying()
+			&& !player.getAbilities().flying
+			&& player.getAttackStrengthScale(0) > 0.9F;
 	}
 	
 	private boolean isCorrectEntity(Entity entity)
