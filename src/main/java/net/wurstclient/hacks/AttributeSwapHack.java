@@ -383,8 +383,9 @@ public final class AttributeSwapHack extends Hack
 				continue;
 			
 			ItemStack stack = MC.player.getInventory().getItem(slot);
-			if(stack.isEmpty() || target != null && excludeLungeSpears.isChecked()
-				&& isSpear(stack) && getEnchantLevel(stack, Enchantments.LUNGE) > 0)
+			if(stack.isEmpty() || target != null
+				&& excludeLungeSpears.isChecked() && isSpear(stack)
+				&& getEnchantLevel(stack, Enchantments.LUNGE) > 0)
 				continue;
 			
 			int score = getDurabilityScore(stack);

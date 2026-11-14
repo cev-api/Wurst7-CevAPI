@@ -64,6 +64,16 @@ public final class KeybindProcessor
 		boolean isEditorKeybind = cmds != null && isEditorKeybind(cmds);
 		
 		Screen screen = WurstClient.MC.gui.screen();
+		// Only the GUI's own toggle is allowed here, so typing in its search
+		// and settings fields cannot trigger unrelated keybinds.
+		if(screen instanceof AltGuiScreen && cmds != null
+			&& (cmds.trim().equalsIgnoreCase("altgui")
+				|| cmds.trim().equalsIgnoreCase("meteorgui")))
+		{
+			if(!isRepeat)
+				processCmd(cmds.trim());
+			return;
+		}
 		// Allow processing when no screen is open, when the Click GUI is open,
 		// or when Waypoints or ItemHandler screens are open so their keybinds
 		// can toggle/close them with the same key. The NBT editor also has to

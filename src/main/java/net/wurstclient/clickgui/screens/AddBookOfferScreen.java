@@ -465,7 +465,7 @@ public final class AddBookOfferScreen extends Screen
 		public boolean mouseClicked(MouseButtonEvent extractor,
 			boolean doubleClick)
 		{
-			if(extractor.button() != InputConstants.MOUSE_BUTTON_LEFT)
+			if(!super.mouseClicked(extractor, doubleClick))
 				return false;
 			
 			long timeSinceLastClick = Util.getMillis() - lastClickTime;
