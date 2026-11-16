@@ -37,6 +37,8 @@ import net.wurstclient.WurstClient;
 import net.wurstclient.config.BuildConfig;
 import net.wurstclient.nicewurst.NiceWurstModule;
 import net.wurstclient.options.WurstOptionsScreen;
+import net.wurstclient.patreon.PatreonPromoScreen;
+import net.wurstclient.patreon.SupporterManager;
 
 @Mixin(TitleScreen.class)
 public abstract class TitleScreenMixin extends Screen
@@ -66,6 +68,7 @@ public abstract class TitleScreenMixin extends Screen
 	
 	private AbstractWidget realmsButton = null;
 	private Button wurstOptionsButton;
+	private long titleScreenFirstTickAt = -1L;
 	
 	private TitleScreenMixin(WurstClient wurst, Component title)
 	{
@@ -141,6 +144,18 @@ public abstract class TitleScreenMixin extends Screen
 	@Inject(method = "tick()V", at = @At("RETURN"))
 	private void onTick(CallbackInfo ci)
 	{
+		if(titleScreenFirstTickAt < 0)
+			titleScreenFirstTickAt = System.currentTimeMillis();
+		SupporterManager supporter = WurstClient.INSTANCE.getSupporterManager();
+		if(supporter != null
+			&& System.currentTimeMillis() - titleScreenFirstTickAt >= 1_000L
+			&& supporter.shouldShowPromotionNow())
+		{
+			minecraft.gui
+				.setScreen(new PatreonPromoScreen((Screen)(Object)this));
+			return;
+		}
+		
 		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
 			return;
 		
@@ -163,6 +178,9 @@ public abstract class TitleScreenMixin extends Screen
 		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
 			return;
 		
+		SupporterManager supporter = WurstClient.INSTANCE.getSupporterManager();
+		if(supporter != null && supporter.hideMenuBrand())
+			return;
 		Font font = minecraft.font;
 		String brand =
 			NiceWurstModule.isActive() ? "NiceWurst" : BuildConfig.BRAND_NAME;
@@ -186,7 +204,9 @@ public abstract class TitleScreenMixin extends Screen
 	private void onRenderLogo(LogoRenderer logoRenderer,
 		GuiGraphicsExtractor graphics, int width, float fade)
 	{
-		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
+		SupporterManager supporter = WurstClient.INSTANCE.getSupporterManager();
+		if(WurstClient.INSTANCE.shouldHideWurstUiMixins()
+			|| supporter != null && supporter.useVanillaMenuLogo())
 		{
 			// If UI mixins are hidden, render the vanilla logo instead of
 			// suppressing the call entirely so the title screen still shows

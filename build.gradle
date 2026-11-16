@@ -575,6 +575,8 @@ tasks.register("espCullingRegressionTest", JavaExec) {
 	mainClass = "net.wurstclient.render.esp.EspCullingRegressionTest"
 }
 tasks.named("test") {
+	// Regression suites are standalone Java programs, not framework tests.
+	failOnNoDiscoveredTests = false
 	exclude "net/wurstclient/render/esp/EspCullingRegressionTest*"
 	exclude "net/wurstclient/render/esp/EspPerformanceRegressionTest*"
 	exclude "net/wurstclient/render/esp/EspGeometryRegressionTest*"
@@ -750,4 +752,17 @@ tasks.named("test") {
 }
 tasks.named("regressionTests") {
     dependsOn tasks.named("scanActivityRegressionTest")
+}
+
+// Run the standalone Patreon regression suites as part of verification.
+["EntitlementVerifier", "GifDecoder", "PatreonApi", "SupporterManager"].each { suite ->
+    def taskName = "patreon${suite}RegressionTest"
+    tasks.register(taskName, JavaExec) {
+        dependsOn tasks.named("testClasses")
+        classpath = sourceSets.test.runtimeClasspath
+        mainClass = "net.wurstclient.patreon.${suite}RegressionTest"
+    }
+    tasks.named("test") { exclude "net/wurstclient/patreon/${suite}RegressionTest*" }
+    tasks.named("regressionTests") { dependsOn tasks.named(taskName) }
+    tasks.named("check") { dependsOn tasks.named(taskName) }
 }

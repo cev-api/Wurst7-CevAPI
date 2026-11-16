@@ -33,6 +33,8 @@ import net.wurstclient.altmanager.screens.AltManagerScreen;
 import net.wurstclient.commands.FriendsCmd;
 import net.wurstclient.navigator.NavigatorMainScreen;
 import net.wurstclient.nicewurst.NiceWurstModule;
+import net.wurstclient.patreon.PatreonSettingsScreen;
+import net.wurstclient.patreon.SupporterManager;
 import net.wurstclient.other_features.ConnectionLogOverlayOtf;
 import net.wurstclient.other_features.DiscordRpcOtf;
 import net.wurstclient.other_features.VanillaSpoofOtf;
@@ -87,6 +89,7 @@ public final class WurstOptionsScreen extends Screen
 		addPrivacySection();
 		addToolsSection();
 		addLinksSection();
+		addSupporterSection();
 		
 		backButtonY = height - 26;
 		int viewTop = contentTop - 2;
@@ -551,6 +554,20 @@ public final class WurstOptionsScreen extends Screen
 	private static void openUri(String uri)
 	{
 		Blaze3D.openUri(URI.create(uri));
+	}
+	
+	private String getSupporterStatusLabel()
+	{
+		SupporterManager manager = WurstClient.INSTANCE.getSupporterManager();
+		return manager == null ? "Unavailable" : manager.getShortStatus();
+	}
+	
+	private void addSupporterSection()
+	{
+		int column = beginSection("Supporter", 3);
+		addButton(column, () -> "Patreon: " + getSupporterStatusLabel(),
+			"Manage Patreon authentication and menu appearance.",
+			b -> minecraft.gui.setScreen(new PatreonSettingsScreen(this)));
 	}
 	
 	private void addButton(int column, Supplier<String> messageSupplier,
